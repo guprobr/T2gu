@@ -1,0 +1,395 @@
+Ignite("ETHEREA") {
+
+
+    If (HasMission(101)) {
+        Digue("...")
+     } Else {
+
+
+
+        Change_Obj(2,7,0)
+    	Change_Obj(3,7,0)
+    	Change_Obj(3,8,0)
+
+
+   Play_Music("snd/music3.ogg")
+
+     Create_NPC("Welcome",0,1,1,0,0,51," ")
+     Create_NPC("Houze",0,1,1,0,0,51," ")
+     Create_NPC("cameradude1",0,1,1,0,0,51," ")
+     Create_NPC("cameradude2",0,1,1,0,0,51," ")
+     Create_NPC("MeteoShow",0,1,1,0,0,51," ")
+     Create_NPC("Wasserflow",0,1,1,0,0,51," ")
+     Create_NPC("gobz",0,1,1,0,0,51," ")
+
+
+        SetCount(2,"Houze")
+
+
+
+    Create_NPC("Beagles",15,1,11,5,6,57,"Beagles")
+    Create_NPC("Escavador",16,1,12,8,7,57,"Escavador")
+    Give_Mission(0)
+    Give_Mission(1)
+
+
+
+     spawnModel("Arvre",32,8)
+    spawnModel("Arvre",42,8)
+    spawnModel("Arvre",22,23)
+    spawnModel("Arvre",32,38)
+    spawnModel("Arvre",32,48)
+    spawnModel("Arvre",22,13)
+    spawnModel("Arvre",27,23)
+    spawnModel("Arvre",42,18)
+    spawnModel("Arvre",52,8)
+    spawnModel("Arvre",72,8)
+
+    spawnModel("Casa",5,5)
+        Change_Top(4,3,144)
+        Change_Top(5,3,145)
+        Change_Top(6,3,146)
+        Change_Top(6,6,46)
+    Change_Obj(2,7,0)
+
+    spawnModel("Casa",8,6)
+                Change_Top(7,4,144)
+                Change_Top(8,4,145)
+                Change_Top(9,4,146)
+                Change_Top(9,7,45)
+
+    spawnModel("Casa",11,5)
+        Change_Top(10,3,144)
+        Change_Top(11,3,145)
+        Change_Top(12,3,146)
+        Change_Top(12,6,47)
+
+         Change_Top(21,14,61)
+         Change_Top(22,14,61)
+
+            Change_Obj(8,13,0)
+            Change_Top(8,13,32)
+            Create_Flag(1,2,8,13,"mapa1")
+
+
+            Splash(7,11,-10)
+            Splash(7,12,-30)
+            Splash(6,11,-10)
+            Splash(6,12,-10)
+            Splash(8,10,-50)
+
+    Change_Obj(7,9,3)
+    Change_Obj(7,10,3)
+    Change_Obj(8,11,3)
+    Change_Obj(8,12,3)
+    Change_Obj(9,13,3)
+
+        Give_Mission(101)
+
+    Give_Party(17,5,12)
+
+
+        SetCronos(60,"Welcome")
+        Cinescope(6,6,50)
+        mkStruct("Rocky0",12,12,185,2)
+        mkStruct("Rocky1",15,12,189,2)
+        mkStruct("Rocky2",16,16,185,2)
+        mkStruct("Rocky3",12,15,189,2)
+        mkStruct("Rocky4",36,6,185,2)
+        mkStruct("Rocky5",37,6,189,2)
+        mkStruct("Rocky6",34,34,185,2)
+        mkStruct("Rocky7",37,34,189,2)
+        mkStruct("Rocky8",22,12,185,2)
+        mkStruct("Rocky9",25,12,189,2)
+        mkStruct("Rocky10",26,16,185,2)
+        mkStruct("Rocky11",22,15,189,2)
+        mkStruct("Rocky12",26,6,185,2)
+        mkStruct("Rocky13",27,6,189,2)
+        mkStruct("Rocky14",24,4,185,2)
+        mkStruct("Rocky15",27,4,189,2)
+        mkStruct("Rocky16",22,22,185,2)
+        mkStruct("Rocky17",25,22,189,2)
+        mkStruct("Rocky18",26,26,185,2)
+        mkStruct("Rocky19",22,25,189,2)
+        mkStruct("Rocky20",26,26,185,2)
+        mkStruct("Rocky21",27,26,189,2)
+        mkStruct("Rocky22",24,24,185,2)
+        mkStruct("Rocky23",27,24,189,2)
+
+        Give_Item(62)
+        Create_Item(65,-5,-1)
+        Create_Item(66,-5,-1)
+        Create_Item(67,-5,-1)
+
+        Digue_Window("Como de costume, rotineiramente uma horda de monstros atacava o pequeno vilarejo do Caeté. . . ...")
+
+
+    }
+
+}
+Ignite("cameradude1")
+{
+    Digue_Window("Enquanto soldado do Condado de Fijones, cabe a você liquida-los. Eu sou o ancião BEAGLES, e tenho utilidades para você; Sugiro coletar as pedras-mithra azul, vermelha e amarela que estão à sua disposição")
+    Cinescope(-64,-38,50)
+    SetCronos(4,"cameradude2")
+}
+Ignite("cameradude2")
+{
+    Digue_Window("As pedras azuis aumentam sua técnica, as amarelas se transformam em ouro e as vermelhas invocam tropas para auxiliá-lo.")
+    Digue_Window("Há ainda a verde, que restaura sua energia.")
+    Digue_Window("A tecla 'i' abre sua mochila, utilize SPACE para usar o item selecionado. A tecla 'b' lança uma bola de fogo e a tecla 'n' lança uma bola de fogo ainda mais forte;")
+    Digue_Window("SPACE ataca e conversa com NPCs, utilize botao direito do mouse para andar e esquerdo para atacar/conversar")
+    Play_Music("snd/music000.ogg")
+    Lockey()
+    Destroy_Mission(0)
+}
+
+Ignite("Wasserflow") {
+
+  If(HasMission(171))
+  {
+    SetRainy(2)
+    Destroy_Mission(171)
+    }
+    Else {
+     If(HasMission(71)) {
+        If(HasMission(69)) {
+                SetRainy(4)
+                SetCronos(1,"Wasserflow")
+                Destroy_Mission(69)
+        } Else {
+                    Play_Snd("snd/rain.wav")
+                    SetRainy(-11)
+                    SetCronos(1,"RAINMAN")
+                    SetCronos(1,"Wasserflow")
+                    Destroy_Mission(71)
+                    Give_Mission(69)
+
+
+                }
+        } Else {
+                Give_Mission(71)
+                    Play_Snd("snd/wagua.wav")
+                   SetRainy(-13)
+                SetCronos(1,"Wasserflow")
+            }
+    }
+}
+
+Ignite("RAINMAN")
+{
+If(HasMission(171))
+  {
+    SetRainy(2)
+    Destroy_Mission(171)
+    }
+    Else {
+     If(HasMission(71)) {
+        If(HasMission(69)) {
+                SetRainy(6)
+                SetCronos(1,"RAINMAN")
+                Destroy_Mission(69)
+        } Else {
+                    Play_Snd("snd/rain.wav")
+                    SetRainy(-11)
+                    SetCronos(1,"RAINMAN")
+                    SetCronos(1,"Wasserflow")
+                    Destroy_Mission(71)
+                    Give_Mission(69)
+
+
+                }
+        } Else {
+                Give_Mission(71)
+                    Play_Snd("snd/wagua.wav")
+                   SetRainy(-8)
+                SetCronos(1,"RAINMAN")
+            }
+    }
+}
+
+Ignite("arack")
+{
+     SetCronos(21,"gobz")
+}
+Ignite("__Carne")
+{
+    Play_Snd("snd/bling.wav")
+    Digue_Window("Nham! Come pedaço de carne restaurando +250 HP")
+    Give_Hp(250)
+    Destroy_Item(63,1)
+}
+Ignite("__Mithra-Rubi")
+{
+
+    If(HasMission(71))
+    {
+        Give_Mission(171)
+        Destroy_Mission(71)
+
+    } Else {
+        Play_Snd("snd/rain.wav")
+        Digue_Window("chuva!")
+        Give_Mission(71)
+        SetCronos(1,"Wasserflow")
+
+        }
+}
+Ignite("__Mithra-Anil")
+{
+    Play_Snd("snd/bling.wav")
+    Give_Xp(25)
+    Digue("Ganhou 25 XP pela pedra anil")
+    Destroy_Item(67,1)
+}
+Ignite("__Mithra-Jade")
+{
+    Play_Snd("snd/bling.wav")
+    Give_Hp(500)
+    Digue("Ganhou 500 HP pela pedra jade")
+    Destroy_Item(68,1)
+}
+Ignite("__Mithra-Aurea")
+{
+    Play_Snd("snd/bling.wav")
+    Give_Gold(1250)
+    Digue("Ganhou 1250 GOLD pela pedra áurea")
+    Destroy_Item(66,1)
+}
+Ignite("Welcome")
+{
+
+
+
+            Create_NPC("arack",1,21,1,-36,-34,-1," ")
+            SetTanatos("arack")
+
+    Digue("o tempo passa..")
+    Give_Party(19,10,5)
+    SetCronos(45,"Welcome")
+
+
+
+}
+Ignite("gobz")
+{
+    Create_NPC("goblinlingz",2,3,3,-5,-1,-1,"goblinlings")
+    SetTanatos("goblinlingz")
+}
+Ignite("goblinlingz")
+{
+    Create_Item(67,-5,-2)
+    SetCronos(42,"gobz")
+}
+Ignite("camponeses")
+{
+
+        SetCronos(-11,"camponeses")
+            SetCronos(3,"Houze")
+        Play_Snd("snd/hammer.wav")
+}
+Ignite("Houze")
+{
+    Digue("CASA FEITA")
+    doCount(1,"Houze")
+    If(HasCount("Houze")) {
+                    Digue("2 casas construídas, ganha Mithra-RUBI")
+                    Create_Item(65,-3,-1)
+                    SetCount(2,"Houze")
+
+        } Else {
+            Digue("Ganhou 15 XP")
+            Give_Xp(15)
+        }
+
+}
+Ignite("MeteoShow") {
+                        If(HasMission(200)) {
+                                        SetCronos(2,"MeteoShow")
+                            Create_NPC("mayhem",1,50,1,-30,-10,-1," ")
+                            } Else { Splash(3,4,5) }
+
+                            Destroy_Mission(200)
+
+                                    Splash(3,3,1)
+                                    Splash(3,2,9)
+                                    Splash(2,3,1)
+
+}
+Ignite("Beagles") {
+
+
+    If(HasMission(1)) {
+        Digue_Window("Olá. Eu sou um camponês e posso recrutar camponeses para você;")
+        Digue_Window("BEAGLES: Meu nome é Beagles, a propósito.")
+
+        Destroy_Mission(1)
+    } Else {
+
+            If(HasMission(3))
+            {
+                Select(4,"Sair","Meteoroshow $10 ouro","Chover no molhado","Campones $125 (ouro)")
+                    If(HasSelect(4)) {
+                        If(HasGold(125)) {
+                            Give_Gold(-125)
+                            Digue("Campones recrutado")
+                            Create_NPC("camponeses",20,1,1,12,12,-13,"terreno")
+                        } Else { Digue_Window("ouro insuficiente!¡") }
+                    } Else { }
+                    If(HasSelect(3))
+                    {
+                            Splash(5,5,-5)
+                    } Else { }
+                    If(HasSelect(2))
+                    {
+                                   If(HasGold(10))
+                                   {
+                                        Give_Gold(-10)
+
+                                        SetCronos(3,"MeteoShow")
+
+                                    } Else { Digue_Window("ouro insuficiente!¡") }
+
+                    } Else { }
+                    Digue_Window("tenha um bom dia!")
+                } Else {
+
+                Digue("Campones recrutado")
+                Create_NPC("camponeses",20,1,1,12,12,-13,"terreno")
+                Give_Mission(3)            }
+
+        }
+}
+Ignite("Escavador")
+{
+
+    Digue_Window("Olá! Posso recrutar tropas para você;")
+
+    Select(4,"Sair","1 Soldado $100 ouro","1 Milorde $200","2 Venturero $55 (ouro)")
+                    If(HasSelect(4)) {
+                        If(HasGold(55)) {
+                            Give_Gold(-55)
+                            Digue("venturero recrutado")
+                            Give_Party(17,3,2)
+                        } Else { Digue_Window("ouro insuficiente!¡") }
+                    } Else { }
+                    If(HasSelect(3))
+                    {
+                            If(HasGold(200)) {
+                            Give_Gold(-200)
+                            Digue("milorde recrutado")
+                            Give_Party(21,5,1)
+                        } Else { Digue_Window("ouro insuficiente!¡") }
+                    } Else { }
+                    If(HasSelect(2))
+                    {
+                           If(HasGold(100)) {
+                            Give_Gold(-100)
+                            Digue("soldado recrutado")
+                            Give_Party(16,3,1)
+                        } Else { Digue_Window("ouro insuficiente!¡") }
+
+                    } Else { }
+                    Digue_Window("tenha um bom dia!")
+
+}
