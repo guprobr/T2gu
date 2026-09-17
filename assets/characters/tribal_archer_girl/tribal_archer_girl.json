@@ -1,0 +1,59 @@
+{
+    "sheet": "tribal_archer_girl.png",
+    "frameWidth": 560,
+    "frameHeight": 1012,
+    "framesFront": 4,
+    "framesBack": 3,
+    "gutterSlots": 1,
+    "frameDurationMs": 120,
+    "rows": [
+        {
+            "name": "idle",
+            "index": 0,
+            "framesFront": 3
+        },
+        {
+            "name": "walk",
+            "index": 1
+        },
+        {
+            "name": "run",
+            "index": 2
+        },
+        {
+            "name": "defend",
+            "index": 3
+        },
+        {
+            "name": "attack",
+            "index": 4
+        },
+        {
+            "name": "skill",
+            "index": 5,
+            "framesFront": 3
+        },
+        {
+            "name": "hit",
+            "index": 6,
+            "framesFront": 3
+        },
+        {
+            "name": "die",
+            "index": 7,
+            "framesFront": 3
+        },
+        {
+            "name": "dash",
+            "index": 8,
+            "framesFront": 3
+        },
+        {
+            "name": "jump",
+            "index": 9
+        }
+    ],
+    "rowMarginFraction": 0.0,
+    "columnMarginFraction": 0.0,
+    "framePaddingPx": 0
+}

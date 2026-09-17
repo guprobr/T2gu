@@ -1,0 +1,19 @@
+{
+    "sheet": "haunted_grass_cobble.png",
+    "tileWidth": 256,
+    "tileHeight": 256,
+    "columns": 5,
+    "_comment": "Haunted-land grass/cobble blob-autotile (grass dominant, cobble intrudes) - the complementary orientation to haunted_cobble_grass.json. Row-major: 0=grass 1=grass_cobble_n 2=grass_cobble_s 3=grass_cobble_e 4=grass_cobble_w 5=grass_cobble_nw 6=grass_cobble_ne 7=grass_cobble_sw 8=grass_cobble_se 9=cobble(pure). Shares its pure grass/cobble tiles with haunted_cobble_grass.json for a seamless border between the two.",
+    "tiles": {
+        "grass": 0,
+        "grass_cobble_n": 1,
+        "grass_cobble_s": 2,
+        "grass_cobble_e": 3,
+        "grass_cobble_w": 4,
+        "grass_cobble_nw": 5,
+        "grass_cobble_ne": 6,
+        "grass_cobble_sw": 7,
+        "grass_cobble_se": 8,
+        "cobble": 9
+    }
+}

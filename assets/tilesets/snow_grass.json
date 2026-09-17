@@ -1,0 +1,19 @@
+{
+    "sheet": "snow_grass.png",
+    "tileWidth": 256,
+    "tileHeight": 256,
+    "columns": 5,
+    "_comment": "Snow/grass blob-autotile (snow dominant, grass patches intrude - e.g. late-winter thaw). Row-major: 0=snow 1=snow_grass_n 2=snow_grass_s 3=snow_grass_e 4=snow_grass_w 5=snow_grass_nw 6=snow_grass_ne 7=snow_grass_sw 8=snow_grass_se 9=grass(pure).",
+    "tiles": {
+        "snow": 0,
+        "snow_grass_n": 1,
+        "snow_grass_s": 2,
+        "snow_grass_e": 3,
+        "snow_grass_w": 4,
+        "snow_grass_nw": 5,
+        "snow_grass_ne": 6,
+        "snow_grass_sw": 7,
+        "snow_grass_se": 8,
+        "grass": 9
+    }
+}

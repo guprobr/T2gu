@@ -1,0 +1,12 @@
+{
+    "_comment": "Maps a tileset's base filename (no directory, no .json) to an ordered list of prop names cycled around an exterior map's outer ring by GameScene::decorateMapEdges() - gives every exterior map the impression of a horizon at its border instead of just stopping. A tileset with no entry here gets no auto-border (safe no-op) - lets this roll out tileset-by-tileset. Real wide panoramic horizon art (2026-09-09, from tileset_props_borders_walls.md) - each is a ~3:1 landscape strip calibrated to 576px wide (9 tiles) so 2-3 side by side cover a full map edge without an obvious repeat.",
+    "borders": {
+        "grass_water": ["distant_treeline", "misty_ridge", "distant_hills", "dense_treeline"],
+        "dirt_grass": ["distant_treeline", "misty_ridge", "distant_hills", "dense_treeline"],
+        "grass_dirt": ["distant_treeline", "misty_ridge", "distant_hills", "dense_treeline"],
+        "grass_stone": ["distant_treeline", "misty_ridge", "distant_hills", "dense_treeline"],
+        "stone_grass": ["distant_treeline", "misty_ridge", "distant_hills", "dense_treeline"],
+        "snow_grass": ["misty_peaks", "distant_hills", "dense_treeline"],
+        "dirt_snow": ["misty_peaks", "distant_hills", "dense_treeline"]
+    }
+}

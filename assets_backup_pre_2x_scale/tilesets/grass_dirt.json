@@ -1,0 +1,11 @@
+{
+    "sheet": "grass_dirt.png",
+    "tileWidth": 128,
+    "tileHeight": 128,
+    "columns": 5,
+    "_comment": "Grass/dirt blob-autotile (grass dominant, dirt intrudes). Row-major: 0=grass 1=grass_dirt_n 2=grass_dirt_s 3=grass_dirt_e 4=grass_dirt_w 5=grass_dirt_nw 6=grass_dirt_ne 7=grass_dirt_sw 8=grass_dirt_se 9=dirt(pure).",
+    "tiles": {
+        "grass": 0, "grass_dirt_n": 1, "grass_dirt_s": 2, "grass_dirt_e": 3, "grass_dirt_w": 4,
+        "grass_dirt_nw": 5, "grass_dirt_ne": 6, "grass_dirt_sw": 7, "grass_dirt_se": 8, "dirt": 9
+    }
+}

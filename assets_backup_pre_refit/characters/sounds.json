@@ -1,0 +1,29 @@
+{
+    "_comment": "Per-character creature sounds - deliberately sparse (23 of 135 roster characters have entries; everyone else falls back to the default described below). `whistle` is a rare periodic idle/ambient sound (see Character::consumeWhistlePending()) - a character with no whistle entry simply never whistles, no fallback. `roar` plays instead of the shared assets/audio/sfx/attack.wav when that character attacks - a character with no roar entry keeps using attack.wav. Both keys are optional per character; a character can have just one. Same convention as props.json/items.json (flat catalog, keyed by the exact assets/characters/<name> roster folder).",
+    "sounds": {
+        "dwarf_warrior": { "whistle": "soldier_heya_01_bass_deep_ultrafast", "roar": "soldier_heya_01_bass_deep_ultrafast" },
+        "dark_knight": { "whistle": "soldier_heya_01_bass_deep_ultrafast", "roar": "soldier_heya_01_bass_deep_ultrafast" },
+        "cyber_trooper": { "whistle": "soldier_heya_01_bass_deep_ultrafast", "roar": "soldier_heya_01_bass_deep_ultrafast" },
+        "cyber_swordfighter": { "whistle": "soldier_heya_01_bass_deep_ultrafast", "roar": "soldier_heya_01_bass_deep_ultrafast" },
+        "cyber_brawler": { "whistle": "soldier_heya_01_bass_deep_ultrafast", "roar": "soldier_heya_01_bass_deep_ultrafast" },
+        "elf_archer": { "whistle": "soldier_heya_01_bass_deep_ultrafast", "roar": "soldier_heya_01_bass_deep_ultrafast" },
+        "tribal_warrior_girl": { "whistle": "soldier_heya_01_bass_deep_ultrafast", "roar": "soldier_heya_01_bass_deep_ultrafast" },
+        "tribal_warrior_man": { "whistle": "soldier_heya_01_bass_deep_ultrafast", "roar": "soldier_heya_01_bass_deep_ultrafast" },
+        "tribal_caveman_warrior": { "whistle": "soldier_heya_01_bass_deep_ultrafast", "roar": "soldier_heya_01_bass_deep_ultrafast" },
+        "tribal_feather_warrior_girl": { "whistle": "soldier_heya_01_bass_deep_ultrafast", "roar": "soldier_heya_01_bass_deep_ultrafast" },
+        "tribal_feather_warrior_girl_2": { "whistle": "soldier_heya_01_bass_deep_ultrafast", "roar": "soldier_heya_01_bass_deep_ultrafast" },
+        "tribal_archer_girl": { "whistle": "soldier_heya_01_bass_deep_ultrafast", "roar": "soldier_heya_01_bass_deep_ultrafast" },
+        "tribal_archer_girl_2": { "whistle": "soldier_heya_01_bass_deep_ultrafast", "roar": "soldier_heya_01_bass_deep_ultrafast" },
+        "tribal_ranger_girl_2": { "whistle": "soldier_heya_01_bass_deep_ultrafast", "roar": "soldier_heya_01_bass_deep_ultrafast" },
+
+        "ghoul": { "whistle": "undead_groan_2s_humanized", "roar": "undead_groan_2s_humanized" },
+        "lich_king": { "whistle": "undead_groan_2s_humanized", "roar": "undead_groan_2s_humanized" },
+        "mummy": { "whistle": "undead_groan_2s_humanized", "roar": "undead_groan_2s_humanized" },
+        "skeleton": { "whistle": "undead_groan_2s_humanized", "roar": "undead_groan_2s_humanized" },
+        "skeleton_archer": { "whistle": "undead_groan_2s_humanized", "roar": "undead_groan_2s_humanized" },
+        "skeleton_swordsman": { "whistle": "undead_groan_2s_humanized", "roar": "undead_groan_2s_humanized" },
+        "vampire": { "whistle": "undead_groan_2s_humanized", "roar": "undead_groan_2s_humanized" },
+        "wraith": { "whistle": "undead_groan_2s_humanized", "roar": "undead_groan_2s_humanized" },
+        "zombie_peasant": { "whistle": "undead_groan_2s_humanized", "roar": "undead_groan_2s_humanized" }
+    }
+}

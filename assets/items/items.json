@@ -1,0 +1,457 @@
+{
+    "_comment": "Item catalog. `image` names a dedicated assets/items/<image>.png (the real icon art, added 2026-09-09); `prop` (older, still supported) names an existing assets/props/<name>.png reused as a placeholder visual - kept only on the handful of quest-relic items that predate real item art. `width` calibrates size the same way props.json does. `keyItem: true` excludes an item from GameScene's random enemy-loot pool (see dropRandomLoot() in GameScene.cpp) - it can still be placed with api.spawnItem/giveItem, just never handed out at random. Everything without the flag is fair game for a random drop, so a new plot item MUST set it explicitly. `onUse` (added 2026-09-10, see GameScene::useItem()) picks what pressing Enter on an item in the inventory menu does: omit it (or set `{\"type\":\"script\"}`) to fire the onItemUsed(itemId) script entry point in whichever chapter is active - the right choice for anything narrative/quest-specific; set `{\"type\":\"heal\",\"amount\":N}` or `{\"type\":\"compass\"}` to use a built-in, engine-handled effect that works identically in every chapter. `{\"type\":\"buff\",\"stat\":\"speed\"|\"intelligence\"|\"attack\",\"amount\":N,\"durationSeconds\":N}` (added 2026-09-14) grants the WHOLE PARTY a temporary stat boost that expires on its own - a second use before it expires replaces the remaining time/amount rather than stacking. `{\"type\":\"permanentBoost\",\"stat\":\"attack\"|\"maxHp\"|\"intelligence\",\"amount\":N}` (added 2026-09-14) permanently raises that stat for the whole party, including companions who haven't joined yet - the running total lives in GameState (itemBonusStrength/itemBonusIntelligence/itemBonusMaxHp) so it survives level transitions and saves, the same way level-up bonuses do. `consumeOnUse: true/false` only applies to the built-in path (a script-dispatched item decides for itself whether/when to call api.removeItem).",
+    "items": {
+        "glowing_acorn": {
+            "name": "Glowing Acorn",
+            "description": "An acorn that never sprouted and never rotted either - it just sits in the palm of Lara's hand, faintly warm, faintly green.",
+            "prop": "mushroom_cluster",
+            "width": 135,
+            "keyItem": true
+        },
+        "vault_sigil": {
+            "name": "Vault Sigil",
+            "description": "A carved seal pried loose from an ancient vault door - the case around it was built to protect it forever, and forever apparently just ended.",
+            "prop": "buried_relic_case",
+            "width": 160,
+            "keyItem": true
+        },
+        "deepstone_ember": {
+            "name": "Deepstone Ember",
+            "description": "A coal-sized fragment of stone that glows from somewhere inside itself, with no fire anywhere nearby to explain it.",
+            "prop": "glowing_crystal_cluster",
+            "width": 135,
+            "keyItem": true
+        },
+        "signal_core": {
+            "name": "Signal Core",
+            "description": "A small housing of old alloy, still drawing a slow pulse of current from a source that stopped existing generations ago.",
+            "prop": "conduit_coil",
+            "width": 150,
+            "keyItem": true
+        },
+        "cinder_charm": {
+            "name": "Cinder Charm",
+            "description": "A charm strung from a burnt cord. Whoever wore it didn't survive whatever burned Ashfall - but the charm itself is untouched.",
+            "prop": "charred_tree",
+            "width": 126,
+            "keyItem": true
+        },
+        "iron_sword": {
+            "name": "Iron Sword",
+            "description": "A plain, well-worn shortsword. Nothing special, and reliable for it.",
+            "image": "iron_sword",
+            "width": 165
+        },
+        "wooden_staff": {
+            "name": "Wooden Staff",
+            "description": "A gnarled spellcaster's staff, undecorated but well-balanced.",
+            "image": "wooden_staff",
+            "width": 270
+        },
+        "hunting_bow": {
+            "name": "Hunting Bow",
+            "description": "A simple recurve bow, strung and ready.",
+            "image": "hunting_bow",
+            "width": 210
+        },
+        "round_shield": {
+            "name": "Round Shield",
+            "description": "A plain wooden shield with a worn metal rim.",
+            "image": "round_shield",
+            "width": 165,
+            "onUse": {
+                "type": "permanentBoost",
+                "stat": "maxHp",
+                "amount": 15
+            },
+            "consumeOnUse": true
+        },
+        "leather_gloves": {
+            "name": "Leather Gloves",
+            "description": "A worn pair of leather gloves, broken in by someone else's hands first.",
+            "image": "leather_gloves",
+            "width": 135
+        },
+        "tech_gauntlet": {
+            "name": "Tech Gauntlet",
+            "description": "An armored glove etched with faint circuit lines. Warm to the touch, for no obvious reason.",
+            "image": "tech_gauntlet",
+            "width": 150
+        },
+        "dagger": {
+            "name": "Dagger",
+            "description": "A small, plain utility dagger.",
+            "image": "dagger",
+            "width": 120
+        },
+        "spellbound_amulet": {
+            "name": "Spellbound Amulet",
+            "description": "A simple pendant on a cord, one bead glowing faintly for reasons nobody's written down.",
+            "image": "spellbound_amulet",
+            "width": 120
+        },
+        "cyber_visor": {
+            "name": "Cyber Visor",
+            "description": "A sleek eyepiece with a faint glow along one edge. Somebody built this to see something specific.",
+            "image": "cyber_visor",
+            "width": 150
+        },
+        "reinforced_boots": {
+            "name": "Reinforced Boots",
+            "description": "Sturdy leather boots with light metal plating. Good for a long walk.",
+            "image": "reinforced_boots",
+            "width": 165
+        },
+        "health_potion": {
+            "name": "Health Potion",
+            "description": "A corked vial glowing warm red. Tastes worse than it looks.",
+            "image": "health_potion",
+            "width": 120,
+            "onUse": {
+                "type": "heal",
+                "amount": 30
+            },
+            "consumeOnUse": true
+        },
+        "mana_potion": {
+            "name": "Mana Potion",
+            "description": "A corked vial glowing cool blue.",
+            "image": "mana_potion",
+            "width": 120,
+            "onUse": {
+                "type": "buff",
+                "stat": "intelligence",
+                "amount": 6,
+                "durationSeconds": 45
+            },
+            "consumeOnUse": true
+        },
+        "antidote_vial": {
+            "name": "Antidote Vial",
+            "description": "A small green vial with a leaf-wrapped stopper.",
+            "image": "antidote_vial",
+            "width": 114
+        },
+        "stamina_draught": {
+            "name": "Stamina Draught",
+            "description": "An amber vial with a faint spark drifting inside.",
+            "image": "stamina_draught",
+            "width": 114,
+            "onUse": {
+                "type": "buff",
+                "stat": "speed",
+                "amount": 6,
+                "durationSeconds": 45
+            },
+            "consumeOnUse": true
+        },
+        "dried_rations": {
+            "name": "Dried Rations",
+            "description": "A small wrapped bundle of trail food, tied with twine.",
+            "image": "dried_rations",
+            "width": 135,
+            "onUse": {
+                "type": "heal",
+                "amount": 20
+            },
+            "consumeOnUse": true
+        },
+        "honey_jar": {
+            "name": "Honey Jar",
+            "description": "A small jar of faintly glowing honey.",
+            "image": "honey_jar",
+            "width": 120,
+            "onUse": {
+                "type": "heal",
+                "amount": 25
+            },
+            "consumeOnUse": true
+        },
+        "bread_loaf": {
+            "name": "Bread Loaf",
+            "description": "A simple rustic loaf, still a little warm.",
+            "image": "bread_loaf",
+            "width": 135,
+            "onUse": {
+                "type": "heal",
+                "amount": 20
+            },
+            "consumeOnUse": true
+        },
+        "waterskin": {
+            "name": "Waterskin",
+            "description": "A leather water pouch with a wooden stopper.",
+            "image": "waterskin",
+            "width": 126,
+            "onUse": {
+                "type": "heal",
+                "amount": 10
+            },
+            "consumeOnUse": true
+        },
+        "berry_pouch": {
+            "name": "Berry Pouch",
+            "description": "A small cloth pouch, a few berries spilling from the top.",
+            "image": "berry_pouch",
+            "width": 126,
+            "onUse": {
+                "type": "heal",
+                "amount": 9999
+            },
+            "consumeOnUse": true
+        },
+        "elixir_of_clarity": {
+            "name": "Elixir of Clarity",
+            "description": "A slender pale vial with a slow inner swirl. Faintly humming, like everything else worth carrying.",
+            "image": "elixir_of_clarity",
+            "width": 114,
+            "onUse": {
+                "type": "buff",
+                "stat": "intelligence",
+                "amount": 5,
+                "durationSeconds": 40
+            },
+            "consumeOnUse": true
+        },
+        "gold_coin_pile": {
+            "name": "Gold Coin Pile",
+            "description": "A small stack of gold coins.",
+            "image": "gold_coin_pile",
+            "width": 150
+        },
+        "silver_coin_pouch": {
+            "name": "Silver Coin Pouch",
+            "description": "A drawstring pouch with coins spilling slightly from the top.",
+            "image": "silver_coin_pouch",
+            "width": 135
+        },
+        "gemstone_cluster": {
+            "name": "Gemstone Cluster",
+            "description": "A few small cut gemstones, grouped together.",
+            "image": "gemstone_cluster",
+            "width": 126,
+            "onUse": {
+                "type": "permanentBoost",
+                "stat": "maxHp",
+                "amount": 20
+            },
+            "consumeOnUse": true
+        },
+        "ancient_coin": {
+            "name": "Ancient Coin",
+            "description": "A single large, worn coin engraved with unfamiliar script.",
+            "image": "ancient_coin",
+            "width": 114
+        },
+        "tech_chip": {
+            "name": "Tech Chip",
+            "description": "A small square circuit chip with a faint internal glow.",
+            "image": "tech_chip",
+            "width": 105
+        },
+        "pearl_strand": {
+            "name": "Pearl Strand",
+            "description": "A short strand of pearls.",
+            "image": "pearl_strand",
+            "width": 135
+        },
+        "ornate_ring": {
+            "name": "Ornate Ring",
+            "description": "A decorative ring with a small set stone.",
+            "image": "ornate_ring",
+            "width": 96
+        },
+        "jeweled_pendant": {
+            "name": "Jeweled Pendant",
+            "description": "A pendant on a chain with one prominent gem.",
+            "image": "jeweled_pendant",
+            "width": 114
+        },
+        "small_ingot": {
+            "name": "Small Ingot",
+            "description": "A bar of raw, dull metal.",
+            "image": "small_ingot",
+            "width": 135,
+            "onUse": {
+                "type": "permanentBoost",
+                "stat": "attack",
+                "amount": 2
+            },
+            "consumeOnUse": true
+        },
+        "music_box": {
+            "name": "Music Box",
+            "description": "A small ornate wind-up box, lid slightly ajar.",
+            "image": "music_box",
+            "width": 150
+        },
+        "lockpick_set": {
+            "name": "Lockpick Set",
+            "description": "A small folding case of thin metal picks.",
+            "image": "lockpick_set",
+            "width": 165
+        },
+        "rope_coil": {
+            "name": "Rope Coil",
+            "description": "A neatly coiled length of rope.",
+            "image": "rope_coil",
+            "width": 165
+        },
+        "handheld_torch": {
+            "name": "Handheld Torch",
+            "description": "A simple wooden torch, lit.",
+            "image": "handheld_torch",
+            "width": 135
+        },
+        "repair_kit": {
+            "name": "Repair Kit",
+            "description": "A small open toolkit with basic tech tools inside.",
+            "image": "repair_kit",
+            "width": 165
+        },
+        "herb_bundle": {
+            "name": "Herb Bundle",
+            "description": "A small bundle of tied dried herbs.",
+            "image": "herb_bundle",
+            "width": 135,
+            "onUse": {
+                "type": "heal",
+                "amount": 15
+            },
+            "consumeOnUse": true
+        },
+        "ore_chunk": {
+            "name": "Ore Chunk",
+            "description": "A raw chunk of unrefined ore.",
+            "image": "ore_chunk",
+            "width": 135,
+            "onUse": {
+                "type": "permanentBoost",
+                "stat": "attack",
+                "amount": 2
+            },
+            "consumeOnUse": true
+        },
+        "cloth_bolt": {
+            "name": "Cloth Bolt",
+            "description": "A rolled bolt of plain fabric.",
+            "image": "cloth_bolt",
+            "width": 150
+        },
+        "nail_pouch": {
+            "name": "Nail Pouch",
+            "description": "A small pouch with a few nails and bolts spilling out.",
+            "image": "nail_pouch",
+            "width": 126
+        },
+        "whetstone": {
+            "name": "Whetstone",
+            "description": "A simple rectangular sharpening stone.",
+            "image": "whetstone",
+            "width": 114,
+            "onUse": {
+                "type": "buff",
+                "stat": "attack",
+                "amount": 5,
+                "durationSeconds": 45
+            },
+            "consumeOnUse": true
+        },
+        "spool_of_copper_wire": {
+            "name": "Spool of Copper Wire",
+            "description": "A wound spool of copper wire.",
+            "image": "spool_of_copper_wire",
+            "width": 150
+        },
+        "humming_crystal": {
+            "name": "Humming Crystal",
+            "description": "A small rough crystal with a faint internal pulse of light, in time with something Lara half-recognizes.",
+            "image": "humming_crystal",
+            "width": 135,
+            "onUse": {
+                "type": "permanentBoost",
+                "stat": "intelligence",
+                "amount": 2
+            },
+            "consumeOnUse": true
+        },
+        "woven_talisman": {
+            "name": "Woven Talisman",
+            "description": "A small charm woven from plant fiber and thin wire together - nobody quite remembers who first thought to combine them.",
+            "image": "woven_talisman",
+            "width": 126,
+            "onUse": {
+                "type": "buff",
+                "stat": "attack",
+                "amount": 4,
+                "durationSeconds": 40
+            },
+            "consumeOnUse": true
+        },
+        "old_key": {
+            "name": "Old Key",
+            "description": "An ornate, tarnished key. Whatever it opens, it isn't nearby.",
+            "image": "old_key",
+            "width": 135
+        },
+        "sealed_scroll": {
+            "name": "Sealed Scroll",
+            "description": "A rolled parchment with a wax seal, unopened. Someone meant for this to wait.",
+            "image": "sealed_scroll",
+            "width": 144,
+            "onUse": {
+                "type": "permanentBoost",
+                "stat": "intelligence",
+                "amount": 2
+            },
+            "consumeOnUse": true
+        },
+        "broken_compass": {
+            "name": "Broken Compass",
+            "description": "An old compass whose needle spins freely, pointing nowhere in particular - or everywhere at once.",
+            "image": "broken_compass",
+            "width": 126,
+            "onUse": {
+                "type": "compass"
+            },
+            "consumeOnUse": false
+        },
+        "memory_locket": {
+            "name": "Memory Locket",
+            "description": "A small locket, closed, with a faint warm glow escaping the seam.",
+            "image": "memory_locket",
+            "width": 114
+        },
+        "rootbound_charm": {
+            "name": "Rootbound Charm",
+            "description": "A small carved wooden charm with a thin living root wrapped around it, still growing.",
+            "image": "rootbound_charm",
+            "width": 126
+        },
+        "signal_fragment": {
+            "name": "Signal Fragment",
+            "description": "A jagged shard of circuitry that pulses gently, like a heartbeat that isn't quite Lara's own.",
+            "image": "signal_fragment",
+            "width": 126
+        },
+        "withering_petal": {
+            "name": "Withering Petal",
+            "description": "A single flower petal that looks perpetually on the verge of wilting, never quite doing so.",
+            "image": "withering_petal",
+            "width": 105
+        },
+        "sealed_vial_of_mist": {
+            "name": "Sealed Vial of Mist",
+            "description": "A small glass vial containing slow-swirling grey mist. It hasn't settled in longer than it should take to settle.",
+            "image": "sealed_vial_of_mist",
+            "width": 120,
+            "onUse": {
+                "type": "buff",
+                "stat": "speed",
+                "amount": 5,
+                "durationSeconds": 40
+            },
+            "consumeOnUse": true
+        }
+    }
+}

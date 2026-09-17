@@ -1,0 +1,19 @@
+{
+    "sheet": "grass_water.png",
+    "tileWidth": 128,
+    "tileHeight": 128,
+    "columns": 5,
+    "_comment": "Grass/water blob-autotile set, generated via the terrain tileset prompt (ChatGPT). Row-major: 0=grass(pure) 1=grass_water_n 2=grass_water_s 3=grass_water_e 4=grass_water_w 5=grass_water_nw 6=grass_water_ne 7=grass_water_sw 8=grass_water_se 9=water(pure). Use the *_n/s/e/w tiles where grass borders water on exactly one side, the corner tiles where it borders on two adjacent sides, and plain grass/water elsewhere.",
+    "tiles": {
+        "grass": 0,
+        "grass_water_n": 1,
+        "grass_water_s": 2,
+        "grass_water_e": 3,
+        "grass_water_w": 4,
+        "grass_water_nw": 5,
+        "grass_water_ne": 6,
+        "grass_water_sw": 7,
+        "grass_water_se": 8,
+        "water": 9
+    }
+}

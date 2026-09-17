@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c ' *)",
+      "Bash(DISPLAY=:1 timeout 5 ./build/T2gu2)",
+      "Bash(DISPLAY=:1 timeout 12 ./build/T2gu2)",
+      "Bash(awk '/^class GameScene/,0' /home/guzpido/T2gu/src/GameScene.h)",
+      "Bash(rm -f /tmp/check_*.png /tmp/chk_*.png /tmp/tribal_*.png /tmp/tribal_*.log)",
+      "Bash(rm -f /tmp/v2_*.png)",
+      "Bash(node /tmp/claude-1000/-home-guzpido-T2gu/0e101326-1e74-44d8-972e-8b94d16a3798/scratchpad/verify_full.js 2>&1 | tail -5 *)",
+      "Bash(awk '/^GameScene::GameScene/{c=1} c{print NR\": \"$0; if\\(/^}/ && c\\) {c=0; if\\(++n==1\\) exit}}' /home/guzpido/T2gu/src/GameScene.cpp)",
+      "Bash(awk -F: '$1 > 395 {print; exit}')",
+      "Bash(DISPLAY=:1 T2GU_MAP_PATH=\"$\\(pwd\\)/assets/maps/chapter2.json\" timeout 8 ./build/T2gu2)",
+      "Bash(rm -f /tmp/log_check.log)",
+      "Bash(timeout 300 python3 -c ' *)",
+      "Bash(timeout 8 env QT_QPA_PLATFORM=offscreen T2GU_SCREENSHOT_PATH=/tmp/claude-1000/-home-guzpido-T2gu/0e101326-1e74-44d8-972e-8b94d16a3798/scratchpad/ch2_check.png ./build/T2gu2)",
+      "Bash(timeout 8 env DISPLAY=:1 T2GU_SCREENSHOT_PATH=/tmp/claude-1000/-home-guzpido-T2gu/0e101326-1e74-44d8-972e-8b94d16a3798/scratchpad/ch2_check.png ./build/T2gu2)",
+      "Bash(DISPLAY=:1 xset q)",
+      "Bash(timeout 15 env DISPLAY=:1 T2GU_SCREENSHOT_PATH=/tmp/claude-1000/-home-guzpido-T2gu/0e101326-1e74-44d8-972e-8b94d16a3798/scratchpad/ch2_check.png ./build/T2gu2)",
+      "Bash(python3 tools/refit_sprites.py --only tribal_ranger_girl_2 --column-margin 0.30 --row-margin 0.30 --dry-run)",
+      "Bash(DISPLAY=:1 import -window 0x1200019 /tmp/claude-1000/-home-guzpido-T2gu/0e101326-1e74-44d8-972e-8b94d16a3798/scratchpad/sandbox_shot_tabbed.png)",
+      "Bash(DISPLAY=:1 QT_QPA_PLATFORM=xcb T2GU_MAP_PATH=/home/guzpido/T2gu/assets/maps/sandbox.json ./build/T2gu2)",
+      "Bash(disown)"
+    ],
+    "additionalDirectories": [
+      "/tmp"
+    ]
+  }
+}

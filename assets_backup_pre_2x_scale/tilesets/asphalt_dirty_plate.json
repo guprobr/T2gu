@@ -1,0 +1,11 @@
+{
+    "sheet": "asphalt_dirty_plate.png",
+    "tileWidth": 128,
+    "tileHeight": 128,
+    "columns": 5,
+    "_comment": "Cyberpunk-metropolis asphalt/dirty-plate blob-autotile (asphalt dominant, rusted metal plate intrudes). Row-major: 0=asphalt 1=asphalt_plate_n 2=asphalt_plate_s 3=asphalt_plate_e 4=asphalt_plate_w 5=asphalt_plate_nw 6=asphalt_plate_ne 7=asphalt_plate_sw 8=asphalt_plate_se 9=dirty_plate(pure). Shares its pure asphalt/dirty_plate tiles with dirty_plate_asphalt.json for a seamless border between the two.",
+    "tiles": {
+        "asphalt": 0, "asphalt_plate_n": 1, "asphalt_plate_s": 2, "asphalt_plate_e": 3, "asphalt_plate_w": 4,
+        "asphalt_plate_nw": 5, "asphalt_plate_ne": 6, "asphalt_plate_sw": 7, "asphalt_plate_se": 8, "dirty_plate": 9
+    }
+}

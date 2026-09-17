@@ -1,0 +1,15 @@
+{
+    "sheet": "placeholder.png",
+    "tileWidth": 128,
+    "tileHeight": 128,
+    "columns": 4,
+    "_comment": "Tile indices, row-major: 0=grass 1=grass_variant 2=dirt_path 3=water 4=tree 5=rock. Placeholder art - swap the PNG for a real tileset once one matching the character art quality exists.",
+    "tiles": {
+        "grass": 0,
+        "grass_variant": 1,
+        "dirt_path": 2,
+        "water": 3,
+        "tree": 4,
+        "rock": 5
+    }
+}

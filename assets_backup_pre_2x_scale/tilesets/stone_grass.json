@@ -1,0 +1,11 @@
+{
+    "sheet": "stone_grass.png",
+    "tileWidth": 128,
+    "tileHeight": 128,
+    "columns": 5,
+    "_comment": "Stone/grass blob-autotile (stone/cobblestone dominant, grass patches intrude - e.g. a city plaza with grass breaking through). Row-major: 0=stone 1=stone_grass_n 2=stone_grass_s 3=stone_grass_e 4=stone_grass_w 5=stone_grass_nw 6=stone_grass_ne 7=stone_grass_sw 8=stone_grass_se 9=grass(pure).",
+    "tiles": {
+        "stone": 0, "stone_grass_n": 1, "stone_grass_s": 2, "stone_grass_e": 3, "stone_grass_w": 4,
+        "stone_grass_nw": 5, "stone_grass_ne": 6, "stone_grass_sw": 7, "stone_grass_se": 8, "grass": 9
+    }
+}

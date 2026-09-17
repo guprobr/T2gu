@@ -1,0 +1,11 @@
+{
+    "sheet": "grass_stone.png",
+    "tileWidth": 128,
+    "tileHeight": 128,
+    "columns": 5,
+    "_comment": "Grass/stone blob-autotile (grass dominant, stone/cobblestone intrudes). Row-major: 0=grass 1=grass_stone_n 2=grass_stone_s 3=grass_stone_e 4=grass_stone_w 5=grass_stone_nw 6=grass_stone_ne 7=grass_stone_sw 8=grass_stone_se 9=stone(pure).",
+    "tiles": {
+        "grass": 0, "grass_stone_n": 1, "grass_stone_s": 2, "grass_stone_e": 3, "grass_stone_w": 4,
+        "grass_stone_nw": 5, "grass_stone_ne": 6, "grass_stone_sw": 7, "grass_stone_se": 8, "stone": 9
+    }
+}

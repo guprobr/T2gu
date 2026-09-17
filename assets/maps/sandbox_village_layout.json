@@ -1,0 +1,215 @@
+{
+    "_comment": "Hand-authored placement for all 40 catalog props, filling the village area (west) and nature area (east) added when the map was extended south of the original showcase grid/pond/enemy arena. Loaded the same way as sandbox_prop_markers.json - see GameScene's constructor.",
+    "props": [
+        {
+            "name": "cottage_a",
+            "col": 3,
+            "row": 17
+        },
+        {
+            "name": "windmill",
+            "col": 9,
+            "row": 16
+        },
+        {
+            "name": "cottage_b",
+            "col": 14,
+            "row": 17
+        },
+        {
+            "name": "fence_corner",
+            "col": 1,
+            "row": 19
+        },
+        {
+            "name": "fence_straight",
+            "col": 3,
+            "row": 19
+        },
+        {
+            "name": "fence_straight",
+            "col": 5,
+            "row": 19
+        },
+        {
+            "name": "fence_corner",
+            "col": 7,
+            "row": 19
+        },
+        {
+            "name": "signpost",
+            "col": 17,
+            "row": 18
+        },
+        {
+            "name": "chicken_coop",
+            "col": 16,
+            "row": 20
+        },
+        {
+            "name": "well",
+            "col": 9,
+            "row": 21
+        },
+        {
+            "name": "market_stall",
+            "col": 5,
+            "row": 21
+        },
+        {
+            "name": "notice_board",
+            "col": 13,
+            "row": 21
+        },
+        {
+            "name": "barrels_crates",
+            "col": 11,
+            "row": 20
+        },
+        {
+            "name": "bench",
+            "col": 9,
+            "row": 23
+        },
+        {
+            "name": "wheelbarrow",
+            "col": 7,
+            "row": 23
+        },
+        {
+            "name": "dovecote",
+            "col": 15,
+            "row": 23
+        },
+        {
+            "name": "cart",
+            "col": 11,
+            "row": 24
+        },
+        {
+            "name": "water_trough",
+            "col": 3,
+            "row": 23
+        },
+        {
+            "name": "haystack",
+            "col": 2,
+            "row": 26
+        },
+        {
+            "name": "blacksmith_forge",
+            "col": 5,
+            "row": 27
+        },
+        {
+            "name": "chapel",
+            "col": 13,
+            "row": 27
+        },
+        {
+            "name": "vegetable_garden",
+            "col": 9,
+            "row": 27
+        },
+        {
+            "name": "oak_tree",
+            "col": 20,
+            "row": 16
+        },
+        {
+            "name": "pine_tree",
+            "col": 24,
+            "row": 16
+        },
+        {
+            "name": "snowy_pine",
+            "col": 28,
+            "row": 16
+        },
+        {
+            "name": "dead_tree",
+            "col": 33,
+            "row": 17
+        },
+        {
+            "name": "tree_stump",
+            "col": 21,
+            "row": 19
+        },
+        {
+            "name": "burnt_stump",
+            "col": 26,
+            "row": 19
+        },
+        {
+            "name": "bush",
+            "col": 19,
+            "row": 18
+        },
+        {
+            "name": "wildflowers",
+            "col": 23,
+            "row": 19
+        },
+        {
+            "name": "berry_bush",
+            "col": 32,
+            "row": 19
+        },
+        {
+            "name": "mushroom_cluster",
+            "col": 21,
+            "row": 22
+        },
+        {
+            "name": "anthill",
+            "col": 24,
+            "row": 22
+        },
+        {
+            "name": "rocks_small",
+            "col": 19,
+            "row": 22
+        },
+        {
+            "name": "boulder_large",
+            "col": 26,
+            "row": 22
+        },
+        {
+            "name": "ivy_rock",
+            "col": 19,
+            "row": 25
+        },
+        {
+            "name": "fallen_log",
+            "col": 23,
+            "row": 25
+        },
+        {
+            "name": "cliff_face",
+            "col": 30,
+            "row": 17
+        },
+        {
+            "name": "waterfall",
+            "col": 30,
+            "row": 19
+        },
+        {
+            "name": "reeds",
+            "col": 27,
+            "row": 24
+        },
+        {
+            "name": "lily_pads",
+            "col": 29,
+            "row": 23
+        },
+        {
+            "name": "wooden_bridge",
+            "col": 30,
+            "row": 22
+        }
+    ]
+}

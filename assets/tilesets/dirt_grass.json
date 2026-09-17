@@ -1,0 +1,19 @@
+{
+    "sheet": "dirt_grass.png",
+    "tileWidth": 256,
+    "tileHeight": 256,
+    "columns": 5,
+    "_comment": "Dirt/grass blob-autotile (dirt dominant, grass patches intrude - e.g. a worn village courtyard). Row-major: 0=dirt 1=dirt_grass_n 2=dirt_grass_s 3=dirt_grass_e 4=dirt_grass_w 5=dirt_grass_nw 6=dirt_grass_ne 7=dirt_grass_sw 8=dirt_grass_se 9=grass(pure).",
+    "tiles": {
+        "dirt": 0,
+        "dirt_grass_n": 1,
+        "dirt_grass_s": 2,
+        "dirt_grass_e": 3,
+        "dirt_grass_w": 4,
+        "dirt_grass_nw": 5,
+        "dirt_grass_ne": 6,
+        "dirt_grass_sw": 7,
+        "dirt_grass_se": 8,
+        "grass": 9
+    }
+}

@@ -1,0 +1,19 @@
+{
+    "sheet": "dirt_snow.png",
+    "tileWidth": 128,
+    "tileHeight": 128,
+    "columns": 5,
+    "_comment": "Dirt/snow blob-autotile set. Row-major: 0=dirt(pure) 1=dirt_snow_n 2=dirt_snow_s 3=dirt_snow_e 4=dirt_snow_w 5=dirt_snow_nw 6=dirt_snow_ne 7=dirt_snow_sw 8=dirt_snow_se 9=snow(pure).",
+    "tiles": {
+        "dirt": 0,
+        "dirt_snow_n": 1,
+        "dirt_snow_s": 2,
+        "dirt_snow_e": 3,
+        "dirt_snow_w": 4,
+        "dirt_snow_nw": 5,
+        "dirt_snow_ne": 6,
+        "dirt_snow_sw": 7,
+        "dirt_snow_se": 8,
+        "snow": 9
+    }
+}

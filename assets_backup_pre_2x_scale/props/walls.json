@@ -1,0 +1,6 @@
+{
+    "_comment": "Maps a wall-theme name (a map opts in via its own \"wallTheme\" field, independent of which tileset it uses) to an ordered list of prop names cycled around an interior map's perimeter by GameScene::decorateMapEdges() - gives an interior map the impression of enclosing walls instead of just stopping. Only used when the map JSON also sets \"interior\": true. Real stone_archive wall set (2026-09-09, from tileset_props_borders_walls.md) - no plain undecorated segment came back in this batch (2 corner variants arrived instead), so the ring currently cycles decorated flat panels only; a dedicated stone_wall_segment would be a good addition later.",
+    "walls": {
+        "stone_archive": ["stone_wall_window", "wall_torch_sconce", "wall_tapestry", "stone_wall_skirting", "stone_wall_corner", "stone_archway", "stone_wall_corner_alt"]
+    }
+}

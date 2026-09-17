@@ -1,0 +1,43 @@
+{
+    "_comment": "Four themed vignettes hand-placed south of sandbox_village_layout.json's area (map extended from height 30 to 46, then to 56 for the castle row, to make room), same {name,col,row} shape and same reasoning - not narratively tied to any chapter yet, so they live here where every prop gets a real, deliberate home instead of sitting unused. West to east, then a final row: Haunted Village (cols 0-11), Decimated Village (cols 13-24), Periferia (cols 26-35), Castle (row 47+, an active/guarded fortress - the 5 remaining castle-exterior props that didn't fit the abandoned-ruin reading the rest of the set got in chapter10.js).",
+    "props": [
+        { "name": "ruined_chapel", "col": 2, "row": 31 },
+        { "name": "haunted_cottage", "col": 8, "row": 31 },
+        { "name": "withered_well", "col": 5, "row": 34 },
+        { "name": "broken_fence", "col": 1, "row": 38 },
+        { "name": "dead_twisted_tree", "col": 9, "row": 36 },
+        { "name": "gravestone_cluster", "col": 6, "row": 40 },
+        { "name": "will_o_wisp", "col": 7, "row": 38 },
+        { "name": "cobweb_cart", "col": 2, "row": 41 },
+        { "name": "haunted_signpost", "col": 10, "row": 41 },
+        { "name": "rotted_haystack", "col": 4, "row": 43 },
+
+        { "name": "burnt_cottage_ruin", "col": 14, "row": 31 },
+        { "name": "fallen_watchtower", "col": 21, "row": 31 },
+        { "name": "collapsed_well", "col": 18, "row": 34 },
+        { "name": "rubble_pile", "col": 15, "row": 37 },
+        { "name": "destroyed_market_stall", "col": 20, "row": 37 },
+        { "name": "charred_tree", "col": 23, "row": 34 },
+        { "name": "wrecked_cart", "col": 16, "row": 40 },
+        { "name": "scorched_fence_remains", "col": 13, "row": 42 },
+        { "name": "impact_crater", "col": 19, "row": 41 },
+        { "name": "ash_covered_barrels", "col": 22, "row": 42 },
+
+        { "name": "leaning_tenement", "col": 27, "row": 31 },
+        { "name": "poor_market_stall", "col": 33, "row": 31 },
+        { "name": "laundry_line", "col": 30, "row": 34 },
+        { "name": "rain_barrel", "col": 26, "row": 35 },
+        { "name": "crate_tarp_shanty", "col": 34, "row": 35 },
+        { "name": "patched_pushcart", "col": 28, "row": 38 },
+        { "name": "street_water_pump", "col": 32, "row": 38 },
+        { "name": "crate_stack_cat", "col": 26, "row": 41 },
+        { "name": "alley_lantern_post", "col": 34, "row": 41 },
+        { "name": "beggars_bedroll", "col": 30, "row": 43 },
+
+        { "name": "castle_gate_tower", "col": 16, "row": 47 },
+        { "name": "portcullis", "col": 22, "row": 48 },
+        { "name": "castle_banner_wallmount", "col": 12, "row": 50 },
+        { "name": "siege_ballista", "col": 20, "row": 52 },
+        { "name": "drawbridge", "col": 16, "row": 53 }
+    ]
+}
