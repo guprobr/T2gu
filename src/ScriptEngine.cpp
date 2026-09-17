@@ -39,9 +39,16 @@ bool ScriptEngine::loadFile(const QString &path, QString *errorOut)
 
 void ScriptEngine::callEntryPoint(const QString &name, const QJSValueList &args)
 {
-    if (m_state != State::Idle)
-        return; // a coroutine is already running - see class comment
+    if (m_state != State::Idle) {
+        // Queued, not dropped - see the class comment and finishEntryPoint().
+        m_pendingCalls.enqueue(PendingCall{ name, args });
+        return;
+    }
+    startEntryPoint(name, args);
+}
 
+void ScriptEngine::startEntryPoint(const QString &name, const QJSValueList &args)
+{
     const QJSValue fn = m_engine.globalObject().property(name);
     if (!fn.isCallable())
         return; // script doesn't define this entry point - optional, not an error
@@ -49,16 +56,39 @@ void ScriptEngine::callEntryPoint(const QString &name, const QJSValueList &args)
     QJSValue result = fn.call(args);
     if (result.isError()) {
         qWarning() << "script error in" << name << ":" << result.toString();
+        runNextPendingCall();
         return;
     }
 
     const QJSValue nextFn = result.property(QStringLiteral("next"));
-    if (!nextFn.isCallable())
-        return; // a plain function, not a generator - already fully done
+    if (!nextFn.isCallable()) {
+        // A plain function, not a generator - already fully done. Still
+        // worth draining the queue: nothing NEW could have been queued
+        // during this synchronous call today, but a plain entry point is
+        // just as much "a slot that just freed up" as a finished coroutine.
+        runNextPendingCall();
+        return;
+    }
 
     m_activeIterator = result;
     m_nextFn = nextFn;
     driveIterator(QJSValue());
+}
+
+void ScriptEngine::finishEntryPoint()
+{
+    m_activeIterator = QJSValue();
+    m_nextFn = QJSValue();
+    m_state = State::Idle;
+    runNextPendingCall();
+}
+
+void ScriptEngine::runNextPendingCall()
+{
+    if (m_pendingCalls.isEmpty())
+        return;
+    const PendingCall next = m_pendingCalls.dequeue();
+    startEntryPoint(next.name, next.args);
 }
 
 void ScriptEngine::driveIterator(const QJSValue &resumeArg)
@@ -70,16 +100,12 @@ void ScriptEngine::driveIterator(const QJSValue &resumeArg)
     const QJSValue step = m_nextFn.callWithInstance(m_activeIterator, args);
     if (step.isError()) {
         qWarning() << "script error resuming coroutine:" << step.toString();
-        m_activeIterator = QJSValue();
-        m_nextFn = QJSValue();
-        m_state = State::Idle;
+        finishEntryPoint();
         return;
     }
 
     if (step.property(QStringLiteral("done")).toBool()) {
-        m_activeIterator = QJSValue();
-        m_nextFn = QJSValue();
-        m_state = State::Idle;
+        finishEntryPoint();
         return;
     }
 

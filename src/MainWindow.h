@@ -4,6 +4,8 @@
 #include <QMainWindow>
 #include <QSet>
 
+#include <functional>
+
 #include "Character.h"
 #include "GameScene.h"
 #include "GameState.h"
@@ -65,13 +67,28 @@ private:
     void repositionInventoryWidget();
     void repositionDeathMenuWidget();
     void repositionLoadingOverlay();
-    // Blocks (via a local, nested QEventLoop - normal Qt idiom, same
-    // family as QDialog::exec()) until `ms` milliseconds pass, keeping the
-    // event loop pumping (repaints/input still processed) the whole time -
-    // used to hold the loading overlay on screen for a minimum readable
-    // duration even though the actual scene construction it's covering is
-    // fast enough not to need it.
-    void blockFor(int ms);
+    // The actual scene swap for loadLevel(), deferred ~1s so the loading
+    // overlay stays on screen for a minimum readable duration (scene
+    // construction itself is fast enough not to need it otherwise). This
+    // used to be a nested QEventLoop (QDialog::exec()-style blocking) run
+    // BEFORE the old scene stopped ticking - which meant the old GameScene's
+    // 16ms tick timer, and the QJSEngine it drives, could keep firing for
+    // that whole second while already several stack frames deep inside a
+    // script callback (loadLevel() is very often called FROM a script's
+    // api.loadLevel(), i.e. from inside GameScene::onTick() ->
+    // ScriptEngine::onTick() -> the JS call itself). A nested event loop at
+    // that point can deliver the old tick timer's timeout and reenter the
+    // very same QJSEngine call that's still suspended on the C++ stack -
+    // this project has already hit real heap corruption from two QJSEngines
+    // active at once during a transition (see the old scene's own
+    // stopTicking() comment in loadLevel()); a nested event loop here was
+    // another route to that exact failure mode, not a safe way to hold the
+    // overlay open. Now: the old scene's disconnect()/stopTicking() happen
+    // synchronously, immediately, inside loadLevel() itself, and this
+    // function - a plain QTimer::singleShot() callback, not a nested loop -
+    // does the actual scene replacement once the delay elapses. No event
+    // loop is ever entered that Qt wasn't already going to run on its own.
+    void finishLoadingLevel(const QString &mapPath);
     // Opens/refreshes the inventory menu and pauses movement/attack while
     // it's up; closing just hides it. See m_inventoryOpen and the
     // isDialogueActive()-style guard in refreshMoveIntent().
@@ -109,6 +126,17 @@ private:
 
     GameState m_gameState; // persists across loadLevel() calls - owns story vars/inventory
     GameScene *m_scene = nullptr;
+    // True from the moment loadLevel() starts a transition until
+    // finishLoadingLevel() actually swaps m_scene - guards against a second
+    // loadLevel() call (another script race, a dev-key mash) landing mid-
+    // transition and stacking a second overlay/timer/scene-swap on top of
+    // the first.
+    bool m_levelTransitionPending = false;
+    // Set by loadGame() right before calling loadLevel(), consumed exactly
+    // once by finishLoadingLevel() right after the new scene is constructed
+    // - see loadGame()'s own comment for why this replaced capturing
+    // `m_scene` right after a (no longer synchronous) loadLevel() call.
+    std::function<void()> m_afterNextSceneReady;
     QGraphicsView *m_view = nullptr;
     DialogueBoxWidget *m_dialogueBox = nullptr;
     InventoryWidget *m_inventoryWidget = nullptr;

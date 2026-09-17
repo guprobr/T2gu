@@ -2015,12 +2015,25 @@ void GameScene::restoreSnapshot(const SceneSnapshot &snapshot)
     // holding for every chapter forever, so a stray unguarded spawn can
     // never end up duplicated alongside the restored one.
     for (const Enemy &enemy : std::as_const(m_enemies)) {
+        // Same "only evict if it still points at this exact object" guard
+        // updateCorpseCleanup() uses, and for the same reason: without it,
+        // an enemy/NPC with no snapshot entry to recreate it (e.g. every
+        // "orc" was already dead before the save, so snapshot.enemies has
+        // none) leaves m_charactersByName["orc"] pointing at the Character
+        // this loop is about to delete - a real dangling pointer that
+        // scriptGiveControl()'s m_charactersByName.value(name) would then
+        // hand back, unlike the recreated-survivors case below, which
+        // naturally overwrites the entry with a live pointer.
+        if (m_charactersByName.value(enemy.name) == enemy.character)
+            m_charactersByName.remove(enemy.name);
         clearSelectionIfMatches(enemy.character);
         removeItem(enemy.character);
         delete enemy.character;
     }
     m_enemies.clear();
     for (const Npc &npc : std::as_const(m_npcs)) {
+        if (m_charactersByName.value(npc.name) == npc.character)
+            m_charactersByName.remove(npc.name);
         clearSelectionIfMatches(npc.character);
         removeItem(npc.character);
         delete npc.character;

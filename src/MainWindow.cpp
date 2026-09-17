@@ -2,16 +2,17 @@
 
 #include <QApplication>
 #include <QDir>
-#include <QEventLoop>
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJsonParseError>
 #include <QKeyEvent>
 #include <QLabel>
 #include <QRegularExpression>
 #include <QResizeEvent>
+#include <QSaveFile>
 #include <QTimer>
 
 #include "DialogueBoxWidget.h"
@@ -31,6 +32,14 @@ QString saveFilePath()
     QDir().mkpath(dir);
     return dir + QStringLiteral("/save.json");
 }
+
+// Bumped whenever the save JSON's own shape changes in a way that needs a
+// migration or an explicit compatibility decision, not on every field added
+// (loadGame() already treats every field as individually optional via
+// QJsonValue::toX(default) - a genuinely new, purely-additive field doesn't
+// need a version bump, only a structural change that makes an old save
+// ambiguous or wrong to interpret under the new code does).
+constexpr int kCurrentSaveVersion = 1;
 
 // GameScene::CharacterSnapshot/ItemSnapshot <-> JSON - shared by both the
 // party and enemies/NPCs arrays (npcs just always have hp=maxHp=0, same as
@@ -193,6 +202,10 @@ MainWindow::MainWindow(QWidget *parent)
 
 void MainWindow::loadLevel(const QString &mapPath)
 {
+    if (m_levelTransitionPending)
+        return; // already mid-transition - see its own comment
+    m_levelTransitionPending = true;
+
     // A quick peek at the target map's own "title" field (if it has one -
     // e.g. the sandbox doesn't) before doing anything else, purely to
     // caption the loading screen below with it. Deliberately not read via
@@ -203,12 +216,35 @@ void MainWindow::loadLevel(const QString &mapPath)
     if (mapFile.open(QIODevice::ReadOnly))
         chapterTitle = QJsonDocument::fromJson(mapFile.readAll()).object().value("title").toString();
 
-    // Held for a fixed minimum duration below - scene construction itself
-    // is fast/synchronous in this engine, so without an artificial pause
-    // this would flash and vanish before anyone could actually read it.
     m_loadingOverlay->showLoading(chapterTitle);
-    blockFor(1000);
 
+    // Disconnect and stop the OLD scene's simulation synchronously, right
+    // now - not after the loading-overlay delay below. See
+    // finishLoadingLevel()'s own comment for the reentrancy hazard this
+    // avoids (this replaces a nested QEventLoop that used to sit between
+    // showLoading() and this point, during which the old scene kept
+    // ticking).
+    if (m_scene) {
+        m_scene->disconnect(); // don't let its now-stale signals reach us on the way out
+        // Stopping the old scene's tick timer *immediately* isn't just
+        // tidy - it's load-bearing. Leaving two GameScenes' 16ms tick
+        // timers running concurrently (each driving its own QJSEngine) for
+        // however briefly reliably corrupted the heap - crashed at process
+        // exit, deep inside QJSEngine/QV4 teardown, only when a *second*
+        // engine had been created+destroyed in the same process. Isolated
+        // with a series of shrinking repros (see conversation/memory)
+        // before finding this fix; the underlying Qt/V4-internal reason two
+        // interleaved engines misbehave like this is still unconfirmed, but
+        // a scene we've already navigated away from has no business still
+        // ticking regardless, so this is correct either way, crash or not.
+        m_scene->stopTicking();
+    }
+
+    QTimer::singleShot(1000, this, [this, mapPath] { finishLoadingLevel(mapPath); });
+}
+
+void MainWindow::finishLoadingLevel(const QString &mapPath)
+{
     GameScene *oldScene = m_scene;
 
     m_currentMapPath = mapPath;
@@ -237,33 +273,22 @@ void MainWindow::loadLevel(const QString &mapPath)
     m_deathMenuWidget->hide();
     hideSelectionInfo();
 
-    if (oldScene) {
-        oldScene->disconnect(); // don't let its now-stale signals reach us on the way out
-        // Stopping the old scene's tick timer *immediately*, before its
-        // deletion is even scheduled, isn't just tidy - it's load-bearing.
-        // Leaving two GameScenes' 16ms tick timers running concurrently
-        // (each driving its own QJSEngine) for however briefly, even
-        // across a deferred delete, reliably corrupted the heap - crashed
-        // at process exit, deep inside QJSEngine/QV4 teardown, only when a
-        // *second* engine had been created+destroyed in the same process.
-        // Isolated with a series of shrinking repros (see conversation/
-        // memory) before finding this fix; the underlying Qt/V4-internal
-        // reason two interleaved engines misbehave like this is still
-        // unconfirmed, but a scene we've already navigated away from has
-        // no business still ticking regardless, so this is correct
-        // either way, crash or not.
-        oldScene->stopTicking();
-        QTimer::singleShot(0, this, [oldScene] { delete oldScene; });
-    }
+    if (oldScene)
+        QTimer::singleShot(0, this, [oldScene] { delete oldScene; }); // already stopped ticking in loadLevel()
 
     m_loadingOverlay->hide();
-}
+    m_levelTransitionPending = false;
 
-void MainWindow::blockFor(int ms)
-{
-    QEventLoop loop;
-    QTimer::singleShot(ms, &loop, &QEventLoop::quit);
-    loop.exec();
+    // See loadGame()'s own comment - queued via singleShot(0) on the NEW
+    // scene, right here right after it's actually constructed, so it still
+    // runs after that scene's own identically-queued onLevelStart() call
+    // (Qt fires queued same-priority callbacks in the order they were
+    // queued) regardless of how long the loading delay above took.
+    if (m_afterNextSceneReady) {
+        auto callback = std::move(m_afterNextSceneReady);
+        m_afterNextSceneReady = nullptr;
+        QTimer::singleShot(0, m_scene, [callback] { callback(); });
+    }
 }
 
 void MainWindow::centerViewOn(QPointF scenePos)
@@ -451,7 +476,19 @@ void MainWindow::respawnFromBeginning()
 void MainWindow::saveGame()
 {
     QJsonObject root;
-    root[QStringLiteral("mapPath")] = m_currentMapPath;
+    root[QStringLiteral("saveVersion")] = kCurrentSaveVersion;
+    // Just the map's own filename, not the full m_currentMapPath - that's
+    // normally built from ASSET_DIR, a path CMake bakes in at compile time
+    // (target_compile_definitions(... ASSET_DIR="${CMAKE_SOURCE_DIR}/assets")),
+    // so saving it verbatim would tie a save file to the exact source/build
+    // tree it was written on, not to "chapter4," conceptually. Every real
+    // map lives together in one directory (see GameScene::scriptLoadLevel(),
+    // which already resolves a script's `api.loadLevel("chapterN.json")`
+    // relative to wherever the *current* map's own directory is, for the
+    // same reason) - loadGame() resolves this filename against THIS
+    // install's own ASSET_DIR, so a save loads correctly regardless of
+    // which machine or build tree wrote it.
+    root[QStringLiteral("map")] = QFileInfo(m_currentMapPath).fileName();
     root[QStringLiteral("level")] = m_gameState.level;
     root[QStringLiteral("experience")] = m_gameState.experience;
     root[QStringLiteral("lastMusicTrack")] = m_gameState.lastMusicTrack;
@@ -485,13 +522,25 @@ void MainWindow::saveGame()
     sceneJson[QStringLiteral("items")] = itemSnapshotsToJson(snapshot.items);
     root[QStringLiteral("scene")] = sceneJson;
 
-    QFile file(saveFilePath());
+    // QSaveFile, not QFile - it writes to a temporary file alongside the
+    // real one and only replaces it atomically on a successful commit().
+    // A plain QFile truncates the real save.json immediately on open(), so
+    // a crash, a full disk, or the process getting killed mid-write() could
+    // leave the *only* copy of the player's save half-written and
+    // unreadable; QSaveFile means the previous save is never touched at all
+    // unless the new one fully succeeds.
+    QSaveFile file(saveFilePath());
     if (!file.open(QIODevice::WriteOnly)) {
         qWarning() << "saveGame: couldn't open" << file.fileName() << "for writing:" << file.errorString();
         m_scene->showInfoMessage(QStringLiteral("Game"), QStringLiteral("Save failed - couldn't write the save file."));
         return;
     }
     file.write(QJsonDocument(root).toJson());
+    if (!file.commit()) {
+        qWarning() << "saveGame: couldn't commit" << file.fileName() << ":" << file.errorString();
+        m_scene->showInfoMessage(QStringLiteral("Game"), QStringLiteral("Save failed - couldn't write the save file."));
+        return;
+    }
     m_scene->showInfoMessage(QStringLiteral("Game"), QStringLiteral("Game saved."));
 }
 
@@ -502,10 +551,49 @@ void MainWindow::loadGame()
         m_scene->showInfoMessage(QStringLiteral("Game"), QStringLiteral("No save file found."));
         return;
     }
-    const QJsonObject root = QJsonDocument::fromJson(file.readAll()).object();
-    const QString mapPath = root.value(QStringLiteral("mapPath")).toString();
+
+    // Distinguish "valid JSON with a schema loadGame() doesn't like" from
+    // "not even parseable" - a truncated write (see saveGame()'s own
+    // QSaveFile comment for why that shouldn't happen anymore, but an old
+    // save from before that fix, or a hand-edited/corrupted file, can still
+    // exist on disk) used to silently become an empty QJsonObject and fail
+    // much later and less clearly, at the "map path is missing" check
+    // below.
+    QJsonParseError parseError;
+    const QJsonDocument doc = QJsonDocument::fromJson(file.readAll(), &parseError);
+    if (parseError.error != QJsonParseError::NoError) {
+        qWarning() << "loadGame: save file isn't valid JSON:" << parseError.errorString();
+        m_scene->showInfoMessage(QStringLiteral("Game"), QStringLiteral("Save file is corrupt and can't be read."));
+        return;
+    }
+    const QJsonObject root = doc.object();
+
+    // A save with no "saveVersion" at all predates this field - treated as
+    // version 1 (the version this field was introduced at), not rejected;
+    // only a version NEWER than this build understands is actually a
+    // problem (this build is older than whatever wrote the save).
+    const int saveVersion = root.value(QStringLiteral("saveVersion")).toInt(1);
+    if (saveVersion > kCurrentSaveVersion) {
+        qWarning() << "loadGame: save file is from a newer version (" << saveVersion
+                   << ") than this build supports (" << kCurrentSaveVersion << ")";
+        m_scene->showInfoMessage(QStringLiteral("Game"), QStringLiteral("This save was made by a newer version of the game."));
+        return;
+    }
+
+    // "map" (just a filename, resolved against this install's own
+    // ASSET_DIR) is the current format - see saveGame()'s own comment for
+    // why. "mapPath" (a full path, possibly baked from a *different*
+    // install's ASSET_DIR) is kept as a fallback purely so a save written
+    // before this format existed still loads.
+    QString mapPath;
+    const QString mapFileName = root.value(QStringLiteral("map")).toString();
+    if (!mapFileName.isEmpty())
+        mapPath = QStringLiteral(ASSET_DIR "/maps/") + mapFileName;
+    else
+        mapPath = root.value(QStringLiteral("mapPath")).toString();
+
     if (mapPath.isEmpty() || !QFileInfo::exists(mapPath)) {
-        qWarning() << "loadGame: save file's map path is missing or no longer exists:" << mapPath;
+        qWarning() << "loadGame: save file's map is missing or no longer exists:" << mapPath;
         m_scene->showInfoMessage(QStringLiteral("Game"), QStringLiteral("Save file is corrupt or its map is missing."));
         return;
     }
@@ -536,24 +624,25 @@ void MainWindow::loadGame()
     snapshot.npcs = characterSnapshotsFromJson(sceneJson.value(QStringLiteral("npcs")).toArray());
     snapshot.items = itemSnapshotsFromJson(sceneJson.value(QStringLiteral("items")).toArray());
 
-    loadLevel(mapPath);
-
     // The new chapter's own onLevelStart() is deferred to the next event
     // loop iteration (see GameScene's constructor), and it's what
     // (re)spawns the party/procedurally-guarded content in the first
     // place - restoring the snapshot has to happen after that or its work
-    // would just get overwritten. Queuing this via singleShot(0) *after*
-    // loadLevel() already returned guarantees it runs after onLevelStart's
-    // own identically-queued call, since Qt fires queued callbacks in the
-    // order they were queued. `scene` (not `m_scene`) is captured and used
-    // as the timer's context object so this is automatically cancelled,
-    // never dereferenced, if the scene is somehow replaced again before
-    // this fires.
-    GameScene *scene = m_scene;
-    QTimer::singleShot(0, scene, [scene, snapshot] {
-        scene->restoreSnapshot(snapshot);
-        scene->showInfoMessage(QStringLiteral("Game"), QStringLiteral("Game loaded."));
-    });
+    // would just get overwritten. loadLevel() itself is no longer
+    // synchronous (the actual scene swap is deferred behind the loading
+    // overlay - see finishLoadingLevel()), so capturing `m_scene` right
+    // after calling it here would grab the OLD scene (or null), not the one
+    // this snapshot is meant for. Instead, hand the continuation to
+    // finishLoadingLevel() via m_afterNextSceneReady - it queues this via
+    // singleShot(0) on the actual new scene right after constructing it,
+    // preserving the same "runs after onLevelStart's own identically-queued
+    // call" ordering guarantee this always relied on, just anchored to the
+    // real construction moment instead of assuming it already happened.
+    m_afterNextSceneReady = [this, snapshot] {
+        m_scene->restoreSnapshot(snapshot);
+        m_scene->showInfoMessage(QStringLiteral("Game"), QStringLiteral("Game loaded."));
+    };
+    loadLevel(mapPath);
 }
 
 void MainWindow::jumpToNextLevel()

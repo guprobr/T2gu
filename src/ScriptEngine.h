@@ -3,6 +3,7 @@
 #include <QJSEngine>
 #include <QJSValue>
 #include <QObject>
+#include <QQueue>
 #include <QString>
 
 // Owns the embedded JS engine and drives level scripts. A script is plain
@@ -21,9 +22,17 @@
 // that need to pause (via a `wait`/`say` yield) need to be `function*`.
 //
 // Only one coroutine runs at a time. Calling callEntryPoint() while one is
-// already active drops the new call - acceptable given the only two
-// current trigger points (onEnemyDefeated, onPlayerDied) can't realistically
-// overlap with onLevelStart in practice for a v1.
+// already active QUEUES the new call rather than dropping it (see
+// m_pendingCalls) - it runs once the active one finishes. This used to
+// silently drop the new call outright, back when the only two trigger
+// points (onEnemyDefeated, onPlayerDied) couldn't realistically overlap
+// with onLevelStart in practice. That stopped being true once the engine
+// grew onTalkTo/onItemUsed/onItemCollected alongside a real
+// `yield api.wait(...)` in onLevelStart itself: a kill, a pickup, or a
+// conversation landing during that window used to just vanish, silently -
+// no warning, no trace, and exactly the kind of thing that reads as "the
+// quest is broken" days later with no clue why. Queuing instead means a
+// real gameplay event that already happened is never simply discarded.
 class ScriptEngine : public QObject
 {
     Q_OBJECT
@@ -65,6 +74,23 @@ signals:
 private:
     enum class State { Idle, WaitingForTimer, WaitingForDialogue };
 
+    // One queued callEntryPoint() call, waiting for the currently-active
+    // coroutine (if any) to finish - see m_pendingCalls.
+    struct PendingCall
+    {
+        QString name;
+        QJSValueList args;
+    };
+
+    // Looks up and invokes `name` unconditionally - the actual dispatch
+    // logic callEntryPoint() uses when idle, factored out so
+    // runNextPendingCall() can reuse it exactly rather than duplicating it.
+    void startEntryPoint(const QString &name, const QJSValueList &args);
+    // Common "this coroutine (or plain-function entry point) is done" path -
+    // clears the iterator state, goes Idle, then immediately dequeues and
+    // starts the next pending call if one is waiting.
+    void finishEntryPoint();
+    void runNextPendingCall();
     void driveIterator(const QJSValue &resumeArg);
     void handleYield(const QJSValue &yielded);
 
@@ -73,4 +99,7 @@ private:
     QJSValue m_nextFn; // cached iterator.next - only valid while m_activeIterator is
     State m_state = State::Idle;
     qreal m_waitRemaining = 0.0;
+    // See the class comment above - a callEntryPoint() that arrives while
+    // m_state != Idle waits here instead of being dropped.
+    QQueue<PendingCall> m_pendingCalls;
 };
