@@ -134,9 +134,11 @@ it directly.
 | `api.setTileset(relativePath)` | Re-skins the *entire current map* with a different tileset (path relative to the map's own directory), keeping the base/obj grid layout as-is. Only safe because every generated tileset shares the same index convention (grass = index 0, a `"water"`-named tile always exists, etc). |
 | `api.setTile(tileName, col, row)` | Overwrites a single base-layer cell with the named tile from the *current* tileset. |
 | `api.setBarrier(id, col, row, width, height, blocked)` | An invisible rectangular movement barrier, `width`x`height` tiles starting at `(col, row)` - for physically gating a path behind a story beat (not just under-decorating it - see below). Call again with the same `id` and `blocked=false` to lift exactly that barrier later; a second `true` call with an id already up is a no-op, not a duplicate. |
-| `api.giveControl(name)` | Switches player control to the named party character (must have been spawned as a character, not an enemy/NPC). No-op if the name isn't found or isn't controllable. |
-| `api.setVar(name, value)` | Sets a named story/quest variable - a number, string, or bool. This is the general-purpose state store for chapter progress, "has met X," riddle attempts, etc. **Survives a level transition** (see `loadLevel` below). |
-| `api.getVar(name, defaultValue = false)` | Reads a variable back; returns `defaultValue` if never set. |
+| `api.giveControl(name)` | Switches player control to the named living party character (must have been spawned as a character, not an enemy/NPC). No-op if the name isn't found, is dead, or isn't controllable. |
+| `api.setVar(name, value)` | Sets a named story/quest variable - a number, string, or bool. This is the general-purpose state store for a chapter's own spawn-once guards, "has met X," riddle attempts, etc. The underlying value **survives a level transition**, but the key is namespaced to the current map - **`name` is local to the chapter that set it** (see "Chapter-local vs global vars" below). |
+| `api.getVar(name, defaultValue = false)` | Reads back a variable set with `setVar` **from the current chapter's own script** - a name set by a different chapter's script reads back as `defaultValue` here, even though it's still stored. |
+| `api.setGlobalVar(name, value)` | Same storage as `setVar`, without the per-chapter namespacing - `name` reads back the same way from every chapter's script. For the few things that must genuinely carry across a chapter change: which companions have been recruited, the chapter counter. |
+| `api.getGlobalVar(name, defaultValue = false)` | Reads a variable set with `setGlobalVar` - the same value from any chapter. |
 | `api.giveItem(itemId, count = 1)` | Adds to the persistent inventory directly (for a scripted reward, not a world pickup - `spawnItem` is what puts something in the world for the player to walk up to). |
 | `api.removeItem(itemId, count = 1)` | Removes from the inventory (e.g. spending a key item on a puzzle). Clamped at 0, never goes negative. |
 | `api.getItemCount(itemId)` | Returns how many of an item are held (`0` if none). |
@@ -381,12 +383,37 @@ it should be consumed.
 `api.loadLevel(relativePath)` destroys the current scene (map, party,
 enemies, NPCs, world items - everything) and constructs a fresh one for the
 target map, running that map's own script from scratch (`onLevelStart`
-fires again, for the new map). **`api.setVar`/`getVar` and the inventory
-survive** - everything else does not. This means the new map's
-`onLevelStart` is responsible for re-spawning the hero (and any companions
-recruited so far, if the story wants them to keep following) via
-`spawnCharacter`/`giveControl`, exactly like a fresh map's `onLevelStart`
-normally does.
+fires again, for the new map). **The inventory survives, and so does
+everything stored via `setVar`/`setGlobalVar`** - everything else does not.
+This means the new map's `onLevelStart` is responsible for re-spawning the
+hero (and any companions recruited so far, if the story wants them to keep
+following) via `spawnCharacter`/`giveControl`, exactly like a fresh map's
+`onLevelStart` normally does - see `respawnCompanions()` in any chapter
+script past the first for the pattern (gated on the relevant
+`getGlobalVar("..._recruited", false)`).
+
+### Chapter-local vs global vars
+
+`api.setVar`/`getVar` key their storage off the *current map's filename*
+under the hood, so the same variable name used by two different chapters'
+scripts never collides - each chapter effectively gets its own private
+namespace. This is deliberate: a chapter script almost always wants a fresh
+"has this spawned/happened yet" guard for content that only exists in that
+chapter, and two chapters independently picking the same obvious name for
+one (`"vault_loot_spawned"`, `"hostage_rescued"`, `"riddle_step"`, ...) used
+to be a real bug - whichever chapter the player reached second would find
+the flag already set from the first, and its own spawn/dialogue logic would
+silently never run (in one case, a story-mandatory item just never
+appeared, permanently blocking progress).
+
+Use `api.setGlobalVar`/`getGlobalVar` instead for the small set of things
+that must read the same way from *every* chapter's script - companion
+recruitment (`"vigil_recruited"`, `"cobb_recruited"`, `"vex_recruited"`,
+`"nettle_recruited"`) and the `"chapter"` counter are the existing examples.
+When adding a new one, ask: would it be a bug for chapter N+2 to see this
+the same way chapter N left it? If yes, it's global; if the name is really
+just "guard so I don't do this thing twice within my own chapter," it's
+local (plain `setVar`/`getVar`, the default).
 
 Use this only when the story is moving somewhere **genuinely disjoint** -
 Chapters 1-2 share one hub map that just got wider instead of using this,
@@ -426,11 +453,17 @@ function onLevelStart() {
 ```
 
 **Only one script coroutine runs at a time.** If a second entry point fires
-while one is already paused (mid-`wait`/`say`), the new call is silently
-dropped rather than queued. This is a known v1 limitation - fine for the
-current two trigger points (`onEnemyDefeated`, `onPlayerDied`) which can't
-realistically overlap with `onLevelStart` in practice, but something to keep
-in mind if more triggers are added later.
+while one is already running or paused (mid-`wait`/`say`), the new call is
+queued and runs after it finishes. A missing optional handler is skipped
+without blocking later calls in the queue. `ScriptEngine::isBusy()` remains
+true while a coroutine or queued entry point is unfinished.
+
+**Quicksave (F5)** is ignored while a script, dialogue, or level transition
+is active, and while the death menu is open. The save contains GameState
+and a scene snapshot, but no script continuation. The request is not queued;
+press F5 again after the sequence finishes. A refused save leaves the current
+dialogue and existing save untouched. **Quickload (F8)** is also ignored
+during a level transition.
 
 ## Audio
 
@@ -473,6 +506,12 @@ volume and shows a respawn/quit menu (`GameScene::playerDied` signal,
 (fresh `GameState`, back to `chapter1.json`), not a scene reload. Both the
 script hook and this engine behavior fire; a chapter's `onPlayerDied()`
 doesn't need to (and can't) suppress the menu.
+
+Death means the **currently controlled character** is dead when damage is
+resolved. A projectile still hits its original target after a control switch,
+but killing that former controlled character does not cause game over while
+the current one is alive. This is not a whole-party defeat rule. Tab, C, and
+`api.giveControl` cannot transfer control to a dead party member.
 
 ## Entry points
 

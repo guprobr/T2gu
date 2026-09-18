@@ -39,7 +39,7 @@ bool ScriptEngine::loadFile(const QString &path, QString *errorOut)
 
 void ScriptEngine::callEntryPoint(const QString &name, const QJSValueList &args)
 {
-    if (m_state != State::Idle) {
+    if (isBusy()) {
         // Queued, not dropped - see the class comment and finishEntryPoint().
         m_pendingCalls.enqueue(PendingCall{ name, args });
         return;
@@ -50,8 +50,12 @@ void ScriptEngine::callEntryPoint(const QString &name, const QJSValueList &args)
 void ScriptEngine::startEntryPoint(const QString &name, const QJSValueList &args)
 {
     const QJSValue fn = m_engine.globalObject().property(name);
-    if (!fn.isCallable())
-        return; // script doesn't define this entry point - optional, not an error
+    if (!fn.isCallable()) {
+        // An optional missing handler must not strand the gameplay events
+        // queued behind it, leaving isBusy() true with nothing to advance.
+        runNextPendingCall();
+        return;
+    }
 
     QJSValue result = fn.call(args);
     if (result.isError()) {

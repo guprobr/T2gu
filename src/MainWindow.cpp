@@ -39,7 +39,17 @@ QString saveFilePath()
 // QJsonValue::toX(default) - a genuinely new, purely-additive field doesn't
 // need a version bump, only a structural change that makes an old save
 // ambiguous or wrong to interpret under the new code does).
-constexpr int kCurrentSaveVersion = 1;
+constexpr int kCurrentSaveVersion = 2;
+
+// version 1 saves' "vars" object used flat, unnamespaced keys - version 2
+// prefixes every api.setVar/getVar key with the current map's filename (see
+// GameScene::chapterVarKey()) so two chapters reusing the same name (e.g.
+// both had a "vault_loot_spawned" guard) can no longer collide. A version 1
+// save loaded as-is would silently misread every chapter-local flag back to
+// its default (defaultValue), not a loud failure - so instead of attempting
+// that migration, version 1 saves are rejected outright below. There is
+// nothing worth migrating to preserve mid-development.
+constexpr int kMinSupportedSaveVersion = 2;
 
 // GameScene::CharacterSnapshot/ItemSnapshot <-> JSON - shared by both the
 // party and enemies/NPCs arrays (npcs just always have hp=maxHp=0, same as
@@ -475,6 +485,14 @@ void MainWindow::respawnFromBeginning()
 
 void MainWindow::saveGame()
 {
+    // The save has no coroutine continuation. Saving after a quest item
+    // was collected but before its dialogue finishes would lose the only
+    // event that advances the chapter. Do not replace the active dialogue
+    // with a refusal message, or queue a save against a later scene.
+    if (!m_scene || m_levelTransitionPending || m_deathMenuOpen
+        || m_scene->isScriptBusy() || m_scene->isDialogueActive())
+        return;
+
     QJsonObject root;
     root[QStringLiteral("saveVersion")] = kCurrentSaveVersion;
     // Just the map's own filename, not the full m_currentMapPath - that's
@@ -546,6 +564,9 @@ void MainWindow::saveGame()
 
 void MainWindow::loadGame()
 {
+    if (!m_scene || m_levelTransitionPending)
+        return;
+
     QFile file(saveFilePath());
     if (!file.open(QIODevice::ReadOnly)) {
         m_scene->showInfoMessage(QStringLiteral("Game"), QStringLiteral("No save file found."));
@@ -577,6 +598,12 @@ void MainWindow::loadGame()
         qWarning() << "loadGame: save file is from a newer version (" << saveVersion
                    << ") than this build supports (" << kCurrentSaveVersion << ")";
         m_scene->showInfoMessage(QStringLiteral("Game"), QStringLiteral("This save was made by a newer version of the game."));
+        return;
+    }
+    if (saveVersion < kMinSupportedSaveVersion) {
+        qWarning() << "loadGame: save file is from an incompatible older version (" << saveVersion
+                   << ") - the story-variable format changed; it can't be loaded";
+        m_scene->showInfoMessage(QStringLiteral("Game"), QStringLiteral("This save is from an older, incompatible version of the game and can't be loaded."));
         return;
     }
 
@@ -661,6 +688,13 @@ void MainWindow::jumpToNextLevel()
 
 void MainWindow::keyPressEvent(QKeyEvent *event)
 {
+    // During loading the scene is either absent or already retired; even
+    // a save/load shortcut must not read or mutate that intermediate state.
+    if (!m_scene || m_levelTransitionPending) {
+        event->accept();
+        return;
+    }
+
     if (m_deathMenuOpen) {
         // Absolute highest priority - death overrides browsing the
         // inventory or anything else, and only its own 2 bindings exist.
@@ -831,6 +865,9 @@ void MainWindow::keyReleaseEvent(QKeyEvent *event)
 
 void MainWindow::refreshMoveIntent()
 {
+    if (!m_scene || m_levelTransitionPending)
+        return;
+
     Character *character = m_scene->controlledCharacter();
     if (!character)
         return; // no party loaded (e.g. assets/characters/ is empty) - nothing to drive

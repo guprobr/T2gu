@@ -291,13 +291,13 @@ function scatterOrganic(names, colStart, colEnd, rowStart, rowEnd, count, seed, 
 }
 
 function respawnCompanions() {
-    if (api.getVar("vigil_recruited", false))
+    if (api.getGlobalVar("vigil_recruited", false))
         api.spawnCharacter("dark_knight", 4, 50, 70);
-    if (api.getVar("cobb_recruited", false))
+    if (api.getGlobalVar("cobb_recruited", false))
         api.spawnCharacter("dwarf_miner", 5, 50, 75);
-    if (api.getVar("vex_recruited", false))
+    if (api.getGlobalVar("vex_recruited", false))
         api.spawnCharacter("cyber_engineer", 6, 50, 70);
-    if (api.getVar("nettle_recruited", false))
+    if (api.getGlobalVar("nettle_recruited", false))
         api.spawnCharacter("cyber_medic", 7, 50, 70);
 }
 
@@ -532,10 +532,10 @@ function* talkToWarden() {
         return;
     }
 
-    const hasVigil = api.getVar("vigil_recruited", false);
-    const hasCobb = api.getVar("cobb_recruited", false);
-    const hasVex = api.getVar("vex_recruited", false);
-    const hasNettle = api.getVar("nettle_recruited", false);
+    const hasVigil = api.getGlobalVar("vigil_recruited", false);
+    const hasCobb = api.getGlobalVar("cobb_recruited", false);
+    const hasVex = api.getGlobalVar("vex_recruited", false);
+    const hasNettle = api.getGlobalVar("nettle_recruited", false);
 
     api.playSound("select");
 
@@ -570,7 +570,7 @@ function* talkToWarden() {
     yield api.say("Lara", "You're closer now. I can hear it - you're not just a voice anymore, are you?");
     yield api.say("???", "Closer than I've been in longer than any of you have been alive. Whatever's past this point, Lara, it was never going to be small - and I am glad, for once, that it isn't just me walking into it.");
 
-    api.setVar("chapter", 7);
+    api.setGlobalVar("chapter", 7);
 }
 
 function* onEnemyDefeated(name) {

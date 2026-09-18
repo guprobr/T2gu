@@ -283,11 +283,11 @@ function scatterOrganic(names, colStart, colEnd, rowStart, rowEnd, count, seed, 
 }
 
 function respawnCompanions() {
-    if (api.getVar("vigil_recruited", false))
+    if (api.getGlobalVar("vigil_recruited", false))
         api.spawnCharacter("dark_knight", 4, 44, 70);
-    if (api.getVar("cobb_recruited", false))
+    if (api.getGlobalVar("cobb_recruited", false))
         api.spawnCharacter("dwarf_miner", 5, 44, 75);
-    if (api.getVar("vex_recruited", false))
+    if (api.getGlobalVar("vex_recruited", false))
         api.spawnCharacter("cyber_engineer", 6, 44, 70);
 }
 
@@ -322,7 +322,7 @@ function buildSurfaceEntry() {
     // identical guard on dark_knight for why: onLevelStart can run
     // again for this chapter, and respawnCompanions() above already re-
     // materializes her as a companion once vex_recruited is true.
-    if (!api.getVar("vex_recruited", false))
+    if (!api.getGlobalVar("vex_recruited", false))
         api.spawnNpc("cyber_engineer", 10, 47);
     // A rare friendly face at the surface - the first half of a bonus,
     // non-mandatory two-step riddle (unlike the terminal sequence ahead,
@@ -453,7 +453,7 @@ function* talkToVex() {
         yield api.say("Vex", "All right. I'll patch us through anything live down there. Try not to touch the sparking parts.");
         api.despawnNpc("cyber_engineer");
         api.spawnCharacter("cyber_engineer", 10, 47, 70);
-        api.setVar("vex_recruited", true);
+        api.setGlobalVar("vex_recruited", true);
         api.playSound("select");
     }
 }
@@ -573,7 +573,7 @@ function* onItemCollected(itemId) {
     yield api.say("Cobb", "Four now, is it? You're keeping count.");
     yield api.say("???", "I've had a long time to get good at counting. There's an ashfall to the east that hasn't stopped smelling like smoke in years. Go carefully.");
 
-    api.setVar("chapter", 5);
+    api.setGlobalVar("chapter", 5);
     api.playSound("select");
     yield api.wait(0.8);
     api.loadLevel("chapter5.json");

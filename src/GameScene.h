@@ -259,12 +259,28 @@ public:
     void scriptSetBarrier(const QString &id, int tileCol, int tileRow, int tileWidth, int tileHeight, bool blocked);
     void scriptGiveControl(const QString &name);
     // Generic named story/quest state - a number, string, or bool, whatever
-    // a chapter needs (a chapter counter, "has met X", an item count...).
+    // a chapter needs (a spawn-once guard, "has met X", an item count...).
     // Replaces an earlier bool-only setFlag/getFlag now that a hundred
-    // chapters need more than switches. Backed by GameState, so it
-    // survives a level transition.
+    // chapters need more than switches. Backed by GameState, so the
+    // underlying value survives a level transition - but the key is
+    // namespaced to the current map (see chapterVarKey()), so two chapters
+    // using the same name (e.g. both calling something "hostage_rescued")
+    // never collide. That used to be a real bug: chapter2.js and
+    // chapter4.js both had a "vault_loot_spawned" guard, and reaching
+    // chapter4 with it already true from chapter2 meant its loot (including
+    // a story-mandatory item) silently never spawned. Use
+    // scriptSetGlobalVar/scriptGetGlobalVar instead for the handful of
+    // things that must genuinely carry across chapters (companion
+    // recruitment, the chapter counter).
     void scriptSetVar(const QString &name, const QVariant &value);
     QVariant scriptGetVar(const QString &name, const QVariant &defaultValue) const;
+    // Unnamespaced story/quest state - same storage (GameState::vars) as
+    // scriptSetVar/GetVar, just without the current-map key prefix, so the
+    // same name reads back the same way from every chapter. For state that
+    // must survive not just a level transition but a change of chapter:
+    // which companions have been recruited, the chapter counter.
+    void scriptSetGlobalVar(const QString &name, const QVariant &value);
+    QVariant scriptGetGlobalVar(const QString &name, const QVariant &defaultValue) const;
     // The persistent inventory (GameState::inventory) - a simple id->count
     // map, no weight/slots/equipping. Also survives a level transition.
     void scriptGiveItem(const QString &itemId, int count);
@@ -364,14 +380,8 @@ private:
         qreal worldY = 0.0;
     };
 
-    // One fireball's damage, still traveling toward its target - see
-    // castFireball()/updatePendingFireballHits(). `target` stays valid for
-    // the short flight window: a dead Character's object lingers for
-    // kCorpseLifetimeSeconds (6s, far longer than any realistic flight
-    // time) before actually being deleted, and the one path that deletes
-    // party/enemy Characters early on a still-running scene
-    // (restoreSnapshot(), used by loadGame()) explicitly clears this vector
-    // first - see its own comment.
+    // beforeEntityDestroyed() cancels hits against a removed target; this
+    // pointer's lifetime must not depend on flight time or corpse timing.
     struct PendingFireballHit
     {
         qreal timeRemaining = 0.0;
@@ -421,13 +431,11 @@ private:
     // the "clicking empty ground / a decorative prop" half of the toggle.
     // No-op if nothing is selected.
     void deselectCurrent();
-    // Clears the current selection WITHOUT touching m_selectionMarker,
-    // because `doomed` (about to be deleted by the caller) is either the
-    // marker's own parent or about to take it down as a child either way
-    // - see the three call sites (corpse cleanup, NPC despawn, item
-    // pickup) right before their own `delete`. No-op if `doomed` isn't
-    // actually the current selection.
-    void clearSelectionIfMatches(QGraphicsItem *doomed);
+    // All individual enemy/NPC/pickup deletions go through this path after
+    // removal from their population container. Qt owns the entity's child
+    // items; beforeEntityDestroyed drops every remaining external pointer.
+    void destroyEntity(QGraphicsItem *entity);
+    void beforeEntityDestroyed(QGraphicsItem *entity);
     SelectionInfo selectionInfoForCharacter(Character *character) const;
     SelectionInfo selectionInfoForItem(const WorldItem &item) const;
     void spawnEnemies();
@@ -538,6 +546,13 @@ private:
     // matching entry in the relevant catalog is a silent no-op, and
     // sandbox.json is never passed here (it hand-builds its own border).
     void decorateMapEdges(const QJsonObject &mapRoot);
+
+    // Namespaces a script var name to the current map, so
+    // scriptSetVar/GetVar can't collide across chapters (see their own
+    // comments). Just the map's filename (e.g. "chapter4.json"), matching
+    // the portable identity saveGame() already stores for the map itself -
+    // not the full m_mapPath, which is install-specific.
+    QString chapterVarKey(const QString &name) const;
 
     // Shared by the constructor's roster/enemy setup AND scriptSpawnCharacter/
     // scriptSpawnEnemy, so a scripted spawn behaves identically to a

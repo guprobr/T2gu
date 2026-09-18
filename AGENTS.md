@@ -231,6 +231,11 @@ other tileset's index-9 terrain is purely decorative.
 
 ## Combat
 
+- `playerDied()` means the **currently controlled** character is dead
+  when damage is resolved, not that the whole party is dead or that a
+  projectile's original target was controlled at launch. Keep this rule
+  in `notifyPlayerDeathIfNeeded()` for every damage path. A dead follower
+  cannot receive control via Tab, C, or `api.giveControl`.
 - Melee hit-testing (`Character::isWithinMeleeReach`) is a **plain
   circular distance check**, not a facing-direction-gated rectangle. It
   used to be a narrow (~104px) rectangle extending only along whichever
@@ -262,6 +267,11 @@ other tileset's index-9 terrain is purely decorative.
 
 Single quicksave slot at `~/.T2gu2/save.json` (F5 saves, F8 loads, F9
 kills the controlled character on the spot for a fast respawn/quit).
+F5 is ignored while a script (including queued entry points), dialogue,
+level transition, or death menu is active: coroutine continuations are
+not saved. Do not replace an active dialogue with a save/refusal message
+or defer that save to a different scene. F8 and gameplay input are also
+ignored during level transitions.
 `GameState` (vars/inventory/level/experience/stat bonuses) plus a full
 `GameScene::SceneSnapshot` (exact party/enemy/NPC/item positions and HP)
 round-trip through JSON — a chapter's own `*_spawned` guard vars alone can
@@ -288,14 +298,14 @@ only block re-spawning a whole batch outright, never track which
   source/build tree it was written on. (`"mapPath"`, a full path, is kept
   as a read-only fallback so a save written before this change still
   loads.)
-- `restoreSnapshot()` deletes every enemy/NPC `Character*` not present in
-  the snapshot and recreates the survivors — it must evict
-  `m_charactersByName`'s entry for each deleted one first (same
-  `if (m_charactersByName.value(name) == character) remove(name)` guard
-  `updateCorpseCleanup()` already uses), or a name whose every instance
-  died before the save (and thus has nothing to recreate) leaves a
-  dangling pointer in that table for anything that later looks it up
-  (`scriptGiveControl`, etc.) to hand back.
+- Every individual enemy/NPC/pickup deletion goes through `destroyEntity()`
+  after removing it from its population container. Its shared
+  `beforeEntityDestroyed()` hook clears selection (including a hidden
+  marker still parented to a deselected entity), name lookups, pending
+  projectile targets, and combat/AI caches. Keep this common path for
+  corpse cleanup, NPC despawn, item collection, and snapshot restoration;
+  do not add separate pointer-cleanup rules at the call sites. Name
+  eviction must still preserve a newer same-named enemy's live lookup.
 
 ## Level transitions — no nested event loops
 

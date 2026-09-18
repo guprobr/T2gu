@@ -282,13 +282,13 @@ function scatterOrganic(names, colStart, colEnd, rowStart, rowEnd, count, seed, 
 }
 
 function respawnCompanions() {
-    if (api.getVar("vigil_recruited", false))
+    if (api.getGlobalVar("vigil_recruited", false))
         api.spawnCharacter("dark_knight", 4, 44, 70);
-    if (api.getVar("cobb_recruited", false))
+    if (api.getGlobalVar("cobb_recruited", false))
         api.spawnCharacter("dwarf_miner", 5, 44, 75);
-    if (api.getVar("vex_recruited", false))
+    if (api.getGlobalVar("vex_recruited", false))
         api.spawnCharacter("cyber_engineer", 6, 44, 70);
-    if (api.getVar("nettle_recruited", false))
+    if (api.getGlobalVar("nettle_recruited", false))
         api.spawnCharacter("cyber_medic", 7, 44, 70);
 }
 
@@ -323,7 +323,7 @@ function buildAshfallEdge() {
     // identical guard on dark_knight for why: onLevelStart can run
     // again for this chapter, and respawnCompanions() above already re-
     // materializes her as a companion once nettle_recruited is true.
-    if (!api.getVar("nettle_recruited", false))
+    if (!api.getGlobalVar("nettle_recruited", false))
         api.spawnNpc("cyber_medic", 10, 47);
 
     if (api.getVar("chapter5_loot_spawned", false))
@@ -438,8 +438,9 @@ function* talkToNettle() {
         yield api.say("Nettle", "Then I'm coming. Somebody should be ready to patch you up when 'barely' stops being enough.");
         api.despawnNpc("cyber_medic");
         api.spawnCharacter("cyber_medic", 10, 47, 70);
-        api.setVar("nettle_recruited", true);
+        api.setGlobalVar("nettle_recruited", true);
         api.playSound("select");
+        yield* tryLeaveMourningRow();
     }
 }
 
@@ -554,7 +555,28 @@ function* onItemCollected(itemId) {
     yield api.say("Lara", "That's not comforting.");
     yield api.say("???", "It isn't meant to be. One more place, Lara - somewhere old and cold and paler than anywhere you've been yet. Bring all four of them.");
 
-    api.setVar("chapter", 6);
+    api.setVar("cinder_charm_collected", true);
+    yield* tryLeaveMourningRow();
+}
+
+// The narrator's own line above already says "bring all four of them," and
+// the Warden at the chapter 6 threshold hard-requires all four recruits
+// (see chapter6.js's talkToWarden) with no way back here once loadLevel
+// tears this scene down - so unlike every other chapter's single-item exit
+// trigger, leaving here waits on whichever of "found the charm" / "recruited
+// Nettle" happens second, instead of firing unconditionally the moment the
+// charm is picked up.
+function* tryLeaveMourningRow() {
+    if (!api.getVar("cinder_charm_collected", false))
+        return;
+
+    if (!api.getGlobalVar("nettle_recruited", false)) {
+        yield api.say("Lara", "Not without Nettle. She's earned a seat before we go anywhere.");
+        return;
+    }
+
+    yield api.say("Lara", "Everyone's here. Let's go.");
+    api.setGlobalVar("chapter", 6);
     api.playSound("select");
     yield api.wait(0.8);
     api.loadLevel("chapter6.json");

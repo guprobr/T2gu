@@ -45,9 +45,19 @@ public:
     Q_INVOKABLE void setBarrier(const QString &id, int col, int row, int width, int height, bool blocked);
     Q_INVOKABLE void giveControl(const QString &name);
     // Generic named story/quest state (number, string, or bool) - persists
-    // across level transitions (see loadLevel).
+    // across level transitions (see loadLevel), but local to the current
+    // chapter (map file): a name set in one chapter's script reads back as
+    // defaultValue in every other chapter's, even though the underlying
+    // value is never actually deleted. Use setGlobalVar/getGlobalVar below
+    // for the few things (companion recruitment, chapter counter) that must
+    // read the same way from every chapter.
     Q_INVOKABLE void setVar(const QString &name, const QVariant &value);
     Q_INVOKABLE QVariant getVar(const QString &name, const QVariant &defaultValue = false) const;
+    // Same storage as setVar/getVar, just without the per-chapter
+    // namespacing - the same name reads back the same value from any
+    // chapter's script.
+    Q_INVOKABLE void setGlobalVar(const QString &name, const QVariant &value);
+    Q_INVOKABLE QVariant getGlobalVar(const QString &name, const QVariant &defaultValue = false) const;
     // The persistent inventory - a simple id->count map. Also survives a
     // level transition.
     Q_INVOKABLE void giveItem(const QString &itemId, int count = 1);

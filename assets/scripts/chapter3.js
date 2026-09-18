@@ -286,9 +286,9 @@ function scatterOrganic(names, colStart, colEnd, rowStart, rowEnd, count, seed, 
 }
 
 function respawnCompanions() {
-    if (api.getVar("vigil_recruited", false))
+    if (api.getGlobalVar("vigil_recruited", false))
         api.spawnCharacter("dark_knight", 4, 44, 70);
-    if (api.getVar("cobb_recruited", false))
+    if (api.getGlobalVar("cobb_recruited", false))
         api.spawnCharacter("dwarf_miner", 5, 44, 75);
 }
 
@@ -324,7 +324,7 @@ function buildEntryChamber() {
     // identical guard on dark_knight for why: onLevelStart can run
     // again for this chapter, and respawnCompanions() above already re-
     // materializes him as a companion once cobb_recruited is true.
-    if (!api.getVar("cobb_recruited", false))
+    if (!api.getGlobalVar("cobb_recruited", false))
         api.spawnNpc("dwarf_miner", 10, 47);
     // A rare friendly face right at the entrance - the first half of a
     // small two-step riddle that pays off far away, at the End Alcove.
@@ -449,7 +449,7 @@ function* talkToCobb() {
         yield api.say("Cobb", "All right. Lamp's lit, boots are laced. Let's see what stopped being rock.");
         api.despawnNpc("dwarf_miner");
         api.spawnCharacter("dwarf_miner", 10, 47, 75);
-        api.setVar("cobb_recruited", true);
+        api.setGlobalVar("cobb_recruited", true);
         api.playSound("select");
     }
 }
@@ -565,7 +565,7 @@ function* onItemCollected(itemId) {
     yield api.say("Vigil", "You could just answer her directly, you know.");
     yield api.say("???", "I could. Keep going - there's a line of old wire running under this stone that wants finding too.");
 
-    api.setVar("chapter", 4);
+    api.setGlobalVar("chapter", 4);
     api.playSound("select");
     yield api.wait(0.8);
     api.loadLevel("chapter4.json");

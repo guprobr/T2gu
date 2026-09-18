@@ -564,7 +564,7 @@ function* onItemCollected(itemId) {
     yield api.say("Lara", "Who's there?");
     yield api.say("???", "Someone who found one of those a long time ago, and is still finding out what it means. Follow the hum, Lara. It gets louder from here, not quieter.");
 
-    api.setVar("chapter", 2);
+    api.setGlobalVar("chapter", 2);
     api.playSound("select");
     yield api.wait(0.8);
     yield api.say("Lara", "East, then, past Fernhollow - toward wherever this thing actually came from.");

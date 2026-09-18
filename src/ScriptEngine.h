@@ -64,8 +64,13 @@ public:
     // True whenever any coroutine is running or paused (dialogue or a
     // wait()) - broader than isPausedOnDialogue(), which only covers one of
     // the two paused states. Useful for anything that needs to wait out an
-    // entire script step rather than just a visible dialogue box.
-    bool isBusy() const { return m_state != State::Idle; }
+    // entire script step, including queued calls, rather than just a
+    // visible dialogue box. The iterator also covers synchronous signals
+    // emitted between leaving a wait state and resuming its next step.
+    bool isBusy() const
+    {
+        return m_state != State::Idle || !m_activeIterator.isUndefined() || !m_pendingCalls.isEmpty();
+    }
 
 signals:
     void dialogueRequested(QString speaker, QString text);

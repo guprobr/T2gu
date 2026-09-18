@@ -86,6 +86,16 @@ QVariant ScriptBridge::getVar(const QString &name, const QVariant &defaultValue)
     return m_scene->scriptGetVar(name, defaultValue);
 }
 
+void ScriptBridge::setGlobalVar(const QString &name, const QVariant &value)
+{
+    m_scene->scriptSetGlobalVar(name, value);
+}
+
+QVariant ScriptBridge::getGlobalVar(const QString &name, const QVariant &defaultValue) const
+{
+    return m_scene->scriptGetGlobalVar(name, defaultValue);
+}
+
 void ScriptBridge::giveItem(const QString &itemId, int count)
 {
     m_scene->scriptGiveItem(itemId, count);

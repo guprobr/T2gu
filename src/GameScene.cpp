@@ -1051,17 +1051,24 @@ void GameScene::switchToNextCharacter()
     if (m_party.size() < 2)
         return;
 
-    // Stop the character we're handing control away from - it has no input
-    // driving it anymore, and tick() settles a zero-velocity character back
-    // to its idle pose on its own.
-    m_party.at(m_controlledIndex)->setVelocity(QPointF(0, 0));
-    m_controlledIndex = (m_controlledIndex + 1) % m_party.size();
-    applyHealthBarDisplay();
+    // A former controlled target can die from an in-flight hit while the
+    // party keeps playing. Never transfer input back to that corpse.
+    for (int offset = 1; offset < m_party.size(); ++offset) {
+        const int nextIndex = (m_controlledIndex + offset) % m_party.size();
+        if (m_party.at(nextIndex)->isDead())
+            continue;
+        m_party.at(m_controlledIndex)->setVelocity(QPointF(0, 0));
+        m_controlledIndex = nextIndex;
+        applyHealthBarDisplay();
+        return;
+    }
 }
 
 void GameScene::commandSelectedCharacter()
 {
     if (m_selectedIndex < 0 || m_selectedIndex >= m_party.size() || m_selectedIndex == m_controlledIndex)
+        return;
+    if (m_party.at(m_selectedIndex)->isDead())
         return;
 
     m_party.at(m_controlledIndex)->setVelocity(QPointF(0, 0));
@@ -1137,7 +1144,10 @@ void GameScene::killControlledCharacter()
 
 void GameScene::notifyPlayerDeathIfNeeded()
 {
-    if (m_playerDeathNotified)
+    // Control can change while a projectile is in flight. Game over is
+    // defined by who is controlled now, not who was targeted at launch.
+    Character *controlled = controlledCharacter();
+    if (m_playerDeathNotified || !controlled || !controlled->isDead())
         return;
     m_playerDeathNotified = true;
     m_scriptEngine.callEntryPoint(QStringLiteral("onPlayerDied"));
@@ -1171,20 +1181,9 @@ void GameScene::updateCorpseCleanup(qreal dtSeconds)
         if (enemy.corpseTimeRemaining > 0.0)
             continue;
 
-        // Only evict this name's m_charactersByName entry if it still
-        // points at this exact corpse - spawnEnemy() deliberately allows
-        // several same-named enemies at once (unlike party/NPC spawns), so
-        // a newer live enemy of the same name may have already overwritten
-        // it; removing by name unconditionally would sever that one's
-        // still-valid lookup instead of this dead one's.
-        if (m_charactersByName.value(enemy.name) == enemy.character)
-            m_charactersByName.remove(enemy.name);
-
         Character *character = enemy.character;
-        clearSelectionIfMatches(character);
-        removeItem(character);
-        delete character;
         m_enemies.removeAt(i);
+        destroyEntity(character);
     }
 }
 
@@ -1885,10 +1884,7 @@ void GameScene::scriptDespawnNpc(const QString &name)
             continue;
         Character *character = m_npcs.at(i).character;
         m_npcs.removeAt(i);
-        m_charactersByName.remove(name);
-        clearSelectionIfMatches(character);
-        removeItem(character);
-        delete character;
+        destroyEntity(character);
         return;
     }
 }
@@ -1995,16 +1991,9 @@ void GameScene::restoreSnapshot(const SceneSnapshot &snapshot)
         }
     }
 
-    // Any fireball still in flight has a raw Character* target that's about
-    // to be invalidated by the enemy teardown just below (this is the one
-    // path that deletes Enemy/Npc Characters on an already-running scene,
-    // rather than the whole GameScene being replaced - see
-    // PendingFireballHit's own comment) - drop it now rather than risk
-    // applying damage through a dangling pointer a few ticks from now. Its
-    // FireballItem visual (already added to the scene independently) is
-    // untouched - it just finishes its own animation and quietly does
-    // nothing on arrival, exactly like a target that died mid-flight from
-    // something else.
+    // In-flight attacks and cooldowns belong to the state being replaced,
+    // including attacks against party members who survive restoration.
+    // Per-entity pointer cleanup is handled separately by destroyEntity().
     m_pendingFireballHits.clear();
     m_fireballCooldowns.clear();
 
@@ -2014,37 +2003,12 @@ void GameScene::restoreSnapshot(const SceneSnapshot &snapshot)
     // whatever's actually present regardless rather than relying on that
     // holding for every chapter forever, so a stray unguarded spawn can
     // never end up duplicated alongside the restored one.
-    for (const Enemy &enemy : std::as_const(m_enemies)) {
-        // Same "only evict if it still points at this exact object" guard
-        // updateCorpseCleanup() uses, and for the same reason: without it,
-        // an enemy/NPC with no snapshot entry to recreate it (e.g. every
-        // "orc" was already dead before the save, so snapshot.enemies has
-        // none) leaves m_charactersByName["orc"] pointing at the Character
-        // this loop is about to delete - a real dangling pointer that
-        // scriptGiveControl()'s m_charactersByName.value(name) would then
-        // hand back, unlike the recreated-survivors case below, which
-        // naturally overwrites the entry with a live pointer.
-        if (m_charactersByName.value(enemy.name) == enemy.character)
-            m_charactersByName.remove(enemy.name);
-        clearSelectionIfMatches(enemy.character);
-        removeItem(enemy.character);
-        delete enemy.character;
-    }
-    m_enemies.clear();
-    for (const Npc &npc : std::as_const(m_npcs)) {
-        if (m_charactersByName.value(npc.name) == npc.character)
-            m_charactersByName.remove(npc.name);
-        clearSelectionIfMatches(npc.character);
-        removeItem(npc.character);
-        delete npc.character;
-    }
-    m_npcs.clear();
-    for (const WorldItem &item : std::as_const(m_worldItems)) {
-        clearSelectionIfMatches(item.prop);
-        removeItem(item.prop);
-        delete item.prop;
-    }
-    m_worldItems.clear();
+    while (!m_enemies.isEmpty())
+        destroyEntity(m_enemies.takeLast().character);
+    while (!m_npcs.isEmpty())
+        destroyEntity(m_npcs.takeLast().character);
+    while (!m_worldItems.isEmpty())
+        destroyEntity(m_worldItems.takeLast().prop);
 
     for (const CharacterSnapshot &saved : snapshot.enemies) {
         // Position is set explicitly right after, via the same raw pos()
@@ -2269,10 +2233,9 @@ void GameScene::updateItemPickups()
             continue;
 
         const QString itemId = item.itemId;
-        clearSelectionIfMatches(item.prop);
-        removeItem(item.prop);
-        delete item.prop;
+        Prop *prop = item.prop;
         m_worldItems.removeAt(i);
+        destroyEntity(prop);
 
         m_state->inventory[itemId] += 1;
         m_audio.playSound(QStringLiteral("select"));
@@ -2327,7 +2290,7 @@ void GameScene::scriptSetBarrier(const QString &id, int tileCol, int tileRow, in
 void GameScene::scriptGiveControl(const QString &name)
 {
     Character *target = m_charactersByName.value(name);
-    if (!target)
+    if (!target || target->isDead())
         return;
     const int index = m_party.indexOf(target);
     if (index < 0)
@@ -2338,12 +2301,27 @@ void GameScene::scriptGiveControl(const QString &name)
     applyHealthBarDisplay();
 }
 
+QString GameScene::chapterVarKey(const QString &name) const
+{
+    return QFileInfo(m_mapPath).fileName() + QStringLiteral("::") + name;
+}
+
 void GameScene::scriptSetVar(const QString &name, const QVariant &value)
+{
+    m_state->vars[chapterVarKey(name)] = value;
+}
+
+QVariant GameScene::scriptGetVar(const QString &name, const QVariant &defaultValue) const
+{
+    return m_state->vars.value(chapterVarKey(name), defaultValue);
+}
+
+void GameScene::scriptSetGlobalVar(const QString &name, const QVariant &value)
 {
     m_state->vars[name] = value;
 }
 
-QVariant GameScene::scriptGetVar(const QString &name, const QVariant &defaultValue) const
+QVariant GameScene::scriptGetGlobalVar(const QString &name, const QVariant &defaultValue) const
 {
     return m_state->vars.value(name, defaultValue);
 }
@@ -2463,18 +2441,40 @@ void GameScene::deselectCurrent()
     emit selectionCleared();
 }
 
-void GameScene::clearSelectionIfMatches(QGraphicsItem *doomed)
+void GameScene::beforeEntityDestroyed(QGraphicsItem *entity)
 {
-    if (m_selectedItem != doomed)
-        return;
-    m_selectedItem = nullptr;
-    m_selectedIndex = -1;
-    // `doomed` is about to be deleted by the caller and the marker is its
-    // child (see trySelect()'s setParentItem) - Qt is about to destroy the
-    // marker along with it, so just forget the pointer rather than hiding
-    // (still-valid) or deleting (would double-free) it.
-    m_selectionMarker = nullptr;
-    emit selectionCleared();
+    // Deselecting only hides the marker: it is still a child of the old
+    // target, even though m_selectedItem is already null. Qt deletes that
+    // child with its parent, so invalidate it independently of selection.
+    if (m_selectionMarker && m_selectionMarker->parentItem() == entity)
+        m_selectionMarker = nullptr;
+
+    if (auto *character = dynamic_cast<Character *>(entity)) {
+        // Repeated enemy archetypes share a name; preserve a newer live
+        // instance that may have replaced this one's lookup.
+        if (m_charactersByName.value(character->name()) == character)
+            m_charactersByName.remove(character->name());
+        m_partyAttackCooldowns.remove(character);
+        m_fireballCooldowns.remove(character);
+        m_partyPaths.remove(character);
+        for (int i = m_pendingFireballHits.size() - 1; i >= 0; --i) {
+            if (m_pendingFireballHits.at(i).target == character)
+                m_pendingFireballHits.removeAt(i);
+        }
+    }
+
+    if (m_selectedItem == entity) {
+        m_selectedItem = nullptr;
+        m_selectedIndex = -1;
+        emit selectionCleared();
+    }
+}
+
+void GameScene::destroyEntity(QGraphicsItem *entity)
+{
+    beforeEntityDestroyed(entity);
+    removeItem(entity);
+    delete entity;
 }
 
 void GameScene::mousePressEvent(QGraphicsSceneMouseEvent *event)

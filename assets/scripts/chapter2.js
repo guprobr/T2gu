@@ -279,7 +279,7 @@ function scatterOrganic(names, colStart, colEnd, rowStart, rowEnd, count, seed, 
 }
 
 function respawnCompanions() {
-    if (api.getVar("vigil_recruited", false))
+    if (api.getGlobalVar("vigil_recruited", false))
         api.spawnCharacter("dark_knight", 4, 45, 90);
 }
 
@@ -408,7 +408,7 @@ function buildVault() {
         { col: 158, row: 45 }, { col: 162, row: 45 }, { col: 160, row: 45 },
     ]);
 
-    if (!api.getVar("vigil_recruited", false))
+    if (!api.getGlobalVar("vigil_recruited", false))
         api.spawnNpc("dark_knight", 160, 45);
 
     if (api.getVar("vault_loot_spawned", false))
@@ -441,7 +441,7 @@ function* talkToVigil() {
         yield api.say("Vigil", "The town is answered. My garrison is not coming back for me, and this vault was never really what I was guarding. I'll carry what's left of it, if you'll have the weight.");
         api.despawnNpc("dark_knight");
         api.spawnCharacter("dark_knight", 158, 45, 90);
-        api.setVar("vigil_recruited", true);
+        api.setGlobalVar("vigil_recruited", true);
         api.playSound("select");
     }
 }
@@ -531,7 +531,7 @@ function* onItemCollected(itemId) {
     yield api.say("Lara", "There's always a last one who tried, with you. Who were they?");
     yield api.say("???", "Someone who stopped at the door. This town's floor isn't the end of it - go find what it's standing on.");
 
-    api.setVar("chapter", 3);
+    api.setGlobalVar("chapter", 3);
     api.playSound("select");
     yield api.wait(0.8);
     api.loadLevel("chapter3.json");

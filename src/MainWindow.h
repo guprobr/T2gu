@@ -98,20 +98,9 @@ private:
     // story flags from the run that just ended) and boots the real story
     // entry point again - a genuine full restart, not just a scene reload.
     void respawnFromBeginning();
-    // F5/F8 - a single save slot under the user's home directory (see
-    // saveFilePath() in the .cpp), not per-chapter or multi-slot. Persists
-    // exactly what already survives an ordinary loadLevel() transition
-    // (GameState's vars/inventory/level/experience/lastMusicTrack) plus
-    // which map to reopen - loading is then just loadLevel(savedMapPath)
-    // with that GameState already in place, so it re-runs that chapter's
-    // own onLevelStart() the same way returning to an already-visited
-    // chapter always has (recruited companions/collected key items/etc.
-    // all come back from their *_recruited/*_spawned vars exactly as they
-    // would on a normal revisit - nothing new to reconcile). What does
-    // NOT round-trip: the player's exact in-level position (resumes at
-    // the chapter's own entry point, same as re-entering it fresh) and
-    // anything scene-local a chapter script tracks itself outside
-    // api.setVar (none currently do).
+    // GameState plus the scene snapshot, in a single slot. A script's
+    // coroutine/queued events cannot be restored, so F5 is ignored while
+    // a script or dialogue is active or a scene transition is pending.
     void saveGame();
     void loadGame();
     // Dev/debug shortcut (N key) - jumps straight to "chapterN+1.json" from
