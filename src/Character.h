@@ -145,6 +145,12 @@ public:
     // that's the sprite's visual mid-torso, which sits well above the feet
     // for a tall sprite and would systematically misjudge the distance.
     QPointF feetPos() const { return pos() + feetOffset(); }
+    // Y, in this character's own coordinates, where its visible content
+    // starts (roughly the top of the head) - the cell's own top edge is
+    // hundreds of pixels above that (see SpriteSheet::topFraction()), so
+    // anything meant to sit "above the character" anchors here, like the
+    // health bar does.
+    qreal headTopY() const { return boundingRect().height() * m_sheet.topFraction(); }
 
     // The roster key this character was spawned as (e.g. "skeleton_archer")
     // - set once by GameScene::createCharacterAt(), the one shared spawn

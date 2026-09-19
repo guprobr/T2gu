@@ -109,13 +109,17 @@ void Character::setVelocity(QPointF pixelsPerSecond)
 
     m_velocity = pixelsPerSecond;
 
-    // Vertical movement picks the camera-facing block; horizontal movement
-    // mirrors whichever block is active. When vertical movement dominates
-    // (including straight down), facing goes back to Front - there's no
-    // dedicated down-facing art, Front doubles as "facing the camera."
-    if (std::abs(m_velocity.y()) >= std::abs(m_velocity.x()) && m_velocity.y() < 0)
+    // Moving up (with vertical movement at least as strong as horizontal)
+    // shows the Back block; any other movement shows the Front block - there
+    // is no dedicated down-facing or side-facing art, so Front (a three-
+    // quarter view, mirrored for left below) doubles as both "facing the
+    // camera" and "side view". Purely horizontal movement used to leave
+    // the facing untouched, so a character that had been walking up kept
+    // showing its back while it walked left or right. Standing still keeps
+    // whatever facing it last had.
+    if (m_velocity.y() < 0.0 && std::abs(m_velocity.y()) >= std::abs(m_velocity.x()))
         m_facing = SpriteSheet::Facing::Back;
-    else if (m_velocity.y() != 0.0)
+    else if (m_velocity.x() != 0.0 || m_velocity.y() != 0.0)
         m_facing = SpriteSheet::Facing::Front;
 
     if (m_velocity.x() < 0)

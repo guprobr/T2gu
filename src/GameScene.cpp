@@ -2598,7 +2598,7 @@ void GameScene::showLevelUpEffect()
     Character *player = controlledCharacter();
     if (!player)
         return;
-    new LevelUpTextItem(player); // self-removing (see its own header) - no pointer to keep
+    new LevelUpTextItem(player, player->headTopY()); // self-removing (see its own header) - no pointer to keep
 }
 
 void GameScene::updateItemPickups()

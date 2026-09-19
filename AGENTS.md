@@ -68,6 +68,17 @@ cmake --build build -j$(nproc)
   recompression was measured too and gains nothing (RAM depends on decoded
   pixels, not file size); 256-colour palettes decode 4× faster but visibly
   shift colours (e.g. the hero's goggle lens), so they need art sign-off.
+  **Sprite facing and anchoring:** `Character::setVelocity()` shows the Back
+  block only when moving up with vertical movement at least as strong as
+  horizontal; *any other movement* (including purely horizontal) shows the
+  Front block, mirrored for left — there is no side art, so Front's three-
+  quarter view is the side view. Purely horizontal movement used to leave
+  the facing unchanged, so walking up then left kept the back view. Anything
+  that should sit "above the character" (health bar, `LevelUpTextItem`)
+  anchors at `Character::headTopY()`, never at y=0 — the cell's top edge is
+  ~550px above the head after the sprite refit, which is what pushed the
+  level-up caption off-screen. An item's `boundingRect()` must cover
+  everything its `paint()` draws (Qt culls by it).
   **Sprite rendering contract:** `Character::boundingRect()` is always the
   full cell (`SpriteSheet::cellSize()`), not the trimmed pixmap actually
   drawn — the feet anchor, shadow, health bar, selection marker and
