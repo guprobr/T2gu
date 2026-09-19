@@ -6,6 +6,10 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QImage>
+#include <QPainter>
+#include <QRect>
+#include <QTransform>
 
 #include <cmath>
 
@@ -38,14 +42,6 @@ bool SpriteSheet::load(const QString &jsonPath, QString *errorOut)
     m_gutterSlots = root.value("gutterSlots").toInt(0);
     m_frameDurationMs = root.value("frameDurationMs").toInt(120);
 
-    const QString sheetFile = root.value("sheet").toString();
-    const QString sheetPath = QFileInfo(jsonPath).dir().filePath(sheetFile);
-    if (!m_sheet.load(sheetPath)) {
-        if (errorOut)
-            *errorOut = QStringLiteral("cannot load sheet image %1").arg(sheetPath);
-        return false;
-    }
-
     m_rows.clear();
     const QJsonArray rows = root.value("rows").toArray();
     for (const QJsonValue &v : rows) {
@@ -63,18 +59,96 @@ bool SpriteSheet::load(const QString &jsonPath, QString *errorOut)
         return false;
     }
 
+    const QString sheetFile = root.value("sheet").toString();
+    const QString sheetPath = QFileInfo(jsonPath).dir().filePath(sheetFile);
+    QImage sheet;
+    if (!sheet.load(sheetPath)) {
+        if (errorOut)
+            *errorOut = QStringLiteral("cannot load sheet image %1").arg(sheetPath);
+        return false;
+    }
+
+    // Scanned as raw bytes: alpha is byte 3 of each pixel for RGBA8888 (in
+    // memory order) and for ARGB32 on a little-endian machine (where it's
+    // the top byte of the native word), so the common PNG decode needs no
+    // conversion of the 181 MB image. Anything else is converted once.
+    const bool rgba8888 = sheet.format() == QImage::Format_RGBA8888 || sheet.format() == QImage::Format_RGBA8888_Premultiplied;
+    const bool argb32 = sheet.format() == QImage::Format_ARGB32 || sheet.format() == QImage::Format_ARGB32_Premultiplied;
+    if (!rgba8888 && !argb32)
+        sheet = sheet.convertToFormat(QImage::Format_ARGB32_Premultiplied);
+    const int alphaByte = (sheet.format() == QImage::Format_RGBA8888 || sheet.format() == QImage::Format_RGBA8888_Premultiplied
+                           || Q_BYTE_ORDER == Q_LITTLE_ENDIAN) ? 3 : 0;
+
+    const int cellHeight = static_cast<int>(std::llround(m_frameHeight));
+    auto storage = std::make_shared<Storage>();
+    for (auto it = m_rows.constBegin(); it != m_rows.constEnd(); ++it) {
+        const Row &row = it.value();
+        const int y = static_cast<int>(std::llround(row.index * m_frameHeight));
+        for (const Facing facing : { Facing::Front, Facing::Back }) {
+            const int count = rowFrameCount(row, facing);
+            for (int i = 0; i < count; ++i) {
+                const int col = facingOffset(facing) + i;
+                const qint64 key = frameKey(row.index, col);
+                if (storage->frames.contains(key))
+                    continue; // rows sharing an index (or overlapping blocks) share one frame
+
+                // The visible-pixel bounding box of this cell, clipped to
+                // the image (a cell hanging off the edge reads as
+                // transparent there, same as cropping it would).
+                const QRect cell = QRect(col * m_frameWidth, y, m_frameWidth, cellHeight).intersected(sheet.rect());
+                int minX = cell.right() + 1, minY = cell.bottom() + 1, maxX = -1, maxY = -1;
+                for (int py = cell.top(); py <= cell.bottom(); ++py) {
+                    const uchar *line = sheet.constScanLine(py);
+                    for (int px = cell.left(); px <= cell.right(); ++px) {
+                        if (line[px * 4 + alphaByte] == 0)
+                            continue;
+                        minX = std::min(minX, px);
+                        maxX = std::max(maxX, px);
+                        minY = std::min(minY, py);
+                        maxY = std::max(maxY, py);
+                    }
+                }
+
+                Frame frame;
+                if (maxX >= minX && maxY >= minY) {
+                    const QRect bounds(minX, minY, maxX - minX + 1, maxY - minY + 1);
+                    frame.pixmap = QPixmap::fromImage(sheet.copy(bounds));
+                    // Relative to the (unclipped) cell's own top-left, which is
+                    // what a full-cell pixmap's origin would have been.
+                    frame.offset = QPoint(minX - col * m_frameWidth, minY - y);
+                }
+                storage->frames.insert(key, frame);
+            }
+        }
+    }
+    m_storage = storage; // the sheet itself goes out of scope here and is freed
+
     return true;
+}
+
+int SpriteSheet::rowFrameCount(const Row &row, Facing facing) const
+{
+    const int override_ = (facing == Facing::Front) ? row.framesFront : row.framesBack;
+    if (override_ > 0)
+        return override_;
+    return (facing == Facing::Front) ? m_framesFront : m_framesBack;
+}
+
+int SpriteSheet::facingOffset(Facing facing) const
+{
+    return (facing == Facing::Front) ? 0 : (m_framesFront + m_gutterSlots);
 }
 
 int SpriteSheet::frameCount(const QString &movement, Facing facing) const
 {
     if (!m_rows.contains(movement))
         return 0;
-    const Row &row = m_rows.value(movement);
-    const int override_ = (facing == Facing::Front) ? row.framesFront : row.framesBack;
-    if (override_ > 0)
-        return override_;
-    return (facing == Facing::Front) ? m_framesFront : m_framesBack;
+    return rowFrameCount(m_rows.value(movement), facing);
+}
+
+QSize SpriteSheet::cellSize() const
+{
+    return QSize(m_frameWidth, static_cast<int>(std::llround(m_frameHeight)));
 }
 
 namespace {
@@ -114,32 +188,45 @@ qreal SpriteSheet::topFraction() const
     return kNominalTopFraction;
 }
 
-QPixmap SpriteSheet::frame(const QString &movement, int frameIndex, Facing facing) const
+SpriteSheet::Frame SpriteSheet::frame(const QString &movement, int frameIndex, Facing facing, bool mirrored) const
 {
     const int count = frameCount(movement, facing);
     if (count <= 0)
         return {};
 
     const Row &row = m_rows.value(movement);
-    // The Back block starts after the sheet's reserved Front columns plus
-    // its blank gutter columns - a fixed offset shared by every row, even
-    // if this particular row doesn't animate through all its Front slots.
-    const int facingOffset = (facing == Facing::Front) ? 0 : (m_framesFront + m_gutterSlots);
-    const int col = facingOffset + (frameIndex % count);
+    const int col = facingOffset(facing) + (frameIndex % count);
+    const qint64 key = frameKey(row.index, col);
 
-    // The result only depends on (row, col), and the source sheet never
-    // changes after load, so cache it rather than re-copying the same
-    // region out of m_sheet every time a non-animating frame is requested.
-    const qint64 cacheKey = (static_cast<qint64>(row.index) << 32) | static_cast<quint32>(col);
-    const auto cached = m_frameCache.constFind(cacheKey);
-    if (cached != m_frameCache.constEnd())
+    const auto found = m_storage->frames.constFind(key);
+    if (found == m_storage->frames.constEnd())
+        return {};
+    if (!mirrored || found->pixmap.isNull())
+        return found.value();
+
+    // Mirroring the cell flips the trimmed pixels in place and moves the
+    // offset to the opposite side.
+    const auto cached = m_storage->mirrored.constFind(key);
+    if (cached != m_storage->mirrored.constEnd())
         return cached.value();
+    Frame flipped;
+    flipped.pixmap = found->pixmap.transformed(QTransform().scale(-1, 1));
+    flipped.offset = QPoint(m_frameWidth - (found->offset.x() + found->pixmap.width()), found->offset.y());
+    m_storage->mirrored.insert(key, flipped);
+    return flipped;
+}
 
-    const int cellHeight = static_cast<int>(std::llround(m_frameHeight));
-    const int x = col * m_frameWidth;
-    const int y = static_cast<int>(std::llround(row.index * m_frameHeight));
+QPixmap SpriteSheet::paddedFrame(const QString &movement, int frameIndex, Facing facing) const
+{
+    const Frame trimmed = frame(movement, frameIndex, facing);
+    if (frameCount(movement, facing) <= 0)
+        return {};
 
-    const QPixmap cropped = m_sheet.copy(x, y, m_frameWidth, cellHeight);
-    m_frameCache.insert(cacheKey, cropped);
-    return cropped;
+    QPixmap cell(cellSize());
+    cell.fill(Qt::transparent);
+    if (!trimmed.pixmap.isNull()) {
+        QPainter painter(&cell);
+        painter.drawPixmap(trimmed.offset, trimmed.pixmap);
+    }
+    return cell;
 }

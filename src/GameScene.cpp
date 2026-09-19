@@ -311,6 +311,14 @@ constexpr qreal kPartyTrailSampleSpacing = 40.0;   // px the leader moves betwee
 constexpr qreal kPartyTrailSlotSpacing = 120.0;    // px of trail between consecutive followers
 constexpr qreal kPartyTrailTeleportDistance = 400.0; // px - a leader jump this big in one tick starts a new trail
 constexpr qreal kPartyTrailSlotTolerance = 30.0;   // px - close enough to its slot to hold still
+constexpr qreal kPartyTrailSlotHoldExit = 70.0;    // px - a follower holding at a static slot resumes past this (see followTrail())
+constexpr qreal kPartyTrailSlowRadius = 70.0;      // px from its slot inside which a follower eases off its speed
+constexpr qreal kPartyTrailMinSpeedFactor = 0.5;   // ...but never below this fraction, so a moving leader never sees it stall
+constexpr qreal kPartyTrailLeaderHoldExit = 170.0; // px - a follower waiting for the leader to walk past resumes beyond this
+constexpr qreal kPartyTrailPassMargin = 30.0;      // px behind the leader's side line at which it counts as having passed
+constexpr int kPartyTrailMaxScanSamples = 12;      // how many older trail points the corner search will try
+constexpr qreal kPartyTrailSteerRefreshSeconds = 0.1;
+constexpr qreal kPartyTrailTailMax = 720.0;        // px cap on the virtual tail (see m_trailTailDir)
 constexpr qreal kPartyTrailRetrySeconds = 0.4;     // A* is used this long after a trail lookup finds nothing reachable
 constexpr qreal kPartyTrailSuppressSeconds = 3.0;  // ...or after trail steering stops making progress
 constexpr qreal kPartySegmentSampleStep = 24.0;    // px between walkability samples in isSegmentWalkable()
@@ -1080,6 +1088,7 @@ void GameScene::switchToNextCharacter()
         if (m_party.at(nextIndex)->isDead())
             continue;
         m_party.at(m_controlledIndex)->setVelocity(QPointF(0, 0));
+        m_party.at(m_controlledIndex)->setRunning(false); // only the controlled character's run flag is ever refreshed - see MainWindow::refreshMoveIntent()
         m_controlledIndex = nextIndex;
         applyHealthBarDisplay();
         return;
@@ -1094,6 +1103,7 @@ void GameScene::commandSelectedCharacter()
         return;
 
     m_party.at(m_controlledIndex)->setVelocity(QPointF(0, 0));
+    m_party.at(m_controlledIndex)->setRunning(false); // only the controlled character's run flag is ever refreshed - see MainWindow::refreshMoveIntent()
     m_controlledIndex = m_selectedIndex;
     applyHealthBarDisplay();
 }
@@ -1234,8 +1244,13 @@ void GameScene::updatePartyAI(qreal dtSeconds)
 
     int followerIndex = 0;
     for (Character *character : std::as_const(m_party)) {
-        if (character == controlled)
+        if (character == controlled) {
+            // A follower that was mid-shuffle when control switched to it
+            // would otherwise keep reserving that spot against everyone
+            // else's spacing checks for as long as it leads.
+            m_partyPaths[character].hasShuffleTarget = false;
             continue;
+        }
 
         qreal &attackCooldown = m_partyAttackCooldowns[character];
         if (attackCooldown > 0.0)
@@ -1329,7 +1344,7 @@ void GameScene::updatePartyAI(qreal dtSeconds)
             shuffleInCrowd(character, path, playerFeet, dtSeconds);
         else
             followTrail(character, path, playerFeet, leaderStill ? std::min(slotArc, kPartyCrowdGatherArc) : slotArc,
-                        followSpeed, dtSeconds);
+                        followSpeed, leaderStill, dtSeconds);
         ++followerIndex;
     }
 }
@@ -1338,22 +1353,32 @@ void GameScene::updateLeaderTrail(Character *leader, qreal dtSeconds)
 {
     const QPointF feet = leader->feetPos();
     const QPointF moved = feet - m_lastLeaderFeet;
-    const bool jumped = std::hypot(moved.x(), moved.y()) > kPartyTrailTeleportDistance;
+    const qreal movedDistance = std::hypot(moved.x(), moved.y());
+    const bool jumped = movedDistance > kPartyTrailTeleportDistance;
     if (leader != m_trailLeader || jumped || m_leaderTrail.isEmpty()) {
         m_trailLeader = leader;
         m_leaderTrail.clear();
         m_leaderTrail.append(feet);
         m_lastLeaderFeet = feet;
-        m_leaderStillSeconds = 0.0;
+        m_leaderHeading = QPointF(0, 0);
+        m_trailTailLength = 0.0;
+        // Assume the new leader is standing still: if it isn't, the very
+        // next tick says so. Starting at zero instead put every follower
+        // through a spurious "leader is moving" spell (half a second of
+        // running for a line-up that the leader's next pause immediately
+        // undid) each time control switched or a level loaded.
+        m_leaderStillSeconds = kPartyCrowdSettleSeconds;
         return;
     }
 
     // Position, not velocity: a leader shoving against a wall is standing
     // still as far as the party can tell.
-    if (std::hypot(moved.x(), moved.y()) < 1.0)
+    if (movedDistance < 1.0) {
         m_leaderStillSeconds += dtSeconds;
-    else
+    } else {
         m_leaderStillSeconds = 0.0;
+        m_leaderHeading = moved / movedDistance;
+    }
     m_lastLeaderFeet = feet;
 
     const QPointF sinceSample = feet - m_leaderTrail.last();
@@ -1365,9 +1390,48 @@ void GameScene::updateLeaderTrail(Character *leader, qreal dtSeconds)
     const int maxSamples = static_cast<int>(std::ceil(m_party.size() * kPartyTrailSlotSpacing / kPartyTrailSampleSpacing)) + 4;
     if (m_leaderTrail.size() > maxSamples)
         m_leaderTrail.remove(0, m_leaderTrail.size() - maxSamples);
+
+    // Only a freshly started trail is short of the furthest slot, and only
+    // for as long as it takes the leader to walk that far - skip the
+    // sweep below the rest of the time.
+    const qreal needed = m_party.size() * kPartyTrailSlotSpacing;
+    qreal recorded = 0.0;
+    QPointF previous = feet;
+    for (int i = m_leaderTrail.size() - 1; i >= 0 && recorded < needed; --i) {
+        recorded += std::hypot(previous.x() - m_leaderTrail.at(i).x(), previous.y() - m_leaderTrail.at(i).y());
+        previous = m_leaderTrail.at(i);
+    }
+    if (recorded >= needed) {
+        m_trailTailLength = 0.0;
+        return;
+    }
+    const QPointF oldest = m_leaderTrail.first();
+    QPointF back = m_leaderTrail.size() >= 2 ? oldest - m_leaderTrail.at(1) : oldest - feet;
+    qreal backLength = std::hypot(back.x(), back.y());
+    if (backLength < 0.5) {
+        back = -m_leaderHeading;
+        backLength = std::hypot(back.x(), back.y());
+    }
+    if (backLength < 0.5) {
+        back = QPointF(0, -1); // never moved: behind is arbitrary, so pick up-screen
+        backLength = 1.0;
+    }
+    m_trailTailDir = back / backLength;
+    // One pass outward from the oldest point until the first wall - a
+    // straight ray is walkable up to some length and then not, so there's
+    // no need to test candidate lengths against each other.
+    qreal length = 0.0;
+    const qreal limit = std::min(needed - recorded, kPartyTrailTailMax);
+    while (length + kPartySegmentSampleStep <= limit) {
+        const QPointF p = oldest + m_trailTailDir * (length + kPartySegmentSampleStep);
+        if (!m_map.isWalkable(p.x(), p.y()) || m_blockingAreas.containsPoint(p.x(), p.y()))
+            break;
+        length += kPartySegmentSampleStep;
+    }
+    m_trailTailLength = length;
 }
 
-QPointF GameScene::trailPointAtArc(QPointF leaderFeet, qreal arc, int &olderIndex) const
+QPointF GameScene::trailPointAtArc(QPointF leaderFeet, qreal arc, bool allowTail, int &olderIndex) const
 {
     QPointF previous = leaderFeet;
     qreal remaining = arc;
@@ -1383,7 +1447,9 @@ QPointF GameScene::trailPointAtArc(QPointF leaderFeet, qreal arc, int &olderInde
         previous = sample;
     }
     olderIndex = -1;
-    return previous; // trail shorter than arc (or empty): the oldest point, or the leader itself
+    // Past the oldest sample (previous is now that sample, or the leader
+    // itself for an empty trail).
+    return allowTail ? previous + m_trailTailDir * std::min(remaining, m_trailTailLength) : previous;
 }
 
 bool GameScene::isSegmentWalkable(QPointF from, QPointF to) const
@@ -1399,22 +1465,47 @@ bool GameScene::isSegmentWalkable(QPointF from, QPointF to) const
 }
 
 bool GameScene::followTrail(Character *character, PartyPath &pathState, QPointF leaderFeet, qreal arc, qreal speed,
-                            qreal dtSeconds)
+                            bool leaderStill, qreal dtSeconds)
 {
+    pathState.hasShuffleTarget = false;
     const QPointF selfFeet = character->feetPos();
     int olderIndex = -1;
-    const QPointF slot = trailPointAtArc(leaderFeet, arc, olderIndex);
+    // The virtual tail is for a leader that's walking: a still leader's
+    // followers are gathering around it, and a spot in the air behind a
+    // leader that has never moved isn't somewhere worth gathering at.
+    const QPointF slot = trailPointAtArc(leaderFeet, arc, !leaderStill, olderIndex);
 
     const QPointF toSlot = slot - selfFeet;
-    const QPointF toLeader = leaderFeet - selfFeet;
-    if (std::hypot(toSlot.x(), toSlot.y()) <= kPartyTrailSlotTolerance
-        || std::hypot(toLeader.x(), toLeader.y()) <= kPartyFollowStopRadius) {
+    const QPointF fromLeader = selfFeet - leaderFeet;
+    const qreal distanceToSlot = std::hypot(toSlot.x(), toSlot.y());
+    const qreal distanceToLeader = std::hypot(fromLeader.x(), fromLeader.y());
+
+    // Stopping is decided with separate enter/exit thresholds. A follower
+    // keeping pace with the leader hovers right at any single threshold
+    // and, without the gap, flipped between stopped and moving every tick
+    // or two - each stopped tick resets Character's walk cycle to frame 0,
+    // so the animation never got past its first frame or two.
+    if (leaderStill) {
+        // Fixed slot: arrive, and hold until something pushes it away.
+        if (pathState.trailHolding)
+            pathState.trailHolding = distanceToSlot <= kPartyTrailSlotHoldExit;
+        else
+            pathState.trailHolding = distanceToSlot <= kPartyTrailSlotTolerance;
+    } else {
+        // Sliding slot: never stop for it (see the speed easing below). The
+        // one reason to wait is standing in the leader's path - ahead of it
+        // or alongside - where the slot is behind the leader and walking
+        // there means turning around through it. Wait for it to pass.
+        const bool inTheWay = distanceToLeader <= (pathState.trailHolding ? kPartyTrailLeaderHoldExit : kPartyFollowStopRadius)
+            && QPointF::dotProduct(fromLeader, m_leaderHeading) > -kPartyTrailPassMargin;
+        pathState.trailHolding = inTheWay;
+    }
+    if (pathState.trailHolding) {
         character->setVelocity(QPointF(0, 0));
         pathState.waypoints.clear();
         pathState.trailStuckTimer = 0.0;
         return true;
     }
-    pathState.hasShuffleTarget = false;
 
     if (pathState.trailSuppressSeconds > 0.0)
         pathState.trailSuppressSeconds -= dtSeconds;
@@ -1422,32 +1513,53 @@ bool GameScene::followTrail(Character *character, PartyPath &pathState, QPointF 
         // Steer for the point of the trail nearest the slot that's in a
         // straight walkable line from here: the slot itself if it's
         // visible, otherwise the newest earlier trail point that is (the
-        // corner the follower still has to round, say).
-        bool found = isSegmentWalkable(selfFeet, slot);
-        QPointF steer = slot;
-        for (int i = olderIndex; !found && i >= 0; --i) {
-            if (isSegmentWalkable(selfFeet, m_leaderTrail.at(i))) {
-                steer = m_leaderTrail.at(i);
-                found = true;
+        // corner the follower still has to round, say). The choice is
+        // only refreshed every kPartyTrailSteerRefreshSeconds; between
+        // refreshes the follower keeps heading for the same target.
+        pathState.trailSteerCooldown -= dtSeconds;
+        if (!pathState.hasTrailSteer || pathState.trailSteerCooldown <= 0.0) {
+            pathState.trailSteerCooldown = kPartyTrailSteerRefreshSeconds;
+            pathState.hasTrailSteer = false;
+            if (isSegmentWalkable(selfFeet, slot)) {
+                pathState.hasTrailSteer = true;
+                pathState.trailSteerIsSlot = true;
+            } else {
+                const int oldest = std::max(0, olderIndex - kPartyTrailMaxScanSamples + 1);
+                for (int i = olderIndex; i >= oldest; --i) {
+                    if (isSegmentWalkable(selfFeet, m_leaderTrail.at(i))) {
+                        pathState.hasTrailSteer = true;
+                        pathState.trailSteerIsSlot = false;
+                        pathState.trailSteerPoint = m_leaderTrail.at(i);
+                        break;
+                    }
+                }
             }
         }
 
-        if (found) {
+        if (pathState.hasTrailSteer) {
+            const QPointF steer = pathState.trailSteerIsSlot ? slot : pathState.trailSteerPoint;
             pathState.waypoints.clear(); // any A* route from an earlier fallback is moot now
             pathState.trailStuckTimer += dtSeconds;
             if (pathState.trailStuckTimer >= kPartyStuckSeconds) {
                 const QPointF progress = selfFeet - pathState.trailProgressAnchor;
-                if (std::hypot(progress.x(), progress.y()) < kPartyStuckProgressThreshold)
+                if (std::hypot(progress.x(), progress.y()) < kPartyStuckProgressThreshold) {
                     pathState.trailSuppressSeconds = kPartyTrailSuppressSeconds;
+                    pathState.hasTrailSteer = false;
+                }
                 pathState.trailProgressAnchor = selfFeet;
                 pathState.trailStuckTimer = 0.0;
             }
+
+            // Ease off near the slot rather than stopping short of it, so a
+            // follower that has caught up settles into a slightly slower
+            // stride behind a moving leader instead of stop-start.
+            const qreal easing = std::clamp(distanceToSlot / kPartyTrailSlowRadius, kPartyTrailMinSpeedFactor, 1.0);
             const QPointF toSteer = steer - selfFeet;
             const qreal distance = std::hypot(toSteer.x(), toSteer.y());
             if (distance > 1.0)
-                character->setVelocity(QPointF(toSteer.x() / distance * speed, toSteer.y() / distance * speed));
+                character->setVelocity(toSteer / distance * (speed * easing));
             else
-                character->setVelocity(QPointF(0, 0));
+                character->setVelocity(m_leaderHeading * (speed * easing)); // on the spot: keep going with the leader
             return false;
         }
         // Nothing on the trail is reachable from here - off the trail after
@@ -1455,6 +1567,7 @@ bool GameScene::followTrail(Character *character, PartyPath &pathState, QPointF 
         pathState.trailSuppressSeconds = kPartyTrailRetrySeconds;
     }
 
+    pathState.hasTrailSteer = false;
     pathState.trailStuckTimer = 0.0;
     pathState.trailProgressAnchor = selfFeet;
     moveAlongPath(character, pathState, slot, speed, dtSeconds);
@@ -1499,6 +1612,7 @@ void GameScene::shuffleInCrowd(Character *character, PartyPath &pathState, QPoin
             return;
         }
         pathState.hasShuffleTarget = false;
+        pathState.shuffleWaitingRetry = false;
         pathState.shuffleTimer = kPartyShufflePauseMinSeconds
             + rng.generateDouble() * (kPartyShufflePauseMaxSeconds - kPartyShufflePauseMinSeconds);
     } else if (pathState.shuffleTimer > 0.0) {
@@ -1506,7 +1620,10 @@ void GameScene::shuffleInCrowd(Character *character, PartyPath &pathState, QPoin
     }
 
     character->setVelocity(QPointF(0, 0));
-    if (pathState.shuffleTimer > 0.0 && !overlapping)
+    // An overlapping follower skips the idle pause, but not the retry delay
+    // after a failed search - otherwise one boxed-in enough to find no
+    // valid step would rerun the whole candidate search every tick.
+    if (pathState.shuffleTimer > 0.0 && (!overlapping || pathState.shuffleWaitingRetry))
         return;
 
     // How far out in the crowd area a point is: 0 at the leader, 1 at the
@@ -1529,10 +1646,12 @@ void GameScene::shuffleInCrowd(Character *character, PartyPath &pathState, QPoin
         if (violatesCrowdSpacing(candidate, character, true) || !isSegmentWalkable(selfFeet, candidate))
             continue;
         pathState.hasShuffleTarget = true;
+        pathState.shuffleWaitingRetry = false;
         pathState.shuffleTarget = candidate;
         pathState.shuffleTimer = kPartyShuffleMaxWalkSeconds;
         return;
     }
+    pathState.shuffleWaitingRetry = true;
     pathState.shuffleTimer = kPartyShuffleRetrySeconds; // nothing fit this time - try again shortly
 }
 
@@ -2564,6 +2683,7 @@ void GameScene::scriptGiveControl(const QString &name)
         return; // an enemy, not a controllable party member
 
     m_party.at(m_controlledIndex)->setVelocity(QPointF(0, 0));
+    m_party.at(m_controlledIndex)->setRunning(false); // only the controlled character's run flag is ever refreshed - see MainWindow::refreshMoveIntent()
     m_controlledIndex = index;
     applyHealthBarDisplay();
 }

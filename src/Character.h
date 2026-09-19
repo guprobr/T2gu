@@ -34,6 +34,12 @@ public:
     void setVelocity(QPointF pixelsPerSecond);
     void tick(qreal dtSeconds);
 
+    // Always the full sprite cell, not the (smaller, per-frame) trimmed
+    // pixmap actually being drawn - feetOffset(), the shadow, the health
+    // bar, the selection marker and the level-up text are all laid out
+    // against the cell, and a bounding rect that changed size with every
+    // animation frame would move all of them.
+    QRectF boundingRect() const override;
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
 
     // Which way the soft ground shadow (see paint()) leans, in item-local

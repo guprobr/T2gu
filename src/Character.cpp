@@ -57,6 +57,12 @@ Character::Character(SpriteSheet sheet, QGraphicsItem *parent)
     updatePixmap();
 }
 
+QRectF Character::boundingRect() const
+{
+    const QSize cell = m_sheet.cellSize();
+    return QRectF(0, 0, cell.width(), cell.height());
+}
+
 void Character::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget)
 {
     // A soft, flattened ground-contact shadow drawn once per frame right
@@ -120,19 +126,18 @@ void Character::setVelocity(QPointF pixelsPerSecond)
 
 QPointF Character::feetOffset() const
 {
-    // Bottom-center of whatever frame is currently showing, pulled up to
-    // wherever the sheet says the ground-contact point actually is rather
-    // than assuming it's flush with the sprite's bottom edge - frame() may
-    // pad the pixmap with extra margin above/below the character (see
-    // SpriteSheet::feetFraction()), so that point isn't always at a fixed
-    // fraction of the raw frame height.
+    // Bottom-center of the sprite cell, pulled up to wherever the sheet
+    // says the ground-contact point actually is rather than assuming it's
+    // flush with the cell's bottom edge - the cell pads the character with
+    // extra margin above/below (see SpriteSheet::feetFraction()), so that
+    // point isn't at the raw cell's bottom.
     const QRectF r = boundingRect();
     return QPointF(r.width() / 2.0, r.height() * m_sheet.feetFraction());
 }
 
 QPixmap Character::portraitPixmap() const
 {
-    const QPixmap frame = m_sheet.frame(QStringLiteral("idle"), 0, SpriteSheet::Facing::Front);
+    const QPixmap frame = m_sheet.paddedFrame(QStringLiteral("idle"), 0, SpriteSheet::Facing::Front);
     if (frame.isNull())
         return frame;
 
@@ -468,17 +473,17 @@ void Character::updatePixmap()
         frameIndex = m_frame;
     }
 
-    QPixmap frame = m_sheet.frame(movement, frameIndex, m_facing);
-    if (m_mirrorLeft)
-        frame = frame.transformed(QTransform().scale(-1, 1));
-
-    setPixmap(frame);
+    // Trimmed to the visible pixels and drawn at its offset within the
+    // cell (see SpriteSheet::Frame); the mirrored variant is cached by the
+    // sheet, so this no longer re-flips a full cell every tick.
+    const SpriteSheet::Frame frame = m_sheet.frame(movement, frameIndex, m_facing, m_mirrorLeft);
+    setPixmap(frame.pixmap);
+    setOffset(frame.offset);
 
     // Depth-sort by ground-contact Y (world coordinates) rather than a fixed
     // stacking order: a character standing "above" (smaller world Y than) a
     // prop's own base is drawn behind it, one standing "below" is drawn in
-    // front. Recomputed every call (idle or moving) since boundingRect() -
-    // and so feetOffset() - can change size across the pixmap just set above.
+    // front. Recomputed every call (idle or moving).
     //
     // A corpse (frozen forever on its last die frame - see tickAction())
     // doesn't get this Y-based treatment: it's meant to read as a flat mark

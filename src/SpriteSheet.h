@@ -2,7 +2,11 @@
 
 #include <QHash>
 #include <QPixmap>
+#include <QPoint>
+#include <QSize>
 #include <QString>
+
+#include <memory>
 
 // Loads a per-character sprite sheet laid out as a grid: each row is one
 // action (names and count vary per character - not every character has
@@ -38,15 +42,44 @@
 // roster - every sheet's frameWidth/frameHeight already reflects the
 // corrected, no-bleed cell size, so there's nothing left for frame() to
 // work around at runtime.
+//
+// Memory: a sheet is a big, mostly empty image (a typical character's is
+// 4480x10120 RGBA, ~181 MB decoded, and each cell is margin-padded around
+// content that fills a small part of it). load() decodes it once, keeps
+// only every frame's non-transparent bounding box (roughly a tenth of the
+// size), and drops the sheet - holding every character's whole sheet
+// resident is what made the sandbox roster use ~20 GB. The trimmed frames
+// live behind a shared_ptr, so copying a SpriteSheet (every Character
+// gets one) shares them rather than duplicating them.
 class SpriteSheet
 {
 public:
     enum class Facing { Front, Back };
 
+    // One frame, trimmed to its non-transparent bounding box. `offset` is
+    // where the trimmed pixmap's top-left sits within the frame's full
+    // cellSize() cell, so painting it there is pixel-identical to painting
+    // the whole padded cell. A frame with no visible pixels has a null
+    // pixmap.
+    struct Frame
+    {
+        QPixmap pixmap;
+        QPoint offset;
+    };
+
     bool load(const QString &jsonPath, QString *errorOut = nullptr);
 
     bool hasMovement(const QString &name) const { return m_rows.contains(name); }
-    QPixmap frame(const QString &movement, int frameIndex, Facing facing) const;
+    // `mirrored` flips the frame horizontally within its cell (left-facing
+    // art is the right-facing block mirrored); mirrored frames are built on
+    // first use and cached.
+    Frame frame(const QString &movement, int frameIndex, Facing facing, bool mirrored = false) const;
+    // The same frame as one full-cell pixmap, composed on demand and NOT
+    // cached (~2 MB) - for one-off uses like a UI portrait, not per-tick
+    // drawing.
+    QPixmap paddedFrame(const QString &movement, int frameIndex, Facing facing) const;
+    // The full grid cell every Frame::offset is relative to.
+    QSize cellSize() const;
     int frameCount(const QString &movement, Facing facing) const;
     int frameDurationMs() const { return m_frameDurationMs; }
 
@@ -71,7 +104,23 @@ private:
         int framesBack = -1;
     };
 
-    QPixmap m_sheet;
+    struct Storage
+    {
+        QHash<qint64, Frame> frames;   // trimmed, keyed by (row.index, col) - see load()
+        QHash<qint64, Frame> mirrored; // built lazily by frame(); the app only touches sheets from the GUI thread
+    };
+
+    static qint64 frameKey(int rowIndex, int col) { return (static_cast<qint64>(rowIndex) << 32) | static_cast<quint32>(col); }
+    // How many of a row's reserved columns its animation actually uses in a
+    // facing block - the per-row override if it has one, else the sheet-level count.
+    int rowFrameCount(const Row &row, Facing facing) const;
+    // Grid column where a facing's block starts - after the sheet's
+    // reserved Front columns plus the blank gutter, a fixed offset shared
+    // by every row even if a particular row doesn't animate through all of
+    // its Front slots.
+    int facingOffset(Facing facing) const;
+
+    std::shared_ptr<Storage> m_storage = std::make_shared<Storage>();
     int m_frameWidth = 0;
     double m_frameHeight = 0.0;
     int m_framesFront = 4;  // reserved front columns in the grid (also the default per-row count)
@@ -79,5 +128,4 @@ private:
     int m_gutterSlots = 0;  // blank columns between the front and back blocks
     int m_frameDurationMs = 120;
     QHash<QString, Row> m_rows;
-    mutable QHash<qint64, QPixmap> m_frameCache; // keyed by (row.index, col); see frame()
 };

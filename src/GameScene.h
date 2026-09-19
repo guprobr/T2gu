@@ -431,6 +431,19 @@ private:
         qreal trailSuppressSeconds = 0.0;
         QPointF trailProgressAnchor; // where trail steering last measured progress from
         qreal trailStuckTimer = 0.0;
+        // Standing still on purpose (arrived at a static slot, or waiting
+        // for the leader to walk past). Kept as state, with different
+        // enter/exit thresholds, rather than re-derived each tick: a
+        // single threshold made a follower keeping pace with the leader
+        // flip between stopped and moving every tick or two, and every
+        // stopped tick resets Character's walk cycle to frame 0.
+        bool trailHolding = false;
+        // The steering decision is refreshed every kPartyTrailSteerRefreshSeconds
+        // instead of every tick - see followTrail().
+        bool hasTrailSteer = false;
+        bool trailSteerIsSlot = true; // else trailSteerPoint, an earlier trail point (a corner to round)
+        QPointF trailSteerPoint;
+        qreal trailSteerCooldown = 0.0;
 
         // Crowd shuffle state (see shuffleInCrowd()), used only while the
         // leader is standing still. shuffleTimer is the remaining walk time
@@ -438,6 +451,7 @@ private:
         bool hasShuffleTarget = false;
         QPointF shuffleTarget;
         qreal shuffleTimer = 0.0;
+        bool shuffleWaitingRetry = false; // shuffleTimer is a retry delay after finding no valid step, not a pause
     };
 
     enum class HealthBarDisplay { HeroOnly, All, None };
@@ -507,11 +521,19 @@ private:
     // true if the follower is already close enough to that spot to hold
     // (velocity set to zero), false if it's still moving. Falls back to
     // moveAlongPath() (A*) when no trail point is reachable from here.
-    bool followTrail(Character *character, PartyPath &pathState, QPointF leaderFeet, qreal arc, qreal speed, qreal dtSeconds);
+    // `leaderStill` selects how it stops: a moving leader's slot keeps
+    // sliding away, so the follower eases off near it but never fully
+    // stops (except to let a leader that's walking toward it pass); a
+    // still leader's slot is fixed, so it arrives and holds.
+    bool followTrail(Character *character, PartyPath &pathState, QPointF leaderFeet, qreal arc, qreal speed,
+                     bool leaderStill, qreal dtSeconds);
     // Finds the point `arc` pixels back along m_leaderTrail from the
     // leader's live position, and the trail index just older than it (-1 if
-    // there's none). A trail shorter than `arc` yields its oldest point.
-    QPointF trailPointAtArc(QPointF leaderFeet, qreal arc, int &olderIndex) const;
+    // there's none). Past the oldest recorded point: with `allowTail`, the
+    // virtual tail (see m_trailTailDir) so a trail that has only just
+    // started still gives every follower its own spot behind the leader;
+    // without it, the oldest point itself.
+    QPointF trailPointAtArc(QPointF leaderFeet, qreal arc, bool allowTail, int &olderIndex) const;
     // Whether the straight line between two points crosses only walkable
     // ground (tile walkability + m_blockingAreas, sampled every few pixels
     // - the same feet-point test real movement uses).
@@ -667,7 +689,17 @@ private:
     QVector<QPointF> m_leaderTrail;
     Character *m_trailLeader = nullptr;
     QPointF m_lastLeaderFeet;
+    QPointF m_leaderHeading; // unit vector of the leader's latest movement, (0,0) until it has moved
     qreal m_leaderStillSeconds = 0.0;
+    // A trail that has only just started (after a control switch, a level
+    // load or a teleport) is shorter than the furthest follower's slot. It
+    // is extended backward from its oldest point in a straight line, along
+    // m_trailTailDir for m_trailTailLength px (stopping at the first wall),
+    // as if the leader had walked in from there - so followers line up
+    // behind it the moment it moves instead of all converging on the one
+    // spot it started from. Zero length once the real trail is long enough.
+    QPointF m_trailTailDir;
+    qreal m_trailTailLength = 0.0;
     // Cells findPath() should treat as impassable a bit longer than the
     // map's own static data says, keyed by tile cell with seconds
     // remaining (decremented/pruned once per tick in onTick()). Populated

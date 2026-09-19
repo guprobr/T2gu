@@ -60,6 +60,7 @@ add_executable(T2gu2
     src/SelectionInfoWidget.cpp
     src/SelectionInfoWidget.h
     src/GameState.h
+    src/Version.h
 )
 
 target_link_libraries(T2gu2 PRIVATE Qt6::Widgets Qt6::Qml Qt6::Multimedia)

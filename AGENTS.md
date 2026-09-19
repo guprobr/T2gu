@@ -44,6 +44,37 @@ cmake --build build -j$(nproc)
     timeout 8 env QT_QPA_PLATFORM=offscreen T2GU_MAP_PATH="assets/maps/chapter$ch.json" ./build/T2gu2 2>&1 | grep -iE "error|warning|fatal|assert"
   done
   ```
+  **Watch memory when testing.** A character's sprite sheet is
+  4480×10120 RGBA — ~181 MB decoded — so `SpriteSheet::load()` decodes it
+  once, keeps only each frame's non-transparent bounding box
+  (`SpriteSheet::Frame`: trimmed pixmap + offset within the cell, ~14–69 MB
+  per character, ~56 MB mean) and drops the sheet. Measured once settled
+  (RSS flat for several seconds — a fixed-time sample catches a chapter
+  mid-load and under-reports, which an earlier version of these numbers
+  did): chapter 4 849 MB (was 2,453 MB); `sandbox.json`, which loads the
+  *entire* 115-character roster into the party, 6.4 GB after ~68 s of
+  loading (was ~20 GB). Still enough
+  to hurt on a small machine, and to push a 32 GB one into swap and make
+  timing measurements meaningless — so never run the sandbox unguarded:
+  poll `/proc/<pid>/status` `VmRSS` and kill it past a few GB, and read
+  timing numbers only from runs that stayed clear of swap.
+  **Considered and declined (2026-09-19):** baking trimmed per-frame PNGs
+  offline and decoding lazily would cut a chapter to ~0.15–0.35 GB and skip
+  the full-sheet decode, but a session that exercises every animation
+  (sandbox `K` parade, Tab through the roster) would slowly decode
+  everything again and drift back to the current figures unless the frame
+  cache were also capped (LRU). The owner judged the current memory well
+  optimized and chose not to take on that pipeline step. Lossless PNG
+  recompression was measured too and gains nothing (RAM depends on decoded
+  pixels, not file size); 256-colour palettes decode 4× faster but visibly
+  shift colours (e.g. the hero's goggle lens), so they need art sign-off.
+  **Sprite rendering contract:** `Character::boundingRect()` is always the
+  full cell (`SpriteSheet::cellSize()`), not the trimmed pixmap actually
+  drawn — the feet anchor, shadow, health bar, selection marker and
+  level-up text are all laid out against the cell. Anything needing a
+  whole-cell image (the UI portrait) uses `SpriteSheet::paddedFrame()`,
+  which composes it on demand. Verified pixel-identical to the old full-
+  cell path across all 115 characters, every frame, both orientations.
   There is no unit test suite and no live-input test framework. Verifying
   actual keyboard/mouse interaction requires a real (or nested) X11
   display and synthetic input (XTest) — this has proven flaky in sandboxed
@@ -56,6 +87,10 @@ cmake --build build -j$(nproc)
 
 ```
 src/            all C++ (flat, no subdirectories)
+  Version.h     `kGameVersion`, the game's version string. Bump it here
+                AND in README.md (the line right below the screenshot)
+                together on every release; main.cpp registers it with Qt
+                via `setApplicationVersion()`
 assets/
   characters/   one subdirectory per roster entry (135 currently), each a
                 sprite sheet PNG + JSON sidecar; stats.json and
@@ -251,6 +286,26 @@ other tileset's index-9 terrain is purely decorative.
   conflict needs both axes too close, so clear on either is enough).
   Followers outside the area or without a line to the leader keep
   following the trail toward `kPartyCrowdGatherArc`.
+- **Never gate stopping on a single threshold.** A follower keeping pace
+  with a moving leader hovers right at any one stop/go distance, and
+  flipping between stopped and moving every tick or two is not just
+  jittery: `Character::tick()` resets the walk cycle to frame 0 on every
+  zero-velocity tick, so the animation never gets past its first frames
+  (measured: ~15 stops per follower per second, with the old radius check
+  too). `followTrail()` therefore (a) never stops for a *moving* leader's
+  slot — it eases its speed down to `kPartyTrailMinSpeedFactor` near it
+  instead — (b) holds for a *still* leader's slot with different
+  enter/exit distances (`PartyPath::trailHolding`), and (c) only waits
+  when standing ahead of or beside a leader that's walking toward it.
+- A trail that has just started (control switch, level load, teleport) is
+  shorter than the furthest follower's slot. `updateLeaderTrail()`
+  extends it with a straight virtual tail behind the oldest point
+  (`m_trailTailDir`/`m_trailTailLength`, stopping at the first wall), used
+  only while the leader is walking, so followers line up behind it
+  immediately instead of all converging on the spot it started from. A new
+  leader is assumed still until it moves, and `switchTo*`/`giveControl`
+  clear the old leader's run flag (only the controlled character's is
+  ever refreshed).
 - The trail restarts whenever the leader changes or jumps more than
   `kPartyTrailTeleportDistance` in one tick (level load, snapshot
   restore, script teleport), and `destroyEntity()` clears it if the leader

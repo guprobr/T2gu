@@ -8,6 +8,7 @@
 #include <QTimer>
 
 #include "MainWindow.h"
+#include "Version.h"
 
 namespace {
 // Held on screen for a fixed minimum duration below, same reasoning as
@@ -44,6 +45,7 @@ QPixmap buildSplashPixmap()
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
+    app.setApplicationVersion(QString::fromLatin1(kGameVersion));
 
     // Shown before MainWindow (and the actual first chapter it loads)
     // exist at all - a black screen naming the game, not a menu/UI, per
