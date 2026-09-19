@@ -978,22 +978,24 @@ void GameScene::decorateMapEdges(const QJsonObject &mapRoot)
     // silhouette back into view.
     enum class Edge { Top, Right, Bottom, Left };
     constexpr qreal kHorizonEdgeOffsetPx = 100.0;
-    // A side-edge (rotated) horizon strip is ~4.5 tiles tall on screen (its
-    // own 3:1 landscape aspect, rotated upright) - spawning one per tile row
-    // like Top/Bottom do stacks ~4-5 fully-overlapping copies at any given
-    // point along the edge. That was already wasteful before this session's
-    // 2x asset scale; it's a real cost now because a rotated item can't take
-    // Qt's cheap axis-aligned blit path (same "no fast path for a non-
-    // identity transform" rasterizer Qt uses for scaling - see MainWindow's
-    // zoom comments - applies to rotation too), so every one of those
-    // redundant overlapping copies pays that expensive path's cost at its
-    // own now-4x-bigger pixel area. Spawning one every kSideEdgePropStride
-    // tiles instead - comfortably under the ~4.5-tile natural span, so
-    // coverage stays seamless - keeps the same visual result with a third
-    // as many rotated items to rasterize. Blocking coverage is untouched:
-    // every tile is still registered solid below, independent of whether
-    // that tile got a visual prop.
-    constexpr int kSideEdgePropStride = 3;
+    // A horizon strip is wide (9 tiles along its edge at the current asset
+    // scale) - spawning one per tile stacks ~9 fully-overlapping copies at
+    // any given point along the edge, on ALL four edges: the top and bottom
+    // rows placed one per column, and the side ones one per row. That was
+    // already wasteful, and it is a real cost: each copy is a big alpha-
+    // blended pixmap (and its shadow), and a border row on screen put
+    // ~190 props in view at once - frame time scales with props in view,
+    // so running along an edge dropped frames on a large window. On the
+    // side edges each copy is also rotated, which can't take Qt's cheap
+    // axis-aligned blit path (the same "no fast path for a non-identity
+    // transform" rasterizer Qt uses for scaling - see MainWindow's zoom
+    // comments - applies to rotation too). Spawning one every
+    // kEdgePropStride tiles instead - well under the 9-tile span, so
+    // coverage stays seamless (3 overlapping copies at every point) -
+    // keeps the same visual result with a third as many props to draw.
+    // Blocking coverage is untouched: every tile is still registered solid
+    // below, independent of whether that tile got a visual prop.
+    constexpr int kEdgePropStride = 3;
     int i = 0;
     auto place = [this, &names, &i, tileW, tileH, height, interior](int col, int row, Edge edge, bool spawnVisual) {
         // Prop::footprintRect() sizes each prop's own collision box relative
@@ -1005,7 +1007,7 @@ void GameScene::decorateMapEdges(const QJsonObject &mapRoot)
         // art visually overlaps. A continuous border/wall needs a guarantee
         // that doesn't depend on which specific art landed on which tile (or
         // on whether this tile got a visual prop at all - see
-        // kSideEdgePropStride above), so register the whole tile as blocked
+        // kEdgePropStride above), so register the whole tile as blocked
         // here directly, on top of whatever footprint the prop itself
         // contributes.
         m_blockingAreas.insert(QRectF(col * tileW, row * tileH, tileW, tileH));
@@ -1041,21 +1043,20 @@ void GameScene::decorateMapEdges(const QJsonObject &mapRoot)
             prop->moveBy(0.0, kHorizonEdgeOffsetPx);
         }
     };
-    // The stride reduction above only applies to the rotated exterior
-    // horizon art - interior wall segments are drawn axis-aligned (no
-    // rotation, see the `interior` early-return above), so they never hit
-    // the expensive path this is working around, and skipping tiles there
-    // would just leave visible gaps in the wall for no CPU benefit.
-    const bool thinSideEdges = !interior;
+    // The stride reduction above only applies to the exterior horizon art -
+    // an interior wall is a run of separate, non-overlapping wall segments
+    // (one per tile, see the `interior` early-return above), so skipping
+    // tiles there would just leave visible gaps in the wall.
+    const bool thinEdges = !interior;
     // Walk the outer ring clockwise, each corner visited exactly once.
     for (int col = 0; col < width; ++col)
-        place(col, 0, Edge::Top, true);
+        place(col, 0, Edge::Top, !thinEdges || col % kEdgePropStride == 0);
     for (int row = 1; row < height; ++row)
-        place(width - 1, row, Edge::Right, !thinSideEdges || (row - 1) % kSideEdgePropStride == 0);
+        place(width - 1, row, Edge::Right, !thinEdges || (row - 1) % kEdgePropStride == 0);
     for (int col = width - 2; col >= 0; --col)
-        place(col, height - 1, Edge::Bottom, true);
+        place(col, height - 1, Edge::Bottom, !thinEdges || col % kEdgePropStride == 0);
     for (int row = height - 2; row >= 1; --row)
-        place(0, row, Edge::Left, !thinSideEdges || (row - 1) % kSideEdgePropStride == 0);
+        place(0, row, Edge::Left, !thinEdges || (row - 1) % kEdgePropStride == 0);
 }
 
 Character *GameScene::controlledCharacter() const

@@ -3,6 +3,7 @@
 #include <QGraphicsPixmapItem>
 #include <QPointF>
 #include <QRectF>
+#include <QSizeF>
 #include <QString>
 
 class QPainter;
@@ -24,6 +25,13 @@ public:
     // targetWidth <= 0 keeps the source image's native pixel width - only
     // useful for already-correctly-sized art, real props should specify one.
     explicit Prop(const QString &imagePath, qreal targetWidth = 0, QGraphicsItem *parent = nullptr);
+
+    // Always the full scaled art rect, not the (smaller) trimmed pixmap
+    // actually drawn - see the trimming note in Prop.cpp. Everything that
+    // lays out against a prop (groundAnchorOffset(), footprintRect(), the
+    // shadow, the rotated border strips' transform origin, edge placement)
+    // reads this.
+    QRectF boundingRect() const override;
 
     QPointF groundAnchorOffset() const;
 
@@ -55,6 +63,7 @@ public:
 private:
     QString m_name;
     QPointF m_shadowOffset = QPointF(0, 18);
+    QSizeF m_fullSize; // the full scaled art size boundingRect() reports
 
     // Real ground-contact point of this prop's own art, as a fraction of its
     // pixmap height - see the measurement helper in Prop.cpp for why this

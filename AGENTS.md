@@ -356,6 +356,54 @@ other tileset's index-9 terrain is purely decorative.
   anything — the manual key then always lands on "already on cooldown"
   and reads as a broken button. Keep this split if the system grows.
 
+## Performance findings (2026-09-19)
+
+Measured with a scratch-only profiling tour (teleport the hero to ~10 spots
+per map, run it back and forth, record tick interval, per-section logic time,
+per-category paint time, and item counts; never committed). **Collision is
+not the cost:** `TileMap::isWalkable` + `BlockingGrid::containsPoint` run at
+35–85 ns per call (well under 1 µs per tick), and every part of `onTick`
+(AI, character ticks, camera pan, input) totals about 0.1–0.2 ms. Blocking
+footprints are never thin enough to tunnel (smallest side 28.8 px vs a
+25.6 px worst-case step at run speed with the 50 ms dt clamp).
+
+**Frame time is paint time, and it scales with props in view.** Chapter 1
+at 2560×1440: 43 props in view = 4 ms/frame, ~150 = 11 ms, ~170–200 =
+16–24 ms, at which point the tick interval stretches past 16 ms (mean
+25.7 ms, spikes to 90 ms) — the "slows down / jitters near edges and in
+mazes" symptom. Border rows put one prop per tile on screen (191 in view at
+the north edge) and dense mazes do the same. At the densest spots prop
+shadows (an antialiased radial-gradient ellipse per prop per frame) plus prop
+sprites are ~60% of the frame; tile map 2–3 ms, lighting 1–4 ms, characters
+<1 ms. Window size matters: the same spots are fine at 796×796 and mostly
+fine at 1920×1080 (occasional >33 ms frames), but not at 2560×1440. Prop
+sprites are on average only ~60% content (the rest transparent margin).
+**Applied (same day):** (1) the Top/Bottom horizon-border strips now use the
+same every-3rd-tile stride as the side edges (`kEdgePropStride` in
+`decorateMapEdges`; interior wall sets are untouched) — 3 overlapping copies
+per point instead of 9, blocking still registered for every tile, and the
+band reads as fewer, larger sections; (2) prop shadows are drawn from a
+cached pixmap per distinct radius (`shadowPixmapFor()`), max 4/255 different
+from the gradient and only inside the shadow's own area; (3) prop sprites are
+trimmed to their visible bounding box like character sheets (`trimToContent()`,
+`PropAsset::offset`/`fullSize`), pixel-identical for every unrotated prop and
+for 4 of the 5 real border strips (the fifth, `distant_hills`, differs by a
+1 px tie-break under the 90° rotation at a few positions). `Prop::boundingRect()`
+is therefore always the FULL art rect, not the trimmed pixmap — same contract
+as `Character`. Result at 2560×1440 on chapter 1: paint per frame at the dense
+spots 23.7 → 15.6 ms (map centre) and 22.8 → 14.7 ms (interior B); mean tick
+interval 25–27 ms → 16.0–18.1 ms. Dense areas can still exceed one frame at
+that size (map centre 18.1 ms); the next lever would be reducing overdraw in
+the mazes themselves. **Testing pitfall:** when rendering a scene to a
+`QImage` for pixel comparison, the target must be exactly the integer source
+rect size — `QGraphicsScene::render` silently rescales otherwise, and the
+resampling puts bands of duplicated/skipped rows in the output (this cost an
+hour of chasing a nonexistent paint bug).
+Movement-feel note, not
+a collision bug: `MainWindow::refreshMoveIntent` does not normalize diagonal
+input (diagonals are √2 faster) and axis-separated sliding then drops a
+diagonal run along a wall to axis speed (−29%).
+
 ## Save/load
 
 Single quicksave slot at `~/.T2gu2/save.json` (F5 saves, F8 loads, F9
