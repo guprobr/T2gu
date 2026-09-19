@@ -206,7 +206,7 @@ before touching `ScriptEngine`/`ScriptBridge`:
 
 ## Level generation conventions
 
-Chapters 2–6 follow this macro-shape (chapters 1 and 7–16 are
+Chapters 2–6 follow this macro-shape (chapters 1 and 7–25 are
 "town, then maze" — see the next subsection): a small entrance pocket (plain
 `scatterOrganic` decoration, no maze) → one whole-map `buildBranchingMaze`
 (a real branching structure — recursive-backtracker spanning tree + a 15%
@@ -217,14 +217,16 @@ being asked — this shape was arrived at after several rounds of explicit
 user feedback rejecting straight corridors, then single curvy corridors,
 then segmented mazes.
 
-### Town, then maze (chapters 1 and 7–16)
+### Town, then maze (chapters 1 and 7–25)
 
-Chapter 1 was reformulated and ten chapters (7–16) added on this shape: a
+Chapter 1 was reformulated and nineteen chapters (7–25) added on this shape: a
 walkable **town first**, then the **maze**, then a small exit pocket that
-holds the chapter's key item. Levels alternate direction — 1, 8, 10, 12, 14
-and 16 run left→right, 7, 9, 11, 13 and 15 right→left — so the hero spawns
-against the west or east edge. Along the level: `[border][town][river —
-chapters 1 and 14 only][maze][pocket][border]`.
+holds the chapter's key item. Levels alternate direction — 1, 8, 10, 12, 14,
+16, 18, 20, 22 and 24 run left→right, 7, 9, 11, 13, 15, 17, 19, 21, 23 and 25
+right→left — so the hero spawns against the west or east edge. Along the
+level: `[border][town][river — chapters 1, 14 and 20 only][maze][pocket][border]`.
+Chapters 7–16 are the first run of ten ("the ten notes", ending in the Long
+Room); 17–25 are the second, nine places along "the Quiet Road".
 
 | Ch | Title | Tileset | Light | Dir | Quest |
 |----|-------|---------|-------|-----|-------|
@@ -238,7 +240,16 @@ chapters 1 and 14 only][maze][pocket][border]`.
 | 13 | The Undertrack | asphalt_dirty_plate | cavern | ← | relay chain: each relay wakes only after the one upstream |
 | 14 | Mirrorwater Ford | grass_water | mystical | → | a toll of three valuables, paid in town, opens the ford gate |
 | 15 | The Vigil Lights | snow_grass | sunset | ← | wave defense: three waves at the Vigil Light |
-| 16 | The Long Room | dirt_grass | sunrise | → | hostage + relic "chord" check + boss; ends on a hook, **no `loadLevel`** |
+| 16 | The Long Room | dirt_grass | sunrise | → | hostage + relic "chord" check + boss; hands off to 17 |
+| 17 | Hushgate | dirt_snow | torch | ← | lost property: three things found in the maze go back to their owners; the Clerk then stamps the road |
+| 18 | The Keepwalk | haunted_cobble_grass | cavern | → | keys and doors: the maze is built as **three consecutive stages**, a Doorward and a locked door in each seam |
+| 19 | Gildmere | grass_dirt | mystical | ← | cursed treasure: each of four heirlooms springs an ambush when picked up; all four go back to the Reeve |
+| 20 | Sluicegate | grass_water | sunset | → | **unbroken river**: three sluice parts found in town let the Lockkeeper drain the ford with `api.setTile` |
+| 21 | The Rival Quarter | stone_grass | sunrise | ← | two guilds each want two goods; serving either opens the gate, serving both makes peace (ending changes) |
+| 22 | The Barter Mile | dirty_plate_asphalt | sunset | → | a three-trade chain (Tinker → Mystic → Gate-drone), each swap needs the previous item |
+| 23 | Cartographers' Rest | snow_grass | none | ← | three surveyors read out exact tile coordinates; the hero navigates with the built-in compass item |
+| 24 | The Inquest | haunted_grass_cobble | torch | → | deduction: three statements, exactly one liar; accuse with a warrant (an innocent turns hostile) |
+| 25 | The Second Door | dirt_grass | mystical | ← | three-form boss (each form spawns where the last fell) that quotes earlier choices; ends on a hook, **no `loadLevel`** |
 
 - **Maps are generated**: `python3 tools/make_chapter_maps.py [N ...] [--out DIR]`
   rewrites `assets/maps/chapterN.json` (ground only — the `obj` grid is empty;
@@ -249,6 +260,9 @@ chapters 1 and 14 only][maze][pocket][border]`.
   `TOWN_U`, `MAZE_WEST/EAST/NORTH/SOUTH`, `POCKET_U0/U1`) at the top of each
   script. Change a spec and the script constants must follow. Running it
   with no arguments reproduces every shipped map byte for byte.
+  A spec with `ford=False` (chapter 20) is an unbroken river; `--drain N` prints
+  the `[col, row, tileName]` edits that turn it into the map with a ford (they
+  are pasted into that script as its `DRAIN` constant, bank-blend tiles included).
 - **Coordinates in these scripts are `u`**, a column counted from the start
   edge; `colAt(u)` turns it into an absolute column for either direction, and
   `mazeProgress(cell)` (0 at the maze entrance, 1 at its exit) is what
@@ -257,8 +271,11 @@ chapters 1 and 14 only][maze][pocket][border]`.
 - The shared helper block is still copy-pasted verbatim per script (see
   *Scripting system*). `buildBranchingMaze` now takes a trailing options
   object: `flip` (mirror the maze for right→left levels), `diagonalSeam`
-  (keeps wide core props from poking into corridor corners) and `solid`
-  (adds invisible full-tile `mzwall_k` barriers under every wall). **Prop
+  (keeps wide core props from poking into corridor corners), `solid`
+  (adds invisible full-tile `mzwall_k` barriers under every wall) and
+  `wallPrefix` (the barrier id prefix, default `"mzwall_"`; `setBarrier` ignores
+  an id that is already up, so a level that builds several mazes in a row must
+  give each its own, as chapter 18 does). **Prop
   footprints alone leave slits between props, so a maze without `solid` can be
   walked straight through** — proven with a scripted bot in the real engine.
   Every chapter passes `solid: true` (chapters 2–6 got it after the fact, with
@@ -275,15 +292,30 @@ chapters 1 and 14 only][maze][pocket][border]`.
   collide with an NPC or companion key in the same scene (`dark_knight`,
   `dwarf_miner`, `cyber_engineer` and `cyber_medic` are never enemies).
 - Each chapter ends its key-item pickup with `setGlobalVar("chapter", n+1)`
-  and `loadLevel("chapter{n+1}.json")`; chapter 6 now hands off to 7. Chapter
-  16 sets `chapter` to 17 and stops on the open door — there is no chapter 17.
+  and `loadLevel("chapter{n+1}.json")`; chapter 6 hands off to 7 and 16 to 17.
+  Chapter 25 sets `chapter` to 26 and stops on the open door — there is no
+  chapter 26 — so it is the one that loads nothing.
+- **Mechanics worth knowing before adding a chapter** (all in `assets/scripts`):
+  a gate can sit mid-maze only if the maze is built in stages (cutting one random
+  maze with a wall strands fragments of the near side — the static check
+  caught exactly that in chapter 18); a quest that edits terrain (`api.setTile`,
+  chapter 20) must re-apply the edit in `onLevelStart`, because the map file
+  always loads unchanged; a suspect turned hostile (chapter 24) is `despawnNpc`
+  then `spawnEnemy` under the same roster key, so packs must not use that key;
+  quest tokens are `keyItem: true` items, never the lootable catalog items, or an
+  enemy drop could satisfy the quest. Choices worth calling back later go in a
+  global var (`guilds_at_peace` from 21, `inquest_wrong` from 24, `chord_notes`
+  from 16); chapter 25 reads all three and copes with each being unset.
 - Verification used a scratch harness that is **not in the repo**: a mock
   `api` that runs `onLevelStart`, rasterizes props/water/barriers at 16 px,
   checks BFS reachability of every NPC, item and enemy with the real talk
-  (120 px) and pickup (100 px) radii, and measures maze sealing by comparing
-  the median walking distance to the straight-line distance. Rebuild that
-  kind of check before changing a maze or a gate; then load each chapter in
-  the real engine under a memory guard (peak RSS 0.8–1.2 GB for these maps).
+  (120 px) and pickup (100 px) radii (with every gate lifted and any
+  `drainFord()` applied), and measures maze sealing by comparing the median
+  walking distance to the straight-line distance. A second mock drives each
+  chapter's quest logic through its talk/pickup/kill handlers (both orders,
+  wrong answers, reloads). Rebuild that kind of check before changing a maze or
+  a gate; then load each chapter in the real engine under a memory guard (peak
+  RSS 0.75–1.2 GB for these maps).
 
 - `buildBranchingMaze`'s wall filling is split into `coreObstacles` (one
   big set-piece type per whole contiguous wall block — trees, buildings,

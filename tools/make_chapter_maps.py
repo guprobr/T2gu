@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
-"""Generates the map JSON (base terrain grid, empty obj grid) for chapters 1 and 7-16: the two-part "town, then maze" levels.
+"""Generates the map JSON (base terrain grid, empty obj grid) for chapters 1 and 7-25: the two-part "town, then maze" levels.
 
 Usage:  python3 tools/make_chapter_maps.py [N ...] [--out DIR]     (default: every chapter below, written to assets/maps/)
+        python3 tools/make_chapter_maps.py --drain N               (print chapter N's ford-drain edits as JSON)
 
 Only the ground is generated here. Props, NPCs, enemies and quests come from each chapter's script (assets/scripts/chapterN.js), which
 reads the same layout numbers back out of the map's "layout" field / its own constants - keep the two in step if a Spec changes.
+A spec with ford=False (chapter 20) is an unbroken river: its script drains the crossing with api.setTile, using the edit list
+that --drain prints (it is pasted into the script as its DRAIN constant).
 
 
 Coordinates: `u` is a column counted from the START edge of the level (u=0 is the start-edge border column),
@@ -36,6 +39,7 @@ class Spec:
     cw: int = 2             # maze corridor width (tiles)
     ww: int = 4             # maze wall thickness (tiles)
     river: int = 0          # width of a river between town and maze (needs a tileset whose index 9 is "water")
+    ford: bool = True       # carve a land ford through the river; False = an unbroken river a quest must drain (see drain_edits)
     town_ground: int = 0    # tile index (0 primary / 9 secondary terrain) filling the town
     maze_ground: int = 9    # ... filling the maze (roads in the town use this too)
     pocket_ground: int | None = None   # defaults to the town ground (the level ends on an echo of where it began)
@@ -155,7 +159,7 @@ def build_mask(spec: Spec):
     if water:
         # The ford: a land gap through the river exactly where the maze opens (rows +-1 either side of the opening).
         r0, r1 = spec.entrance_rows
-        for r in range(r0 - 1, r1 + 2):
+        for r in (range(r0 - 1, r1 + 2) if spec.ford else []):
             for u in range(spec.T - 1, spec.maze_u0 + 1):
                 mask[r, spec.col(u)] = False
         if spec.pond:      # a village pond well away from the main road
@@ -203,6 +207,17 @@ def clean(mask):
 def build_map(spec: Spec):
     base = autotile(clean(build_mask(spec)))
     return base
+
+
+def drain_edits(spec: Spec):
+    """For a spec with an unbroken river (ford=False): the [col, row, tileName] edits that turn it into the same map WITH a
+    ford, i.e. everything a quest must setTile to drain the crossing. Includes the bank tiles whose blend art changes."""
+    import dataclasses
+    assert spec.river and not spec.ford
+    closed = build_map(spec)
+    opened = build_map(dataclasses.replace(spec, ford=True))
+    names = {v: k for k, v in json.load(open(f"{ROOT}/tilesets/{spec.tileset}.json"))["tiles"].items()}
+    return [[int(c), int(r), names[int(opened[r, c])]] for r, c in zip(*np.where(closed != opened))]
 
 
 def write_map(spec: Spec, out_dir=f"{ROOT}/maps"):
@@ -258,6 +273,15 @@ SPECS = {
  14: Spec(14, "Mirrorwater Ford",      "grass_water",         "mystical",W=164, H=84,  dir=+1, T=40, river=4, M=110, P=8, cw=2, ww=4, pond=True, seed=1414),
  15: Spec(15, "The Vigil Lights",      "snow_grass",          "sunset",  W=176, H=96,  dir=-1, T=46, M=118, P=10, cw=2, ww=4, town_ground=0, maze_ground=9, seed=1515),
  16: Spec(16, "The Long Room",         "dirt_grass",          "sunrise", W=180, H=102, dir=+1, T=48, M=120, P=10, cw=2, ww=3, town_ground=9, maze_ground=0, seed=1616),
+ 17: Spec(17, "Hushgate",              "dirt_snow",           "torch",   W=160, H=84,  dir=-1, T=42, M=106, P=10, cw=2, ww=3, town_ground=9, maze_ground=0, seed=1717),
+ 18: Spec(18, "The Keepwalk",          "haunted_cobble_grass","cavern",  W=166, H=90,  dir=+1, T=44, M=110, P=10, cw=2, ww=4, town_ground=0, maze_ground=9, seed=1818),
+ 19: Spec(19, "Gildmere",              "grass_dirt",          "mystical",W=166, H=90,  dir=-1, T=42, M=112, P=10, cw=2, ww=3, town_ground=9, maze_ground=0, seed=1919),
+ 20: Spec(20, "Sluicegate",            "grass_water",         "sunset",  W=162, H=84,  dir=+1, T=40, river=4, ford=False, M=108, P=8, cw=2, ww=4, pond=True, seed=2020),
+ 21: Spec(21, "The Rival Quarter",     "stone_grass",         "sunrise", W=166, H=96,  dir=-1, T=46, M=108, P=10, cw=2, ww=3, town_ground=9, maze_ground=0, seed=2121),
+ 22: Spec(22, "The Barter Mile",       "dirty_plate_asphalt", "sunset",  W=168, H=90,  dir=+1, T=44, M=112, P=10, cw=2, ww=3, town_ground=9, maze_ground=0, seed=2222),
+ 23: Spec(23, "Cartographers' Rest",   "snow_grass",          None,      W=176, H=96,  dir=-1, T=44, M=120, P=10, cw=2, ww=4, town_ground=9, maze_ground=0, seed=2323),
+ 24: Spec(24, "The Inquest",           "haunted_grass_cobble","torch",   W=172, H=96,  dir=+1, T=46, M=114, P=10, cw=2, ww=3, town_ground=9, maze_ground=0, seed=2424),
+ 25: Spec(25, "The Second Door",       "dirt_grass",          "mystical",W=182, H=102, dir=-1, T=48, M=122, P=10, cw=2, ww=3, town_ground=0, maze_ground=9, seed=2525),
 }
 
 
@@ -265,7 +289,11 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("chapters", nargs="*", type=int, help="chapter numbers (default: all)")
     ap.add_argument("--out", default=f"{ROOT}/maps", help="output directory (default: assets/maps)")
+    ap.add_argument("--drain", type=int, metavar="N", help="print chapter N's ford-drain [col, row, tile] edits as JSON and exit")
     args = ap.parse_args()
+    if args.drain:
+        print(json.dumps(drain_edits(SPECS[args.drain])))
+        return
     for n in args.chapters or sorted(SPECS):
         path, layout = write_map(SPECS[n], args.out)
         print(f"{os.path.relpath(path)}: {layout['direction']}, town {layout['townCols']}, maze {layout['mazeCols']}")

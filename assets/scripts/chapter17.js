@@ -1,12 +1,12 @@
 // ============================================================================
-// ShadowShine - Chapter 1: "Fernhollow"
+// ShadowShine - Chapter 17: "Hushgate"
 // ============================================================================
 //
-// Two parts: the TOWN comes first, the MAZE after it. This level runs left to right
-// (the hero spawns against the west edge). Map: 150x78, tileset grass_water, lighting sunrise.
-//   - town   cols 1-40
-//   - river  cols 41-44 (one ford)
-//   - maze   cols 45-148, rows 1-76, corridors 2 wide, walls 4 thick
+// Two parts: the TOWN comes first, the MAZE after it. This level runs right to left
+// (the hero spawns against the east edge). Map: 160x84, tileset dirt_snow, lighting torch.
+//   - town   cols 117-158
+//   - maze   cols 11-116, rows 1-82, corridors 2 wide, walls 3 thick
+//   - pocket cols 1-10 (where the maze lets out)
 // ============================================================================
 
 // Deterministic PRNG - every generator below uses this instead of
@@ -321,15 +321,15 @@ function scatterOrganic(names, colStart, colEnd, rowStart, rowEnd, count, seed, 
 }
 
 // ---- Layout (from the map spec - the same numbers are stored in the map's own "layout" field) ----
-const W = 150, H = 78;
-const DIR = 1;                        // 1: this level runs left -> right
+const W = 160, H = 84;
+const DIR = -1;                        // -1: this level runs right -> left
 const START_U = 3;                        // the hero spawns this many columns in from the start edge
-const MID = 37;                        // row of the road that leads to the maze gate
-const TOWN_U = 40;                        // the town fills u = 1..TOWN_U (u counts from the start edge)
-const MAZE_WEST = 45, MAZE_EAST = 148;   // absolute columns of the maze block
-const MAZE_NORTH = 1, MAZE_SOUTH = 76;        // its rows
-const MAZE_CORRIDOR = 2, MAZE_WALL = 4;
-const POCKET_U0 = 149, POCKET_U1 = 148;   // the exit pocket beyond the maze (u), 0 columns
+const MID = 41;                        // row of the road that leads to the maze gate
+const TOWN_U = 42;                        // the town fills u = 1..TOWN_U (u counts from the start edge)
+const MAZE_WEST = 11, MAZE_EAST = 116;   // absolute columns of the maze block
+const MAZE_NORTH = 1, MAZE_SOUTH = 82;        // its rows
+const MAZE_CORRIDOR = 2, MAZE_WALL = 3;
+const POCKET_U0 = 149, POCKET_U1 = 158;   // the exit pocket beyond the maze (u), 10 columns
 
 // ============================================================================
 // Two-part level shape helpers: the TOWN comes first, the MAZE after it.
@@ -401,375 +401,289 @@ function* companionSays(flag, who, line) {
         yield api.say(who, line);
 }
 
+// Spawns hostile packs onto `spots`, in order, exactly once per playthrough
+// (guarded by a chapter-local var so a reload doesn't double the population).
+// packs: [[archetype, count, hp], ...]
+function spawnPacks(spots, packs, guardVar) {
+    if (api.getVar(guardVar, false))
+        return;
+    api.setVar(guardVar, true);
+    let k = 0;
+    packs.forEach(([type, count, hp]) => {
+        for (let n = 0; n < count && k < spots.length; n++, k++)
+            api.spawnEnemy(type, spots[k].col, spots[k].row, hp);
+    });
+}
+
+// Spawns world pickups onto `spots`, once (same guard idea as spawnPacks).
+function spawnLoot(spots, itemIds, guardVar) {
+    if (api.getVar(guardVar, false))
+        return;
+    api.setVar(guardVar, true);
+    itemIds.forEach((id, k) => { if (spots[k]) api.spawnItem(id, spots[k].col, spots[k].row); });
+}
+
+// The pocket beyond the maze as an absolute column range.
+function pocketCols() {
+    const a = colAt(POCKET_U0), b = colAt(POCKET_U1);
+    return [Math.min(a, b), Math.max(a, b)];
+}
+
 
 // ----------------------------------------------------------------------------
-// Chapter 1 - Fernhollow, reformulated (2026-09-19).
+// Chapter 17 - "Hushgate" (dirt_snow, torch). Runs RIGHT to LEFT. The first
+// place on the far side of the Long Room door: a snowbound customs village
+// lit by torches, where everyone speaks in whispers, then the Snowlanes - a
+// maze of drifted lanes and fenced fields.
 //
-// Now in two parts. PART ONE is the village of Fernhollow itself - a real
-// town this time, cols 1-40, with Wren by the well, a few neighbours, the
-// basic supplies, and a market road that runs straight to the river. A river
-// (cols 41-44) closes it off with a single ford and a footbridge, and past it
-// PART TWO begins: the Hollowbrook Maze, cols 45-148, one genuine branching
-// maze (same generator as every other chapter) holding everything from the
-// original chapter - the order-of-three riddle, the fox-and-deer riddle, the
-// hostage, the wildlife, the loot, and the glowing acorn at the far end.
-// Runs left to right.
+// QUEST (lost property): the road out of Hushgate is stamped by the Claims
+// Clerk, and the Clerk will not stamp it while any claim on the ledger is open.
+// Three villagers each lost something in the Snowlanes. Find the three
+// things, return each to its owner (in any order), and the Clerk closes the
+// ledger and lifts the claims gate at the maze's exit.
 // ----------------------------------------------------------------------------
+const TOWN = [
+    ["rocks_small", 3, 14],
+    ["pine_tree", 4, -37],
+    ["haystack", 4, -24],
+    ["rocks_small", 6, -37],
+    ["snowy_pine", 6, -20],
+    ["rocks_small", 6, -13],
+    ["bench", 6, 11],
+    ["wheelbarrow", 6, 19],
+    ["wheelbarrow", 7, -27],
+    ["snowy_pine", 7, 30],
+    ["cottage_a", 8, -17],
+    ["cart", 9, 17],
+    ["bush", 10, 25],
+    ["cottage_b", 11, -35],
+    ["snowy_pine", 13, -11],
+    ["dovecote", 13, 23],
+    ["bench", 13, 38],
+    ["snowy_pine", 14, -32],
+    ["pine_tree", 14, -24],
+    ["market_stall", 14, 27],
+    ["rain_barrel", 14, 29],
+    ["pine_tree", 16, -11],
+    ["bush", 17, -15],
+    ["bench", 17, 3],
+    ["rain_barrel", 17, 38],
+    ["notice_board", 21, -4],
+    ["well", 25, -3],
+    ["snowy_pine", 25, 3],
+    ["snowy_pine", 26, -10],
+    ["bench", 26, 16],
+    ["wheelbarrow", 26, 18],
+    ["fence_straight", 26, 25],
+    ["wheelbarrow", 26, 30],
+    ["cottage_b", 27, -13],
+    ["chapel", 28, -34],
+    ["haystack", 28, -10],
+    ["snowy_pine", 28, 38],
+    ["stone_fireplace", 29, -24],
+    ["bush", 29, -21],
+    ["pine_tree", 29, 19],
+    ["haystack", 29, 30],
+    ["snowy_pine", 30, 27],
+    ["snowy_pine", 31, 7],
+    ["cottage_a", 31, 23],
+    ["bench", 32, -19],
+    ["fence_straight", 32, 16],
+    ["snowy_pine", 33, -38],
+    ["rain_barrel", 33, -30],
+    ["pine_tree", 34, -26],
+    ["bush", 34, 37],
+    ["cottage_a", 35, -23],
+    ["fence_straight", 35, 15],
+    ["rain_barrel", 36, -4],
+    ["chapel", 36, 7],
+    ["laundry_line", 37, 13],
+    ["fence_straight", 38, -31],
+    ["rocks_small", 38, 36],
+    ["snowy_pine", 39, -4],
+    ["haystack", 40, -31],
+    ["haystack", 40, -22],
+    ["fence_straight", 40, 6],
+    ["bush", 40, 30],
+    ["haystack", 40, 38],
+    ["standing_torch_sconce", 41, -3]
+];
+// owner NPC -> [the lost item, display name, where they say they lost it]
+const CLAIMS = {
+    farmhand_young: ["lost_music_box", "Pip", "somewhere near the start of the lanes"],
+    tribal_gatherer_girl: ["lost_locket", "Nell", "in the middle stretch, among the fences"],
+    lumberjack_2: ["lost_talisman", "Old Tam", "right at the far end, by the last drifts"],
+};
+const HEADING = DIR > 0 ? "east" : "west";
 
 function* onLevelStart() {
     api.spawnCharacter("lara_cyber", colAt(START_U), MID);
     api.giveControl("lara_cyber");
+    respawnCompanions();
 
     buildTown();
-    buildMaze();
+    const exitRows = buildMaze();
+    buildPocket();
+    if (!api.getVar("claims_done", false))
+        setExitGate("claims_gate", exitRows, true);
 
-    if (api.getVar("chapter1_intro_seen", false))
+    if (api.getVar("chapter17_intro_seen", false))
         return;
-    api.setVar("chapter1_intro_seen", true);
+    api.setVar("chapter17_intro_seen", true);
 
     yield api.wait(0.6);
-    yield api.say("Lara", "...Fernhollow. Same crooked fences, same well that never quite fills all the way.");
-    yield api.say("Hint", "Move with WASD or the Arrow keys.");
-    yield api.say("Hint", "Hold Shift while moving to run.");
-    yield api.say("Hint", "Press E near someone - or something - to talk, or take a closer look.");
-    yield api.say("Hint", "Press Ctrl to attack. Press I for your inventory, Tab to switch who you're playing as.");
-    yield api.say("Lara", "Wren said she'd be by the well this morning. Let's see if that's actually true for once.");
+    yield api.say("Lara", "The door closed behind us without a sound. No hum. I keep waiting for it, the way you wait for a step that isn't there.");
+    yield* companionSays("vex_recruited", "Vex", "My instruments read zero. Not low - zero. I have never seen a place this quiet that was also inhabited.");
+    yield* companionSays("cobb_recruited", "Cobb", "Snow, torchlight, and folk who whisper. I like it already, and I do not trust that.");
+    yield api.say("Hint", "This level runs right to left. The town is behind you; the Snowlanes are ahead, to the west.");
 }
-
-// ============================================================================
-// Part one - the town. Buildings and decoration come from the composed layout
-// below (roads, the plaza and every NPC/item spot are kept clear of it).
-// ============================================================================
-const TOWN = [
-    ["rain_barrel", 3, -14],
-    ["fence_straight", 3, 16],
-    ["bench", 4, -25],
-    ["rocks_small", 4, 20],
-    ["laundry_line", 4, 25],
-    ["fence_straight", 5, -30],
-    ["wildflowers", 5, -15],
-    ["laundry_line", 6, 23],
-    ["bush", 6, 29],
-    ["cottage_a", 7, 20],
-    ["wheelbarrow", 7, 25],
-    ["oak_tree", 8, -30],
-    ["pine_tree", 9, 28],
-    ["bush", 10, -31],
-    ["bush", 10, -22],
-    ["wheelbarrow", 11, -17],
-    ["wheelbarrow", 12, -26],
-    ["haystack", 12, 23],
-    ["oak_tree", 13, -28],
-    ["wildflowers", 13, -19],
-    ["oak_tree", 14, -25],
-    ["cottage_b", 14, -15],
-    ["cottage_a", 14, -7],
-    ["bush", 15, -29],
-    ["rocks_small", 15, -10],
-    ["bench", 15, 37],
-    ["bush", 16, 8],
-    ["market_stall", 16, 21],
-    ["rocks_small", 16, 25],
-    ["pine_tree", 16, 28],
-    ["well", 17, -3],
-    ["bench", 17, 3],
-    ["notice_board", 23, -3],
-    ["bench", 23, 3],
-    ["bush", 25, -24],
-    ["oak_tree", 25, -7],
-    ["fence_corner", 26, -16],
-    ["cart", 26, 22],
-    ["fence_corner", 26, 28],
-    ["wildflowers", 27, -21],
-    ["market_stall", 27, -14],
-    ["fence_straight", 27, 16],
-    ["rocks_small", 28, -11],
-    ["haystack", 29, -17],
-    ["vegetable_garden", 29, 35],
-    ["chicken_coop", 30, -30],
-    ["cottage_b", 30, 20],
-    ["fence_corner", 31, -22],
-    ["pine_tree", 31, 30],
-    ["rain_barrel", 33, 11],
-    ["fence_straight", 33, 16],
-    ["fence_corner", 34, -19],
-    ["laundry_line", 34, -17],
-    ["rain_barrel", 34, 23],
-    ["bush", 35, -33],
-    ["wildflowers", 35, 13],
-    ["rain_barrel", 36, -25],
-    ["haystack", 37, 6],
-    ["windmill", 37, 18],
-    ["bench", 37, 35],
-    ["bench", 38, -34]
-];
 
 function buildTown() {
     placeProps(TOWN);
+    api.spawnProp("signpost", colAt(TOWN_U - 1), MID - 3);
+    api.spawnProp("standing_torch_sconce", colAt(TOWN_U), MID + 4);
 
-    // The river: reeds along the west bank, lily pads out on the water, and a
-    // footbridge over the one ford that lines up with the maze entrance.
-    const [gateRow0, gateRow1] = [MID - 1, MID + 2];
-    for (let r = MAZE_NORTH + 3; r < MAZE_SOUTH - 2; r += 4) {
-        if (r >= gateRow0 - 2 && r <= gateRow1 + 2)
-            continue;
-        api.spawnProp("reeds", colAt(TOWN_U), r);
-        if (r % 8 === 3)
-            api.spawnProp("lily_pads", colAt(TOWN_U + 2), r + 1);
-    }
-    api.spawnProp("wooden_bridge", colAt(TOWN_U + 2), MID);
-    api.spawnProp("signpost", colAt(TOWN_U - 2), MID - 3);
+    api.spawnNpc("gnome_wizard", colAt(14), MID - 3);              // the Claims Clerk
+    api.spawnNpc("farmhand_young", colAt(24), MID + 5);            // Pip
+    api.spawnNpc("tribal_gatherer_girl", colAt(10), MID + 6);      // Nell
+    api.spawnNpc("lumberjack_2", colAt(30), MID - 5);              // Old Tam
 
-    // Wren, and the folk she mentions.
-    api.spawnNpc("herbalist", colAt(14), MID - 2);
-    api.spawnNpc("baker", colAt(25), MID - 3);
-    api.spawnNpc("farmgirl", colAt(27), MID + 4);
-    api.spawnNpc("lumberjack", colAt(8), MID + 6);
-    api.spawnNpc("fisherman", colAt(38), MID - 6);
-
-    if (api.getVar("chapter1_loot_spawned", false))
+    if (api.getVar("town_loot_spawned", false))
         return;
-    api.setVar("chapter1_loot_spawned", true);
-    api.spawnItem("dried_rations", colAt(6), MID - 9);
-    api.spawnItem("bread_loaf", colAt(28), MID + 10);
-    api.spawnItem("waterskin", colAt(33), MID - 12);
-    api.spawnItem("berry_pouch", colAt(12), MID + 14);
-    api.spawnItem("health_potion", colAt(30), MID - 6);
+    api.setVar("town_loot_spawned", true);
+    api.spawnItem("health_potion", colAt(6), MID - 9);
+    api.spawnItem("dried_rations", colAt(28), MID + 11);
+    api.spawnItem("waterskin", colAt(34), MID - 12);
+    api.spawnItem("stamina_draught", colAt(13), MID + 14);
 }
 
-// ============================================================================
-// Part two - the Hollowbrook Maze. One branching maze from the far bank of the
-// river to the far edge of the map. Bigger set-piece props fill each wall
-// cluster's interior; small rough undergrowth fills the seam wherever a wall
-// meets a corridor (see buildBranchingMaze).
-// ============================================================================
 function buildMaze() {
-    const coreObstacles = ["pine_tree", "oak_tree", "boulder_large", "cliff_face", "dead_tree", "snowy_pine", "dead_twisted_tree", "fallen_log"];
-    const edgeObstacles = ["bush", "rocks_small", "tree_stump", "ivy_rock", "berry_bush"];
+    const core = ["snowy_pine", "pine_tree", "cottage_b", "boulder_large", "stone_wall_corner", "haystack"];
+    const edge = ["rocks_small", "bush", "standing_torch_sconce", "fence_straight", "tree_stump"];
     const cells = buildBranchingMaze(MAZE_WEST, MAZE_EAST, MAZE_NORTH, MAZE_SOUTH, MAZE_CORRIDOR, MAZE_WALL,
-        coreObstacles, edgeObstacles, 11001, { flip: DIR < 0, diagonalSeam: true, solid: true });
-
-    // Every placement in the maze draws from ONE pool, so two things can never
-    // share a cell. takeCells() always consumes the same cells for the same
-    // seed, so a reload that skips a spawn-once guard still lines up.
+        core, edge, 171701, { flip: DIR < 0, diagonalSeam: true, solid: true });
     const pool = cells.slice();
 
-    // 46 hostiles (the original 62, scaled to the smaller maze): wolf 8, goblin 9,
-    // boar 9, bear 12, slime_water 8 - none in the first stretch by the ford.
-    const hostileSpots = takeCells(pool, 0.06, 1.0, 46, 11002);
-    if (!api.getVar("hollowbrook_hostiles_spawned", false)) {
-        api.setVar("hollowbrook_hostiles_spawned", true);
-        const hostileTypes = [];
-        [["wolf", 8], ["goblin", 9], ["boar", 9], ["bear", 12], ["slime_water", 8]].forEach(([type, n]) => {
-            for (let k = 0; k < n; k++)
-                hostileTypes.push(type);
-        });
-        hostileTypes.forEach((type, k) => api.spawnEnemy(type, hostileSpots[k].col, hostileSpots[k].row, 30));
-    }
+    // The three lost things, one per third of the lanes - in the same order the owners say.
+    const bands = [[0.08, 0.30], [0.40, 0.62], [0.72, 0.94]];
+    const spots = bands.map((b, k) => takeCells(pool, b[0], b[1], 1, 171702 + k)[0]);
+    spawnLoot(spots, ["lost_music_box", "lost_locket", "lost_talisman"], "claims_items_spawned");
 
-    // The order-of-three riddle-keepers Wren talks about - found roughly in the
-    // order she names them, owl first, crystal last (see talkToRiddleKeeper).
-    const owl = takeCells(pool, 0.10, 0.35, 1, 11003)[0];
-    const elder = takeCells(pool, 0.40, 0.65, 1, 11004)[0];
-    const echo = takeCells(pool, 0.70, 0.92, 1, 11005)[0];
-    api.spawnNpc("bird_night_owl", owl.col, owl.row);
-    api.spawnNpc("tribal_elder_woman", elder.col, elder.row);
-    api.spawnNpc("crystal_spirit", echo.col, echo.row);
+    spawnPacks(takeCells(pool, 0.06, 1.0, 36, 171706),
+        [["wolf", 10, 30], ["slime_ice", 8, 25], ["skeleton_swordsman", 8, 35], ["harpy", 6, 30], ["bear", 4, 55]],
+        "maze_hostiles_spawned");
 
-    // A rare friendly pair in the maze - fox poses the small riddle early, deer
-    // answers it a good stretch later.
-    const fox = takeCells(pool, 0.12, 0.45, 1, 11006)[0];
-    const deer = takeCells(pool, 0.60, 0.95, 1, 11007)[0];
-    api.spawnNpc("fox", fox.col, fox.row);
-    api.spawnNpc("deer", deer.col, deer.row);
-
-    const hostage = takeCells(pool, 0.35, 0.75, 1, 11008)[0];
-    if (!api.getVar("hostage_spawned", false)) {
-        api.setVar("hostage_spawned", true);
-        api.spawnNpc("farmhand_young", hostage.col, hostage.row);
-    }
-
-    const acorn = takeCells(pool, 0.93, 1.0, 1, 11009)[0];
-    const loot = takeCells(pool, 0.05, 0.95, 13, 11010);
-    if (api.getVar("hollowbrook_loot_spawned", false))
-        return;
-    api.setVar("hollowbrook_loot_spawned", true);
-    api.spawnItem("glowing_acorn", acorn.col, acorn.row);
-    ["gold_coin_pile", "rope_coil", "herb_bundle", "honey_jar", "mana_potion",
-     "health_potion", "health_potion", "health_potion", "health_potion",
-     "health_potion", "health_potion", "health_potion", "health_potion"].forEach((id, k) => api.spawnItem(id, loot[k].col, loot[k].row));
+    spawnLoot(takeCells(pool, 0.05, 0.95, 11, 171710),
+        ["health_potion", "health_potion", "health_potion", "health_potion", "health_potion", "health_potion",
+         "mana_potion", "antidote_vial", "elixir_of_clarity", "stamina_draught", "reinforced_boots"], "maze_loot_spawned");
+    return cells.exitRows;
 }
 
-// ============================================================================
-// Conversations
-// ============================================================================
+function buildPocket() {
+    const [c0, c1] = pocketCols();
+    scatterOrganic(["snowy_pine", "standing_torch_sconce", "pine_tree", "boulder_large"], c0, c1, MAZE_NORTH + 2, MAZE_SOUTH - 2, 8, 171720,
+        [{ col: colAt(POCKET_U0 + 5), row: MID }]);
+    if (!api.getVar("stamp_spawned", false)) {
+        api.setVar("stamp_spawned", true);
+        api.spawnItem("clerks_stamp", colAt(POCKET_U0 + 5), MID);
+    }
+}
+
+function claimsReturned() {
+    return Object.keys(CLAIMS).filter(k => api.getVar("returned_" + k, false)).length;
+}
+
 function* onTalkTo(name) {
-    if (name === "herbalist") {
-        yield* talkToWren();
-    } else if (name === "baker" || name === "farmgirl" || name === "lumberjack" || name === "fisherman") {
-        yield* talkToVillager(name);
-    } else if (name === "bird_night_owl" || name === "tribal_elder_woman" || name === "crystal_spirit") {
-        yield* talkToRiddleKeeper(name);
-    } else if (name === "farmhand_young") {
-        yield* rescueHostage();
-    } else if (name === "fox" || name === "deer") {
-        yield* talkToWildKeeper(name);
+    if (name === "gnome_wizard") {
+        yield* talkToClerk();
+    } else if (CLAIMS[name]) {
+        yield* talkToClaimant(name);
     }
 }
 
-function* talkToWren() {
-    const timesTalked = api.getVar("wren_talks", 0);
-    api.setVar("wren_talks", timesTalked + 1);
+function* talkToClerk() {
+    const n = api.getVar("clerk_talks", 0);
+    api.setVar("clerk_talks", n + 1);
     api.playSound("select");
-
-    if (timesTalked === 0) {
-        yield api.say("Wren", "There you are. I was starting to think you'd sleep through the whole hum.");
-        yield api.say("Lara", "The what?");
-        yield api.say("Wren", "Low, steady, coming from past the river, out in the old maze. Started three nights ago and hasn't stopped.");
-        yield api.say("Wren", "Before you cross - old Fernhollow riddle, for luck: \"I listen before I ever speak, I remember what the listening finds, and only then do I answer.\" Three folk out there live that riddle, in that order. Find them, if you want the luck.");
-    } else if (timesTalked === 1) {
-        yield api.say("Lara", "And you? Do you live it too?");
-        yield api.say("Wren", "I just grow things and hope they don't ask too many questions back. The footbridge is at the end of the market road. Mind the maze, and whatever's guarding past it.");
+    const done = claimsReturned();
+    if (api.getVar("claims_done", false)) {
+        yield api.say("Clerk", "All claims closed, ledger shut, road stamped. Do you know how long it has been since I could say that? Go on through. Quietly, please - it's a habit.");
+    } else if (done >= Object.keys(CLAIMS).length) {
+        api.setVar("claims_done", true);
+        api.setBarrier("claims_gate", 0, 0, 1, 1, false);
+        api.giveExperience(100);
+        yield api.say("Clerk", "*he counts the returns on his fingers, twice* Three claims. Three closed. That is - that is the whole ledger.");
+        yield api.say("Clerk", "*a small wet thump as he brings the stamp down on the road-pass* There. The gate at the far end of the Snowlanes will let you out. It's the first stamp I've been able to give since the hum stopped.");
+        yield* companionSays("cobb_recruited", "Cobb", "A whole town held up by one man's ledger. I've seen sillier things hold up mountains.");
+    } else if (n === 0) {
+        yield api.say("Clerk", "Hushgate is where the road out of the Quiet is stamped. Nobody leaves without a stamp. It is the only rule we have left, so we keep it very carefully.");
+        yield api.say("Clerk", "But my ledger has three open claims - three people who lost something in the Snowlanes, west of here - and I do not stamp a road while a claim is open. It isn't cruelty. It's that a road stamped over an open claim goes crooked.");
+        yield api.say("Lara", "So I find their things and bring them home.");
+        yield api.say("Clerk", "Each to its owner, in whatever order you like. When all three are closed, come and see me.");
     } else {
-        yield api.say("Wren", "Go on, then. Over the bridge, through the Thicket, past the stones, through the bramble, toward whatever's humming.");
-        api.playSound("select");
+        yield api.say("Clerk", "Claims closed: " + done + " of " + Object.keys(CLAIMS).length + ". The three owners are in the village. They will tell you where they lost things.");
     }
 }
 
-// A line or two from each neighbour, cycling - just enough to make the village
-// feel lived in.
-function* talkToVillager(name) {
-    const lines = {
-        baker: ["Bread's still warm. The hum hasn't spoiled the dough, at least.",
-                "Take a loaf with you. Nobody goes into that maze hungry and comes out cheerful."],
-        farmgirl: ["Three nights of that low note, and the hens have stopped laying out of spite.",
-                   "Wren says it's something buried. I say it's something bored."],
-        lumberjack: ["I cut the Thicket back every spring. Every spring it cuts me back a little harder.",
-                     "There's a fox in there that asks riddles. I didn't believe it either."],
-        fisherman: ["The river's gone glassy since the hum started. Fish still bite. They just apologise first.",
-                    "That footbridge is older than the village. Nobody remembers who built it. Nobody's ever fallen off, either."],
-    }[name];
-    const displayName = { baker: "Baker", farmgirl: "Farmgirl", lumberjack: "Lumberjack", fisherman: "Fisherman" }[name];
-    const n = api.getVar("talk_" + name, 0);
-    api.setVar("talk_" + name, n + 1);
+function* talkToClaimant(name) {
+    const [itemId, who, where] = CLAIMS[name];
     api.playSound("select");
-    yield api.say(displayName, lines[n % lines.length]);
-}
-
-// Order-of-three riddle: bird_night_owl (listens) -> tribal_elder_woman
-// (remembers) -> crystal_spirit (answers). Talking out of order resets the
-// step with an in-fiction hint, never a hard fail - same soft-fail style
-// this project already uses for order puzzles.
-function* talkToRiddleKeeper(name) {
-    const order = ["bird_night_owl", "tribal_elder_woman", "crystal_spirit"];
-    const displayName = { bird_night_owl: "Owl", tribal_elder_woman: "Elder", crystal_spirit: "Echo" }[name];
-    const step = api.getVar("riddle_step", 0);
-    api.playSound("select");
-
-    if (api.getVar("riddle_solved", false)) {
-        yield api.say(displayName, "*nods, already answered*");
+    if (api.getVar("returned_" + name, false)) {
+        yield api.say(who, "You found it. I keep touching it to make sure. Thank you.");
         return;
     }
-
-    if (order[step] === name) {
-        const newStep = step + 1;
-        api.setVar("riddle_step", newStep);
-        if (newStep === 1)
-            yield api.say("Owl", "*blinks slowly, listening* ...Go on, then. Someone should remember this.");
-        else if (newStep === 2)
-            yield api.say("Elder", "I remember. I've remembered longer than anyone still living here. Now someone only has to answer.");
-        else {
-            yield api.say("Echo", "*a small crystalline chime* The answer was never a word. It was the order you found us in.");
-            yield api.say("Lara", "...Listen, remember, answer. That's it, isn't it.");
-            api.setVar("riddle_solved", true);
-            api.giveExperience(80);
-            api.playSound("select");
-        }
-    } else {
-        api.setVar("riddle_step", 0);
-        yield api.say(displayName, "*waits, patiently* Not yet. Not in that order.");
-    }
-}
-
-// A second, smaller riddle, hidden inside the maze itself rather than the
-// village - a two-step call-and-response, not another order-of-three. Fox poses
-// it early on; Deer only answers once found a good stretch later.
-function* talkToWildKeeper(name) {
-    const order = ["fox", "deer"];
-    const displayName = { fox: "Fox", deer: "Deer" }[name];
-    const step = api.getVar("wildRiddle_step", 0);
-    api.playSound("select");
-
-    if (api.getVar("wildRiddle_solved", false)) {
-        yield api.say(displayName, "*watches you pass, unbothered*");
+    if (api.hasItem(itemId)) {
+        api.removeItem(itemId, 1);
+        api.setVar("returned_" + name, true);
+        api.giveExperience(40);
+        const RETURN_LINES = {
+            farmhand_young: "*he winds the key, and the little box plays half a tune, and waits* ...It always waits. It's waiting for a second half nobody remembers. But it's mine again. Thank you!",
+            tribal_gatherer_girl: "*she closes her hand around the locket and doesn't open it* My grandmother's. I lost it the week the hum stopped, and I thought - I thought that was the same thing as losing her again.",
+            lumberjack_2: "*he turns the woven charm over, counting knots* Every winter, one knot. Forty-one. Ha! I thought the drifts had it for good.",
+        };
+        yield api.say(who, RETURN_LINES[name]);
+        const left = Object.keys(CLAIMS).length - claimsReturned();
+        if (left === 0)
+            yield api.say("Lara", "That's all three. The Clerk was waiting on exactly this.");
         return;
     }
-
-    if (order[step] === name) {
-        const newStep = step + 1;
-        api.setVar("wildRiddle_step", newStep);
-        if (newStep === 1)
-            yield api.say("Fox", "*tilts its head* What grows thicker for every bit that's cut away from it?");
-        else {
-            yield api.say("Deer", "*doesn't flinch as you approach* A path, worn in by feet, not by any hand pruning it. Fox already knew. Fox likes to ask anyway.");
-            api.setVar("wildRiddle_solved", true);
-            api.giveExperience(50);
-            api.playSound("select");
-        }
+    const n = api.getVar("claim_talks_" + name, 0);
+    api.setVar("claim_talks_" + name, n + 1);
+    if (n === 0) {
+        const OPENING = {
+            farmhand_young: "I lost my music box. It's not worth anything. It only plays half a tune. But it is the only thing my mother left me that still does anything.",
+            tribal_gatherer_girl: "I lost my grandmother's locket while gathering. It's silver, and warm, and I know that's an odd thing to say about metal.",
+            lumberjack_2: "My charm. Woven, a knot for every winter I've survived. Forty-one knots. A man my age doesn't get to replace those.",
+        };
+        yield api.say(who, OPENING[name]);
+        yield api.say(who, "I lost it " + where + " of the Snowlanes - " + HEADING + " of here.");
     } else {
-        yield api.say(displayName, "*just watches, waiting for the other one first*");
+        yield api.say(who, "Still looking? " + where.charAt(0).toUpperCase() + where.slice(1) + ", I think. Thank you for going.");
     }
-}
-
-function* rescueHostage() {
-    if (api.getVar("hostage_rescued", false)) {
-        yield api.say("Farmhand", "Thank you again, truly.");
-        return;
-    }
-    api.setVar("hostage_rescued", true);
-    api.playSound("select");
-    yield api.say("Farmhand", "You- you're not one of them. Oh, thank every root in this wood.");
-    yield api.say("Lara", "Are you hurt?");
-    yield api.say("Farmhand", "Scared more than hurt. I wandered too far past the river chasing a lost goat. Please, just- get me back toward the village road.");
-    yield api.say("Lara", "The footbridge is back the way you came, then the market road. Go carefully.");
-    api.giveExperience(100);
 }
 
 function* onEnemyDefeated(name) {
-    // A flavor line for a few enemy archetypes - deliberately rare (not once per
-    // matching kill, which reads as spammy once several in a row have died the
-    // same way) via a flat low-probability roll first. Plain Math.random() on
-    // purpose, unlike the seeded mulberry32() the generators use: that
-    // determinism is for level LAYOUT, which doesn't apply to a cosmetic quip.
     if (Math.random() > 0.1)
         return;
-
-    if (name === "wolf") {
+    if (name === "harpy") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Sorry, old thing. You were just in the way.");
-    } else if (name === "goblin") {
+        yield api.say("Lara", "It didn't shriek. Even the birds out here are whispering.");
+    } else if (name === "skeleton_swordsman") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Scavenger, not a soldier. There'll be easier ground for it somewhere else.");
-    } else if (name === "slime_water") {
-        yield api.wait(0.3);
-        yield api.say("Lara", "...That water didn't used to do that. Wren wasn't exaggerating.");
+        yield api.say("Lara", "A guard at a customs post that stopped existing. He kept the post anyway.");
     }
 }
 
 function* onItemCollected(itemId) {
-    if (itemId !== "glowing_acorn")
+    if (itemId !== "clerks_stamp")
         return;
-
     yield api.wait(0.3);
-    yield api.say("Lara", "...Huh.");
-    yield api.say("Lara", "It's warm. And it's humming - not an echo of whatever Wren heard. The note itself, right here in my hand.");
-    yield api.say("???", "Now you understand why nobody in Fernhollow will say it out loud.");
-    yield api.say("Lara", "Who's there?");
-    yield api.say("???", "Someone who found one of those a long time ago, and is still finding out what it means. Follow the hum, Lara. It gets louder from here, not quieter.");
-
-    api.setGlobalVar("chapter", 2);
+    yield api.say("Lara", "It's warm from the pocket, like something that's been held for a long time by someone who never quite trusted it not to vanish.");
+    yield api.say("???", "First of nine. I can hear you now, Lara, without the hum in the way. It's a great deal, isn't it? Being heard.");
+    yield api.say("Lara", "You sound closer than you did at the Long Room. Where are you?");
+    yield api.say("???", "Further along the road. Nine places, nine keepsakes. This one taught you that a quiet place is not an empty one. The next is a keep whose doors were locked by somebody very frightened.");
+    api.setGlobalVar("chapter", 18);
     api.playSound("select");
     yield api.wait(0.8);
-    yield api.say("Lara", "East, then, past Fernhollow - toward wherever this thing actually came from.");
-    api.loadLevel("chapter2.json");
+    api.loadLevel("chapter18.json");
 }

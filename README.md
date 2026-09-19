@@ -4,13 +4,13 @@
 
 v0.6.9
 
-> *A 100-chapter isometric RPG. Sixteen chapters are done. The other eighty-four are, uh, "in the pipeline."*
+> *A 100-chapter isometric RPG. Twenty-five chapters are done. The other seventy-five are, uh, "in the pipeline."*
 
 **ShadowShine** (formerly "Umbraloom", until we decided nobody could spell it) is a from-scratch **C++20 / Qt6** isometric RPG engine, plus the story it runs. It's a rewrite of an old C/SDL2 engine, which lives on in `T2gu-legacy/` like an embarrassing photo in a parent's attic: preserved, unbuilt, and not to be touched.
 
 ## What you get
 
-- **16 chapters**, from the cozy village of *Fernhollow* to *The Long Room*, by way of *The Nameless Threshold*, a name that suggests things go downhill. Along the way: *Ada Town*, *The Hollow Under*, *The Rusted Line*, *Ashfall*, and ten more towns that each come with their own maze, weather and quest. Levels alternate between running left to right and right to left, just to keep you honest.
+- **25 chapters**, from the cozy village of *Fernhollow* to *The Second Door*, by way of *The Nameless Threshold*, a name that suggests things go downhill. Along the way: *Ada Town*, *The Hollow Under*, *The Rusted Line*, *Ashfall*, and nineteen more towns that each come with their own maze, weather and quest. Levels alternate between running left to right and right to left, just to keep you honest.
 - **115 characters**, each with 65 hand-... well, *machine*-posed sprites: idle, walk, run, defend, attack, skill, hit, die, dash and jump, front and back. That's 65 poses per character, or about 7,500 poses in total, and every one had to be checked for a stray caption or a leg cut off at the knee.
 - **Real-time combat**, a party system, inventory, fireballs (only if you're smart enough; the engine checks your Intelligence stat and finds you wanting), riddles, hostages to rescue, and NPCs with opinions.
 - **Levels that are the same every time you run them.** Layouts come from a seeded PRNG (`mulberry32`), not `Math.random()`, so when a tree spawns on your head it spawns on your head *reproducibly*, and we can fix it once and trust it forever.

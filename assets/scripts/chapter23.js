@@ -1,12 +1,12 @@
 // ============================================================================
-// ShadowShine - Chapter 1: "Fernhollow"
+// ShadowShine - Chapter 23: "Cartographers' Rest"
 // ============================================================================
 //
-// Two parts: the TOWN comes first, the MAZE after it. This level runs left to right
-// (the hero spawns against the west edge). Map: 150x78, tileset grass_water, lighting sunrise.
-//   - town   cols 1-40
-//   - river  cols 41-44 (one ford)
-//   - maze   cols 45-148, rows 1-76, corridors 2 wide, walls 4 thick
+// Two parts: the TOWN comes first, the MAZE after it. This level runs right to left
+// (the hero spawns against the east edge). Map: 176x96, tileset snow_grass, lighting none.
+//   - town   cols 131-174
+//   - maze   cols 11-130, rows 1-94, corridors 2 wide, walls 4 thick
+//   - pocket cols 1-10 (where the maze lets out)
 // ============================================================================
 
 // Deterministic PRNG - every generator below uses this instead of
@@ -321,15 +321,15 @@ function scatterOrganic(names, colStart, colEnd, rowStart, rowEnd, count, seed, 
 }
 
 // ---- Layout (from the map spec - the same numbers are stored in the map's own "layout" field) ----
-const W = 150, H = 78;
-const DIR = 1;                        // 1: this level runs left -> right
+const W = 176, H = 96;
+const DIR = -1;                        // -1: this level runs right -> left
 const START_U = 3;                        // the hero spawns this many columns in from the start edge
-const MID = 37;                        // row of the road that leads to the maze gate
-const TOWN_U = 40;                        // the town fills u = 1..TOWN_U (u counts from the start edge)
-const MAZE_WEST = 45, MAZE_EAST = 148;   // absolute columns of the maze block
-const MAZE_NORTH = 1, MAZE_SOUTH = 76;        // its rows
+const MID = 43;                        // row of the road that leads to the maze gate
+const TOWN_U = 44;                        // the town fills u = 1..TOWN_U (u counts from the start edge)
+const MAZE_WEST = 11, MAZE_EAST = 130;   // absolute columns of the maze block
+const MAZE_NORTH = 1, MAZE_SOUTH = 94;        // its rows
 const MAZE_CORRIDOR = 2, MAZE_WALL = 4;
-const POCKET_U0 = 149, POCKET_U1 = 148;   // the exit pocket beyond the maze (u), 0 columns
+const POCKET_U0 = 165, POCKET_U1 = 174;   // the exit pocket beyond the maze (u), 10 columns
 
 // ============================================================================
 // Two-part level shape helpers: the TOWN comes first, the MAZE after it.
@@ -401,375 +401,276 @@ function* companionSays(flag, who, line) {
         yield api.say(who, line);
 }
 
+// Spawns hostile packs onto `spots`, in order, exactly once per playthrough
+// (guarded by a chapter-local var so a reload doesn't double the population).
+// packs: [[archetype, count, hp], ...]
+function spawnPacks(spots, packs, guardVar) {
+    if (api.getVar(guardVar, false))
+        return;
+    api.setVar(guardVar, true);
+    let k = 0;
+    packs.forEach(([type, count, hp]) => {
+        for (let n = 0; n < count && k < spots.length; n++, k++)
+            api.spawnEnemy(type, spots[k].col, spots[k].row, hp);
+    });
+}
+
+// Spawns world pickups onto `spots`, once (same guard idea as spawnPacks).
+function spawnLoot(spots, itemIds, guardVar) {
+    if (api.getVar(guardVar, false))
+        return;
+    api.setVar(guardVar, true);
+    itemIds.forEach((id, k) => { if (spots[k]) api.spawnItem(id, spots[k].col, spots[k].row); });
+}
+
+// The pocket beyond the maze as an absolute column range.
+function pocketCols() {
+    const a = colAt(POCKET_U0), b = colAt(POCKET_U1);
+    return [Math.min(a, b), Math.max(a, b)];
+}
+
 
 // ----------------------------------------------------------------------------
-// Chapter 1 - Fernhollow, reformulated (2026-09-19).
+// Chapter 23 - "Cartographers' Rest" (snow_grass, no lighting - plain day). Runs
+// RIGHT to LEFT. A green village in the snow where the land is measured, then
+// the Survey - a maze of snowfields laid out on a grid.
 //
-// Now in two parts. PART ONE is the village of Fernhollow itself - a real
-// town this time, cols 1-40, with Wren by the well, a few neighbours, the
-// basic supplies, and a market road that runs straight to the river. A river
-// (cols 41-44) closes it off with a single ford and a footbridge, and past it
-// PART TWO begins: the Hollowbrook Maze, cols 45-148, one genuine branching
-// maze (same generator as every other chapter) holding everything from the
-// original chapter - the order-of-three riddle, the fox-and-deer riddle, the
-// hostage, the wildlife, the loot, and the glowing acorn at the far end.
-// Runs left to right.
+// QUEST (coordinates): three brass survey benchmarks lie somewhere in the
+// Survey. Each of three surveyors in the village knows the exact TILE
+// COORDINATES of one of them, and says so aloud. The Cartographer gives the
+// hero a compass; using it from the inventory (I, then Enter) prints the tile
+// the hero is standing on. Walk the maze to each coordinate. The third
+// benchmark closes the survey and lifts the exit gate - no need to walk back.
+// The numbers are absolute map columns and rows, so this works for either
+// direction; this level runs right to left, so columns count DOWN as you go.
 // ----------------------------------------------------------------------------
+const TOWN = [
+    ["berry_bush", 3, 23],
+    ["haystack", 3, 36],
+    ["oak_tree", 4, 17],
+    ["oak_tree", 4, 47],
+    ["bush", 5, -24],
+    ["rocks_small", 5, 40],
+    ["market_stall", 7, 23],
+    ["oak_tree", 8, -37],
+    ["rocks_small", 8, -22],
+    ["bush", 8, -15],
+    ["windmill", 8, 21],
+    ["bench", 10, 36],
+    ["bush", 11, -34],
+    ["pine_tree", 11, 43],
+    ["stone_fireplace", 12, -40],
+    ["pine_tree", 12, -31],
+    ["rocks_small", 12, -19],
+    ["berry_bush", 13, -36],
+    ["fence_straight", 13, 41],
+    ["snowy_pine", 14, 26],
+    ["snowy_pine", 14, 34],
+    ["rocks_small", 15, -26],
+    ["laundry_line", 15, -10],
+    ["fence_straight", 15, 19],
+    ["bench", 16, 31],
+    ["cottage_a", 16, 47],
+    ["cottage_b", 17, -39],
+    ["cottage_b", 17, -20],
+    ["wheelbarrow", 17, 23],
+    ["bench", 18, 3],
+    ["bush", 18, 40],
+    ["notice_board", 22, -4],
+    ["well", 26, -3],
+    ["snowy_pine", 26, 3],
+    ["chapel", 27, 43],
+    ["wheelbarrow", 29, -15],
+    ["pine_tree", 30, -26],
+    ["cottage_a", 31, -35],
+    ["fence_straight", 31, -31],
+    ["dovecote", 31, 21],
+    ["cottage_b", 32, -16],
+    ["wheelbarrow", 32, 19],
+    ["oak_tree", 33, -23],
+    ["cart", 33, 15],
+    ["berry_bush", 34, -35],
+    ["snowy_pine", 34, 30],
+    ["haystack", 35, 48],
+    ["bench", 37, -36],
+    ["berry_bush", 37, -27],
+    ["snowy_pine", 37, 11],
+    ["pine_tree", 37, 14],
+    ["haystack", 37, 18],
+    ["pine_tree", 37, 40],
+    ["haystack", 38, -20],
+    ["rocks_small", 38, 31],
+    ["wheelbarrow", 38, 49],
+    ["bench", 39, 16],
+    ["berry_bush", 39, 38],
+    ["fence_straight", 40, -34],
+    ["haystack", 40, 43],
+    ["wheelbarrow", 41, -17],
+    ["snowy_pine", 41, 33],
+    ["oak_tree", 42, 21]
+];
+// surveyor NPC -> [display name, which benchmark, which stretch of the Survey]
+const SURVEYORS = {
+    tribal_archer_girl: ["Wynne", 0, "first"],
+    lumberjack: ["Dov", 1, "middle"],
+    herbalist: ["Fen", 2, "last"],
+};
+let markerSpots = [];   // the three benchmark cells (set by buildMaze) - the surveyors read the coordinates out of this
 
 function* onLevelStart() {
     api.spawnCharacter("lara_cyber", colAt(START_U), MID);
     api.giveControl("lara_cyber");
+    respawnCompanions();
 
     buildTown();
-    buildMaze();
+    const exitRows = buildMaze();
+    buildPocket();
+    if (!api.getVar("survey_done", false))
+        setExitGate("survey_gate", exitRows, true);
 
-    if (api.getVar("chapter1_intro_seen", false))
+    if (api.getVar("chapter23_intro_seen", false))
         return;
-    api.setVar("chapter1_intro_seen", true);
+    api.setVar("chapter23_intro_seen", true);
 
     yield api.wait(0.6);
-    yield api.say("Lara", "...Fernhollow. Same crooked fences, same well that never quite fills all the way.");
-    yield api.say("Hint", "Move with WASD or the Arrow keys.");
-    yield api.say("Hint", "Hold Shift while moving to run.");
-    yield api.say("Hint", "Press E near someone - or something - to talk, or take a closer look.");
-    yield api.say("Hint", "Press Ctrl to attack. Press I for your inventory, Tab to switch who you're playing as.");
-    yield api.say("Lara", "Wren said she'd be by the well this morning. Let's see if that's actually true for once.");
+    yield api.say("Lara", "Plain daylight, no glow, no torches, no weather doing anything clever. After the last few places it is almost rude. Surveyors' stakes everywhere, and little brass discs set into the paving.");
+    yield* companionSays("vex_recruited", "Vex", "Finally. A place that measures itself. I could stand in this square for a week and be content.");
+    yield* companionSays("nettle_recruited", "Nettle", "Everything here is numbered. Even the benches. I find that comforting and slightly threatening.");
+    yield api.say("Hint", "This level runs right to left. The town is behind you; the Survey is ahead, to the west.");
 }
-
-// ============================================================================
-// Part one - the town. Buildings and decoration come from the composed layout
-// below (roads, the plaza and every NPC/item spot are kept clear of it).
-// ============================================================================
-const TOWN = [
-    ["rain_barrel", 3, -14],
-    ["fence_straight", 3, 16],
-    ["bench", 4, -25],
-    ["rocks_small", 4, 20],
-    ["laundry_line", 4, 25],
-    ["fence_straight", 5, -30],
-    ["wildflowers", 5, -15],
-    ["laundry_line", 6, 23],
-    ["bush", 6, 29],
-    ["cottage_a", 7, 20],
-    ["wheelbarrow", 7, 25],
-    ["oak_tree", 8, -30],
-    ["pine_tree", 9, 28],
-    ["bush", 10, -31],
-    ["bush", 10, -22],
-    ["wheelbarrow", 11, -17],
-    ["wheelbarrow", 12, -26],
-    ["haystack", 12, 23],
-    ["oak_tree", 13, -28],
-    ["wildflowers", 13, -19],
-    ["oak_tree", 14, -25],
-    ["cottage_b", 14, -15],
-    ["cottage_a", 14, -7],
-    ["bush", 15, -29],
-    ["rocks_small", 15, -10],
-    ["bench", 15, 37],
-    ["bush", 16, 8],
-    ["market_stall", 16, 21],
-    ["rocks_small", 16, 25],
-    ["pine_tree", 16, 28],
-    ["well", 17, -3],
-    ["bench", 17, 3],
-    ["notice_board", 23, -3],
-    ["bench", 23, 3],
-    ["bush", 25, -24],
-    ["oak_tree", 25, -7],
-    ["fence_corner", 26, -16],
-    ["cart", 26, 22],
-    ["fence_corner", 26, 28],
-    ["wildflowers", 27, -21],
-    ["market_stall", 27, -14],
-    ["fence_straight", 27, 16],
-    ["rocks_small", 28, -11],
-    ["haystack", 29, -17],
-    ["vegetable_garden", 29, 35],
-    ["chicken_coop", 30, -30],
-    ["cottage_b", 30, 20],
-    ["fence_corner", 31, -22],
-    ["pine_tree", 31, 30],
-    ["rain_barrel", 33, 11],
-    ["fence_straight", 33, 16],
-    ["fence_corner", 34, -19],
-    ["laundry_line", 34, -17],
-    ["rain_barrel", 34, 23],
-    ["bush", 35, -33],
-    ["wildflowers", 35, 13],
-    ["rain_barrel", 36, -25],
-    ["haystack", 37, 6],
-    ["windmill", 37, 18],
-    ["bench", 37, 35],
-    ["bench", 38, -34]
-];
 
 function buildTown() {
     placeProps(TOWN);
+    api.spawnProp("signpost", colAt(TOWN_U - 1), MID - 3);
 
-    // The river: reeds along the west bank, lily pads out on the water, and a
-    // footbridge over the one ford that lines up with the maze entrance.
-    const [gateRow0, gateRow1] = [MID - 1, MID + 2];
-    for (let r = MAZE_NORTH + 3; r < MAZE_SOUTH - 2; r += 4) {
-        if (r >= gateRow0 - 2 && r <= gateRow1 + 2)
-            continue;
-        api.spawnProp("reeds", colAt(TOWN_U), r);
-        if (r % 8 === 3)
-            api.spawnProp("lily_pads", colAt(TOWN_U + 2), r + 1);
-    }
-    api.spawnProp("wooden_bridge", colAt(TOWN_U + 2), MID);
-    api.spawnProp("signpost", colAt(TOWN_U - 2), MID - 3);
+    api.spawnNpc("elder_2", colAt(14), MID - 3);                 // Cartographer Aldous
+    api.spawnNpc("tribal_archer_girl", colAt(24), MID + 5);      // Wynne
+    api.spawnNpc("lumberjack", colAt(10), MID + 6);              // Dov
+    api.spawnNpc("herbalist", colAt(30), MID - 5);               // Fen
 
-    // Wren, and the folk she mentions.
-    api.spawnNpc("herbalist", colAt(14), MID - 2);
-    api.spawnNpc("baker", colAt(25), MID - 3);
-    api.spawnNpc("farmgirl", colAt(27), MID + 4);
-    api.spawnNpc("lumberjack", colAt(8), MID + 6);
-    api.spawnNpc("fisherman", colAt(38), MID - 6);
-
-    if (api.getVar("chapter1_loot_spawned", false))
+    if (api.getVar("town_loot_spawned", false))
         return;
-    api.setVar("chapter1_loot_spawned", true);
-    api.spawnItem("dried_rations", colAt(6), MID - 9);
-    api.spawnItem("bread_loaf", colAt(28), MID + 10);
-    api.spawnItem("waterskin", colAt(33), MID - 12);
-    api.spawnItem("berry_pouch", colAt(12), MID + 14);
-    api.spawnItem("health_potion", colAt(30), MID - 6);
+    api.setVar("town_loot_spawned", true);
+    api.spawnItem("health_potion", colAt(6), MID - 9);
+    api.spawnItem("dried_rations", colAt(28), MID + 11);
+    api.spawnItem("waterskin", colAt(34), MID - 12);
+    api.spawnItem("health_potion", colAt(13), MID + 14);
 }
 
-// ============================================================================
-// Part two - the Hollowbrook Maze. One branching maze from the far bank of the
-// river to the far edge of the map. Bigger set-piece props fill each wall
-// cluster's interior; small rough undergrowth fills the seam wherever a wall
-// meets a corridor (see buildBranchingMaze).
-// ============================================================================
 function buildMaze() {
-    const coreObstacles = ["pine_tree", "oak_tree", "boulder_large", "cliff_face", "dead_tree", "snowy_pine", "dead_twisted_tree", "fallen_log"];
-    const edgeObstacles = ["bush", "rocks_small", "tree_stump", "ivy_rock", "berry_bush"];
+    const core = ["snowy_pine", "pine_tree", "boulder_large", "stone_wall_corner", "haystack", "cottage_b"];
+    const edge = ["rocks_small", "bush", "tree_stump", "fence_straight", "broken_fence"];
     const cells = buildBranchingMaze(MAZE_WEST, MAZE_EAST, MAZE_NORTH, MAZE_SOUTH, MAZE_CORRIDOR, MAZE_WALL,
-        coreObstacles, edgeObstacles, 11001, { flip: DIR < 0, diagonalSeam: true, solid: true });
-
-    // Every placement in the maze draws from ONE pool, so two things can never
-    // share a cell. takeCells() always consumes the same cells for the same
-    // seed, so a reload that skips a spawn-once guard still lines up.
+        core, edge, 232301, { flip: DIR < 0, diagonalSeam: true, solid: true });
     const pool = cells.slice();
 
-    // 46 hostiles (the original 62, scaled to the smaller maze): wolf 8, goblin 9,
-    // boar 9, bear 12, slime_water 8 - none in the first stretch by the ford.
-    const hostileSpots = takeCells(pool, 0.06, 1.0, 46, 11002);
-    if (!api.getVar("hollowbrook_hostiles_spawned", false)) {
-        api.setVar("hollowbrook_hostiles_spawned", true);
-        const hostileTypes = [];
-        [["wolf", 8], ["goblin", 9], ["boar", 9], ["bear", 12], ["slime_water", 8]].forEach(([type, n]) => {
-            for (let k = 0; k < n; k++)
-                hostileTypes.push(type);
-        });
-        hostileTypes.forEach((type, k) => api.spawnEnemy(type, hostileSpots[k].col, hostileSpots[k].row, 30));
-    }
+    // One benchmark per stretch of the Survey, in a cell the maze really opens up (so the coordinates are walkable).
+    const bands = [[0.10, 0.30], [0.38, 0.62], [0.70, 0.92]];
+    markerSpots = bands.map((b, k) => takeCells(pool, b[0], b[1], 1, 232302 + k)[0]);
+    spawnLoot(markerSpots, ["survey_marker", "survey_marker", "survey_marker"], "markers_spawned");
 
-    // The order-of-three riddle-keepers Wren talks about - found roughly in the
-    // order she names them, owl first, crystal last (see talkToRiddleKeeper).
-    const owl = takeCells(pool, 0.10, 0.35, 1, 11003)[0];
-    const elder = takeCells(pool, 0.40, 0.65, 1, 11004)[0];
-    const echo = takeCells(pool, 0.70, 0.92, 1, 11005)[0];
-    api.spawnNpc("bird_night_owl", owl.col, owl.row);
-    api.spawnNpc("tribal_elder_woman", elder.col, elder.row);
-    api.spawnNpc("crystal_spirit", echo.col, echo.row);
+    spawnPacks(takeCells(pool, 0.06, 1.0, 36, 232306),
+        [["wolf", 8, 30], ["bear", 6, 55], ["slime_ice", 8, 25], ["harpy", 6, 30], ["tiger", 4, 60], ["fox", 4, 25]],
+        "maze_hostiles_spawned");
 
-    // A rare friendly pair in the maze - fox poses the small riddle early, deer
-    // answers it a good stretch later.
-    const fox = takeCells(pool, 0.12, 0.45, 1, 11006)[0];
-    const deer = takeCells(pool, 0.60, 0.95, 1, 11007)[0];
-    api.spawnNpc("fox", fox.col, fox.row);
-    api.spawnNpc("deer", deer.col, deer.row);
-
-    const hostage = takeCells(pool, 0.35, 0.75, 1, 11008)[0];
-    if (!api.getVar("hostage_spawned", false)) {
-        api.setVar("hostage_spawned", true);
-        api.spawnNpc("farmhand_young", hostage.col, hostage.row);
-    }
-
-    const acorn = takeCells(pool, 0.93, 1.0, 1, 11009)[0];
-    const loot = takeCells(pool, 0.05, 0.95, 13, 11010);
-    if (api.getVar("hollowbrook_loot_spawned", false))
-        return;
-    api.setVar("hollowbrook_loot_spawned", true);
-    api.spawnItem("glowing_acorn", acorn.col, acorn.row);
-    ["gold_coin_pile", "rope_coil", "herb_bundle", "honey_jar", "mana_potion",
-     "health_potion", "health_potion", "health_potion", "health_potion",
-     "health_potion", "health_potion", "health_potion", "health_potion"].forEach((id, k) => api.spawnItem(id, loot[k].col, loot[k].row));
+    spawnLoot(takeCells(pool, 0.05, 0.95, 11, 232310),
+        ["health_potion", "health_potion", "health_potion", "health_potion", "health_potion", "health_potion",
+         "mana_potion", "antidote_vial", "elixir_of_clarity", "stamina_draught", "reinforced_boots"], "maze_loot_spawned");
+    return cells.exitRows;
 }
 
-// ============================================================================
-// Conversations
-// ============================================================================
+function buildPocket() {
+    const [c0, c1] = pocketCols();
+    scatterOrganic(["snowy_pine", "ancient_obelisk", "pine_tree", "boulder_large"], c0, c1, MAZE_NORTH + 2, MAZE_SOUTH - 2, 8, 232320,
+        [{ col: colAt(POCKET_U0 + 5), row: MID }]);
+    if (!api.getVar("star_spawned", false)) {
+        api.setVar("star_spawned", true);
+        api.spawnItem("surveyors_star", colAt(POCKET_U0 + 5), MID);
+    }
+}
+
 function* onTalkTo(name) {
-    if (name === "herbalist") {
-        yield* talkToWren();
-    } else if (name === "baker" || name === "farmgirl" || name === "lumberjack" || name === "fisherman") {
-        yield* talkToVillager(name);
-    } else if (name === "bird_night_owl" || name === "tribal_elder_woman" || name === "crystal_spirit") {
-        yield* talkToRiddleKeeper(name);
-    } else if (name === "farmhand_young") {
-        yield* rescueHostage();
-    } else if (name === "fox" || name === "deer") {
-        yield* talkToWildKeeper(name);
+    if (name === "elder_2") {
+        yield* talkToCartographer();
+    } else if (SURVEYORS[name]) {
+        yield* talkToSurveyor(name);
     }
 }
 
-function* talkToWren() {
-    const timesTalked = api.getVar("wren_talks", 0);
-    api.setVar("wren_talks", timesTalked + 1);
+function* talkToCartographer() {
+    const n = api.getVar("cartographer_talks", 0);
+    api.setVar("cartographer_talks", n + 1);
     api.playSound("select");
-
-    if (timesTalked === 0) {
-        yield api.say("Wren", "There you are. I was starting to think you'd sleep through the whole hum.");
-        yield api.say("Lara", "The what?");
-        yield api.say("Wren", "Low, steady, coming from past the river, out in the old maze. Started three nights ago and hasn't stopped.");
-        yield api.say("Wren", "Before you cross - old Fernhollow riddle, for luck: \"I listen before I ever speak, I remember what the listening finds, and only then do I answer.\" Three folk out there live that riddle, in that order. Find them, if you want the luck.");
-    } else if (timesTalked === 1) {
-        yield api.say("Lara", "And you? Do you live it too?");
-        yield api.say("Wren", "I just grow things and hope they don't ask too many questions back. The footbridge is at the end of the market road. Mind the maze, and whatever's guarding past it.");
-    } else {
-        yield api.say("Wren", "Go on, then. Over the bridge, through the Thicket, past the stones, through the bramble, toward whatever's humming.");
-        api.playSound("select");
-    }
-}
-
-// A line or two from each neighbour, cycling - just enough to make the village
-// feel lived in.
-function* talkToVillager(name) {
-    const lines = {
-        baker: ["Bread's still warm. The hum hasn't spoiled the dough, at least.",
-                "Take a loaf with you. Nobody goes into that maze hungry and comes out cheerful."],
-        farmgirl: ["Three nights of that low note, and the hens have stopped laying out of spite.",
-                   "Wren says it's something buried. I say it's something bored."],
-        lumberjack: ["I cut the Thicket back every spring. Every spring it cuts me back a little harder.",
-                     "There's a fox in there that asks riddles. I didn't believe it either."],
-        fisherman: ["The river's gone glassy since the hum started. Fish still bite. They just apologise first.",
-                    "That footbridge is older than the village. Nobody remembers who built it. Nobody's ever fallen off, either."],
-    }[name];
-    const displayName = { baker: "Baker", farmgirl: "Farmgirl", lumberjack: "Lumberjack", fisherman: "Fisherman" }[name];
-    const n = api.getVar("talk_" + name, 0);
-    api.setVar("talk_" + name, n + 1);
-    api.playSound("select");
-    yield api.say(displayName, lines[n % lines.length]);
-}
-
-// Order-of-three riddle: bird_night_owl (listens) -> tribal_elder_woman
-// (remembers) -> crystal_spirit (answers). Talking out of order resets the
-// step with an in-fiction hint, never a hard fail - same soft-fail style
-// this project already uses for order puzzles.
-function* talkToRiddleKeeper(name) {
-    const order = ["bird_night_owl", "tribal_elder_woman", "crystal_spirit"];
-    const displayName = { bird_night_owl: "Owl", tribal_elder_woman: "Elder", crystal_spirit: "Echo" }[name];
-    const step = api.getVar("riddle_step", 0);
-    api.playSound("select");
-
-    if (api.getVar("riddle_solved", false)) {
-        yield api.say(displayName, "*nods, already answered*");
+    if (api.getVar("survey_done", false)) {
+        yield api.say("Aldous", "Three benchmarks, one closed survey. It is the first time in forty years the whole valley has agreed with itself. Go on through - and take the star; it's yours by right of arithmetic.");
         return;
     }
-
-    if (order[step] === name) {
-        const newStep = step + 1;
-        api.setVar("riddle_step", newStep);
-        if (newStep === 1)
-            yield api.say("Owl", "*blinks slowly, listening* ...Go on, then. Someone should remember this.");
-        else if (newStep === 2)
-            yield api.say("Elder", "I remember. I've remembered longer than anyone still living here. Now someone only has to answer.");
-        else {
-            yield api.say("Echo", "*a small crystalline chime* The answer was never a word. It was the order you found us in.");
-            yield api.say("Lara", "...Listen, remember, answer. That's it, isn't it.");
-            api.setVar("riddle_solved", true);
-            api.giveExperience(80);
-            api.playSound("select");
-        }
+    if (!api.getVar("compass_given", false)) {
+        api.setVar("compass_given", true);
+        api.giveItem("broken_compass", 1);
+        yield api.say("Aldous", "Cartographers' Rest. Every stone in this village is set to a benchmark, and every benchmark is on the grid. Out in the Survey, west of here, three of them have gone astray - three brass discs, buried in the snowfields.");
+        yield api.say("Aldous", "Three of my surveyors each know where one lies, to the tile. Talk to them; they'll read you the numbers. And take this compass. It is a poor one - it doesn't point anywhere - but it will tell you which tile you stand on.");
+        yield api.say("Hint", "Open your inventory with I, select the compass and press Enter: it tells you the tile (column, row) you are standing on. Walk until your numbers match a surveyor's.");
+        yield api.say("Aldous", "Find all three and the survey closes on its own; the exit at the far end of the Survey will unbar itself. You needn't come back to tell me.");
+    } else if (n === 1) {
+        yield api.say("Aldous", "Wynne, Dov and Fen. One benchmark each: first stretch, middle, last. The numbers are columns and rows, counted from the top-left corner of the whole map - so as you go west, the column falls.");
     } else {
-        api.setVar("riddle_step", 0);
-        yield api.say(displayName, "*waits, patiently* Not yet. Not in that order.");
+        yield api.say("Aldous", "Compass in your pack, coordinates from my three surveyors. The Survey is a grid. Walk it like one.");
     }
 }
 
-// A second, smaller riddle, hidden inside the maze itself rather than the
-// village - a two-step call-and-response, not another order-of-three. Fox poses
-// it early on; Deer only answers once found a good stretch later.
-function* talkToWildKeeper(name) {
-    const order = ["fox", "deer"];
-    const displayName = { fox: "Fox", deer: "Deer" }[name];
-    const step = api.getVar("wildRiddle_step", 0);
+function* talkToSurveyor(name) {
+    const [who, idx, stretch] = SURVEYORS[name];
     api.playSound("select");
-
-    if (api.getVar("wildRiddle_solved", false)) {
-        yield api.say(displayName, "*watches you pass, unbothered*");
-        return;
+    const spot = markerSpots[idx];
+    const n = api.getVar("surveyor_talks_" + name, 0);
+    api.setVar("surveyor_talks_" + name, n + 1);
+    if (n === 0) {
+        yield api.say(who, "You're the one going into the Survey? Then you'll want my number. I'm the one who set the " + stretch + " benchmark, before it went astray.");
     }
-
-    if (order[step] === name) {
-        const newStep = step + 1;
-        api.setVar("wildRiddle_step", newStep);
-        if (newStep === 1)
-            yield api.say("Fox", "*tilts its head* What grows thicker for every bit that's cut away from it?");
-        else {
-            yield api.say("Deer", "*doesn't flinch as you approach* A path, worn in by feet, not by any hand pruning it. Fox already knew. Fox likes to ask anyway.");
-            api.setVar("wildRiddle_solved", true);
-            api.giveExperience(50);
-            api.playSound("select");
-        }
-    } else {
-        yield api.say(displayName, "*just watches, waiting for the other one first*");
-    }
-}
-
-function* rescueHostage() {
-    if (api.getVar("hostage_rescued", false)) {
-        yield api.say("Farmhand", "Thank you again, truly.");
-        return;
-    }
-    api.setVar("hostage_rescued", true);
-    api.playSound("select");
-    yield api.say("Farmhand", "You- you're not one of them. Oh, thank every root in this wood.");
-    yield api.say("Lara", "Are you hurt?");
-    yield api.say("Farmhand", "Scared more than hurt. I wandered too far past the river chasing a lost goat. Please, just- get me back toward the village road.");
-    yield api.say("Lara", "The footbridge is back the way you came, then the market road. Go carefully.");
-    api.giveExperience(100);
+    yield api.say(who, "It lies at tile (" + spot.col + ", " + spot.row + "). Column " + spot.col + ", row " + spot.row + ". " + (n === 0 ? "Write that down. I've never known anyone to keep a coordinate in their head past the first snowdrift." : "Column " + spot.col + ", row " + spot.row + ". Yes, still."));
+    const found = api.getVar("markers_found", 0);
+    if (found > 0)
+        yield api.say(who, "I hear you've already dug up " + found + " of the three. If that includes mine, you can ignore the numbers - but I'd check the compass before you decide it does.");
 }
 
 function* onEnemyDefeated(name) {
-    // A flavor line for a few enemy archetypes - deliberately rare (not once per
-    // matching kill, which reads as spammy once several in a row have died the
-    // same way) via a flat low-probability roll first. Plain Math.random() on
-    // purpose, unlike the seeded mulberry32() the generators use: that
-    // determinism is for level LAYOUT, which doesn't apply to a cosmetic quip.
     if (Math.random() > 0.1)
         return;
-
-    if (name === "wolf") {
+    if (name === "bear") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Sorry, old thing. You were just in the way.");
-    } else if (name === "goblin") {
+        yield api.say("Lara", "It had a surveyor's stake stuck in its fur. It must have been sitting on the benchmark for years.");
+    } else if (name === "fox") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Scavenger, not a soldier. There'll be easier ground for it somewhere else.");
-    } else if (name === "slime_water") {
-        yield api.wait(0.3);
-        yield api.say("Lara", "...That water didn't used to do that. Wren wasn't exaggerating.");
+        yield api.say("Lara", "Quick, quiet, and gone. Even the foxes out here move in straight lines.");
     }
 }
 
 function* onItemCollected(itemId) {
-    if (itemId !== "glowing_acorn")
+    if (itemId === "survey_marker") {
+        const found = api.getVar("markers_found", 0) + 1;
+        api.setVar("markers_found", found);
+        api.giveExperience(30);
+        if (found >= 3) {
+            api.setVar("survey_done", true);
+            api.setBarrier("survey_gate", 0, 0, 1, 1, false);
+            api.giveExperience(100);
+            yield api.say("Lara", "That's the third disc. The compass in my pack gave a small click, like a lid closing, and somewhere ahead a long iron bar slid back. The survey has closed itself.");
+            yield* companionSays("vex_recruited", "Vex", "Three points define a plane. That may be the most beautiful sentence in any language.");
+        } else {
+            yield api.say("Lara", "A brass disc, stamped with a coordinate that has been rubbed out. " + found + " of 3.");
+        }
         return;
-
+    }
+    if (itemId !== "surveyors_star")
+        return;
     yield api.wait(0.3);
-    yield api.say("Lara", "...Huh.");
-    yield api.say("Lara", "It's warm. And it's humming - not an echo of whatever Wren heard. The note itself, right here in my hand.");
-    yield api.say("???", "Now you understand why nobody in Fernhollow will say it out loud.");
-    yield api.say("Lara", "Who's there?");
-    yield api.say("???", "Someone who found one of those a long time ago, and is still finding out what it means. Follow the hum, Lara. It gets louder from here, not quieter.");
-
-    api.setGlobalVar("chapter", 2);
+    yield api.say("Lara", "A star of brass points. When I turn it, one point stays pointing at a spot I can't see, and it's not north.");
+    yield api.say("???", "Seventh of nine. A map is only a promise that a place will be where you left it. Sometimes you have to go and make the promise true.");
+    yield api.say("Lara", "You keep talking about promises. Who made you one?");
+    yield api.say("???", "Someone who thought better of it, and didn't say so. The next place has a court in session over a crime I would rather it hadn't happened. I'll be listening.");
+    api.setGlobalVar("chapter", 24);
     api.playSound("select");
     yield api.wait(0.8);
-    yield api.say("Lara", "East, then, past Fernhollow - toward wherever this thing actually came from.");
-    api.loadLevel("chapter2.json");
+    api.loadLevel("chapter24.json");
 }

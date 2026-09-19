@@ -67,6 +67,9 @@ function buildBranchingMaze(west, east, northRow, southRow, corridorWidth, wallW
     //                  height), so a wall of props alone leaves a free slit through every
     //                  tile row - measured in the real engine, a bot walks a dead-straight
     //                  line through a whole shipped maze. `solid` makes the walls real.
+    //   wallPrefix    - id prefix of the solid-wall barriers (default "mzwall_"). setBarrier ignores an id that
+    //                  is already up, so a level that builds several mazes one after another gives each its own.
+    const wallPrefix = (options && options.wallPrefix) || "mzwall_";
     const flip = !!(options && options.flip);
     const diagonalSeam = !!(options && options.diagonalSeam);
     const solid = !!(options && options.solid);
@@ -247,7 +250,7 @@ function buildBranchingMaze(west, east, northRow, southRow, corridorWidth, wallW
 
     wallRects.forEach((rect, k) => {
         const firstCol = flip ? west + east - rect.c1 : rect.c0;   // mirrored like every prop
-        api.setBarrier("mzwall_" + k, firstCol, rect.r0, rect.c1 - rect.c0 + 1, rect.r1 - rect.r0 + 1, true);
+        api.setBarrier(wallPrefix + k, firstCol, rect.r0, rect.c1 - rect.c0 + 1, rect.r1 - rect.r0 + 1, true);
     });
 
     const cellCenters = [];

@@ -1,12 +1,12 @@
 // ============================================================================
-// ShadowShine - Chapter 1: "Fernhollow"
+// ShadowShine - Chapter 18: "The Keepwalk"
 // ============================================================================
 //
 // Two parts: the TOWN comes first, the MAZE after it. This level runs left to right
-// (the hero spawns against the west edge). Map: 150x78, tileset grass_water, lighting sunrise.
-//   - town   cols 1-40
-//   - river  cols 41-44 (one ford)
-//   - maze   cols 45-148, rows 1-76, corridors 2 wide, walls 4 thick
+// (the hero spawns against the west edge). Map: 166x90, tileset haunted_cobble_grass, lighting cavern.
+//   - town   cols 1-44
+//   - maze   cols 45-154, rows 0-89, corridors 2 wide, walls 4 thick
+//   - pocket cols 155-164 (where the maze lets out)
 // ============================================================================
 
 // Deterministic PRNG - every generator below uses this instead of
@@ -321,15 +321,15 @@ function scatterOrganic(names, colStart, colEnd, rowStart, rowEnd, count, seed, 
 }
 
 // ---- Layout (from the map spec - the same numbers are stored in the map's own "layout" field) ----
-const W = 150, H = 78;
+const W = 166, H = 90;
 const DIR = 1;                        // 1: this level runs left -> right
 const START_U = 3;                        // the hero spawns this many columns in from the start edge
-const MID = 37;                        // row of the road that leads to the maze gate
-const TOWN_U = 40;                        // the town fills u = 1..TOWN_U (u counts from the start edge)
-const MAZE_WEST = 45, MAZE_EAST = 148;   // absolute columns of the maze block
-const MAZE_NORTH = 1, MAZE_SOUTH = 76;        // its rows
+const MID = 42;                        // row of the road that leads to the maze gate
+const TOWN_U = 44;                        // the town fills u = 1..TOWN_U (u counts from the start edge)
+const MAZE_WEST = 45, MAZE_EAST = 154;   // absolute columns of the maze block
+const MAZE_NORTH = 0, MAZE_SOUTH = 89;        // its rows
 const MAZE_CORRIDOR = 2, MAZE_WALL = 4;
-const POCKET_U0 = 149, POCKET_U1 = 148;   // the exit pocket beyond the maze (u), 0 columns
+const POCKET_U0 = 155, POCKET_U1 = 164;   // the exit pocket beyond the maze (u), 10 columns
 
 // ============================================================================
 // Two-part level shape helpers: the TOWN comes first, the MAZE after it.
@@ -401,375 +401,323 @@ function* companionSays(flag, who, line) {
         yield api.say(who, line);
 }
 
+// Spawns hostile packs onto `spots`, in order, exactly once per playthrough
+// (guarded by a chapter-local var so a reload doesn't double the population).
+// packs: [[archetype, count, hp], ...]
+function spawnPacks(spots, packs, guardVar) {
+    if (api.getVar(guardVar, false))
+        return;
+    api.setVar(guardVar, true);
+    let k = 0;
+    packs.forEach(([type, count, hp]) => {
+        for (let n = 0; n < count && k < spots.length; n++, k++)
+            api.spawnEnemy(type, spots[k].col, spots[k].row, hp);
+    });
+}
+
+// Spawns world pickups onto `spots`, once (same guard idea as spawnPacks).
+function spawnLoot(spots, itemIds, guardVar) {
+    if (api.getVar(guardVar, false))
+        return;
+    api.setVar(guardVar, true);
+    itemIds.forEach((id, k) => { if (spots[k]) api.spawnItem(id, spots[k].col, spots[k].row); });
+}
+
+// The pocket beyond the maze as an absolute column range.
+function pocketCols() {
+    const a = colAt(POCKET_U0), b = colAt(POCKET_U1);
+    return [Math.min(a, b), Math.max(a, b)];
+}
+
 
 // ----------------------------------------------------------------------------
-// Chapter 1 - Fernhollow, reformulated (2026-09-19).
+// Chapter 18 - "The Keepwalk" (haunted_cobble_grass, cavern). Runs LEFT to
+// RIGHT. A cobbled bailey under a keep, then the Undercroft - a maze of vaults
+// with TWO LOCKED DOORS built into it.
 //
-// Now in two parts. PART ONE is the village of Fernhollow itself - a real
-// town this time, cols 1-40, with Wren by the well, a few neighbours, the
-// basic supplies, and a market road that runs straight to the river. A river
-// (cols 41-44) closes it off with a single ford and a footbridge, and past it
-// PART TWO begins: the Hollowbrook Maze, cols 45-148, one genuine branching
-// maze (same generator as every other chapter) holding everything from the
-// original chapter - the order-of-three riddle, the fox-and-deer riddle, the
-// hostage, the wildlife, the loot, and the glowing acorn at the far end.
-// Runs left to right.
+// QUEST (keys and doors): the Undercroft is built as THREE consecutive mazes
+// (buildBranchingMaze called once per stage, each with its own wall-barrier
+// prefix), so every stage is connected on its own; a door stands in each seam.
+// Each door has a Doorward who will open it for one key, and each key lies
+// inside the stage BEFORE its own door, watched over by whatever was left to
+// guard it. Bronze key -> first door -> silver key -> second door -> the way
+// out. (One random maze cut by a wall would leave stranded fragments of the near
+// side - the static check caught exactly that - which is why it is built in stages.)
+// This chapter runs left to right only.
 // ----------------------------------------------------------------------------
+const TOWN = [
+    ["bench", 4, -33],
+    ["bush", 4, -27],
+    ["bush", 4, 20],
+    ["wooden_chest", 7, 31],
+    ["rocks_small", 8, -38],
+    ["barrels_crates", 8, 15],
+    ["cart", 9, -22],
+    ["fence_straight", 9, -17],
+    ["tavern_bar_counter", 9, 23],
+    ["stacked_ale_barrels", 10, -19],
+    ["barrels_crates", 11, -25],
+    ["rocks_small", 12, -27],
+    ["cart", 12, -14],
+    ["rain_barrel", 12, 36],
+    ["bench", 12, 42],
+    ["rocks_small", 15, -38],
+    ["cart", 15, -26],
+    ["stone_fireplace", 15, -10],
+    ["bush", 15, 41],
+    ["fence_straight", 16, -36],
+    ["wooden_chest", 16, -16],
+    ["castle_gate_tower", 18, -7],
+    ["armory_rack", 18, 3],
+    ["castle_gate_tower", 18, 10],
+    ["wooden_chest", 18, 19],
+    ["courtyard_well", 22, -4],
+    ["notice_board", 26, -3],
+    ["stacked_ale_barrels", 26, 3],
+    ["chapel", 27, -27],
+    ["cottage_a", 27, -20],
+    ["armory_rack", 27, -17],
+    ["rain_barrel", 27, -10],
+    ["market_stall", 27, 44],
+    ["cottage_b", 29, 20],
+    ["rocks_small", 29, 23],
+    ["stacked_ale_barrels", 29, 34],
+    ["stacked_ale_barrels", 29, 40],
+    ["barrels_crates", 31, -17],
+    ["rocks_small", 31, 37],
+    ["water_trough", 32, -28],
+    ["cottage_a", 32, 29],
+    ["bush", 33, -24],
+    ["cart", 34, -16],
+    ["barrels_crates", 34, 13],
+    ["water_trough", 34, 18],
+    ["water_trough", 35, -7],
+    ["blacksmith_forge", 35, 24],
+    ["cart", 36, -3],
+    ["cart", 36, 12],
+    ["bench", 37, -16],
+    ["bush", 38, -21],
+    ["standing_torch_sconce", 38, -3],
+    ["barrels_crates", 38, 10],
+    ["fence_straight", 38, 28],
+    ["bench", 38, 41],
+    ["rain_barrel", 39, -27],
+    ["rain_barrel", 40, -38],
+    ["water_trough", 40, -15],
+    ["bench", 41, -19],
+    ["fence_straight", 41, -4],
+    ["wooden_chest", 42, -37],
+    ["stacked_ale_barrels", 42, -21],
+    ["rain_barrel", 42, 6],
+    ["barrels_crates", 42, 30]
+];
+// Doorward NPC -> the barrier it opens, the key it wants, and how it speaks
+const DOORS = {
+    tribal_warrior_man: { id: "door_bronze", key: "keep_key_bronze", who: "Doorward Halric", metal: "bronze", next: "the second door, further in" },
+    tribal_caveman_warrior: { id: "door_silver", key: "keep_key_silver", who: "Doorward Orn", metal: "silver", next: "the way out" },
+};
+let doorInfo = null;   // set by buildMaze: the two door columns and the rows of the openings they close
 
 function* onLevelStart() {
     api.spawnCharacter("lara_cyber", colAt(START_U), MID);
     api.giveControl("lara_cyber");
+    respawnCompanions();
 
     buildTown();
     buildMaze();
+    buildPocket();
+    // The doors go up on every load until their own quest var says they were opened.
+    const doorH = doorInfo.rows[1] - doorInfo.rows[0] + 1;
+    if (!api.getVar("door_bronze_open", false))
+        api.setBarrier("door_bronze", doorInfo.bronzeCol, doorInfo.rows[0], 2, doorH, true);
+    if (!api.getVar("door_silver_open", false))
+        api.setBarrier("door_silver", doorInfo.silverCol, doorInfo.rows[0], 2, doorH, true);
 
-    if (api.getVar("chapter1_intro_seen", false))
+    if (api.getVar("chapter18_intro_seen", false))
         return;
-    api.setVar("chapter1_intro_seen", true);
+    api.setVar("chapter18_intro_seen", true);
 
     yield api.wait(0.6);
-    yield api.say("Lara", "...Fernhollow. Same crooked fences, same well that never quite fills all the way.");
-    yield api.say("Hint", "Move with WASD or the Arrow keys.");
-    yield api.say("Hint", "Hold Shift while moving to run.");
-    yield api.say("Hint", "Press E near someone - or something - to talk, or take a closer look.");
-    yield api.say("Hint", "Press Ctrl to attack. Press I for your inventory, Tab to switch who you're playing as.");
-    yield api.say("Lara", "Wren said she'd be by the well this morning. Let's see if that's actually true for once.");
+    yield api.say("Lara", "Cobbles, a gatehouse, a forge with its fire banked low. The bailey of a keep - and above us, the keep itself, with every window shuttered.");
+    yield* companionSays("vex_recruited", "Vex", "The locks here are mechanical, not magical. Pin tumblers. That is a comfort, in its way - a pin tumbler cannot resent you.");
+    yield* companionSays("vigil_recruited", "Vigil", "Someone locked these doors from the inside, and then left by another way. I know that kind of tiredness.");
+    yield api.say("Hint", "This level runs left to right. The town is behind you; the Undercroft is ahead, to the east, and it has doors.");
 }
-
-// ============================================================================
-// Part one - the town. Buildings and decoration come from the composed layout
-// below (roads, the plaza and every NPC/item spot are kept clear of it).
-// ============================================================================
-const TOWN = [
-    ["rain_barrel", 3, -14],
-    ["fence_straight", 3, 16],
-    ["bench", 4, -25],
-    ["rocks_small", 4, 20],
-    ["laundry_line", 4, 25],
-    ["fence_straight", 5, -30],
-    ["wildflowers", 5, -15],
-    ["laundry_line", 6, 23],
-    ["bush", 6, 29],
-    ["cottage_a", 7, 20],
-    ["wheelbarrow", 7, 25],
-    ["oak_tree", 8, -30],
-    ["pine_tree", 9, 28],
-    ["bush", 10, -31],
-    ["bush", 10, -22],
-    ["wheelbarrow", 11, -17],
-    ["wheelbarrow", 12, -26],
-    ["haystack", 12, 23],
-    ["oak_tree", 13, -28],
-    ["wildflowers", 13, -19],
-    ["oak_tree", 14, -25],
-    ["cottage_b", 14, -15],
-    ["cottage_a", 14, -7],
-    ["bush", 15, -29],
-    ["rocks_small", 15, -10],
-    ["bench", 15, 37],
-    ["bush", 16, 8],
-    ["market_stall", 16, 21],
-    ["rocks_small", 16, 25],
-    ["pine_tree", 16, 28],
-    ["well", 17, -3],
-    ["bench", 17, 3],
-    ["notice_board", 23, -3],
-    ["bench", 23, 3],
-    ["bush", 25, -24],
-    ["oak_tree", 25, -7],
-    ["fence_corner", 26, -16],
-    ["cart", 26, 22],
-    ["fence_corner", 26, 28],
-    ["wildflowers", 27, -21],
-    ["market_stall", 27, -14],
-    ["fence_straight", 27, 16],
-    ["rocks_small", 28, -11],
-    ["haystack", 29, -17],
-    ["vegetable_garden", 29, 35],
-    ["chicken_coop", 30, -30],
-    ["cottage_b", 30, 20],
-    ["fence_corner", 31, -22],
-    ["pine_tree", 31, 30],
-    ["rain_barrel", 33, 11],
-    ["fence_straight", 33, 16],
-    ["fence_corner", 34, -19],
-    ["laundry_line", 34, -17],
-    ["rain_barrel", 34, 23],
-    ["bush", 35, -33],
-    ["wildflowers", 35, 13],
-    ["rain_barrel", 36, -25],
-    ["haystack", 37, 6],
-    ["windmill", 37, 18],
-    ["bench", 37, 35],
-    ["bench", 38, -34]
-];
 
 function buildTown() {
     placeProps(TOWN);
+    api.spawnProp("signpost", colAt(TOWN_U - 1), MID - 3);
+    api.spawnProp("standing_torch_sconce", colAt(TOWN_U), MID + 4);
 
-    // The river: reeds along the west bank, lily pads out on the water, and a
-    // footbridge over the one ford that lines up with the maze entrance.
-    const [gateRow0, gateRow1] = [MID - 1, MID + 2];
-    for (let r = MAZE_NORTH + 3; r < MAZE_SOUTH - 2; r += 4) {
-        if (r >= gateRow0 - 2 && r <= gateRow1 + 2)
-            continue;
-        api.spawnProp("reeds", colAt(TOWN_U), r);
-        if (r % 8 === 3)
-            api.spawnProp("lily_pads", colAt(TOWN_U + 2), r + 1);
-    }
-    api.spawnProp("wooden_bridge", colAt(TOWN_U + 2), MID);
-    api.spawnProp("signpost", colAt(TOWN_U - 2), MID - 3);
+    api.spawnNpc("dwarf_warrior", colAt(14), MID - 3);      // Captain Brann
+    api.spawnNpc("blacksmith", colAt(24), MID + 5);         // the Smith
+    api.spawnNpc("innkeeper", colAt(10), MID + 6);          // the Landlord
+    api.spawnNpc("elder", colAt(30), MID - 5);              // the Chaplain
 
-    // Wren, and the folk she mentions.
-    api.spawnNpc("herbalist", colAt(14), MID - 2);
-    api.spawnNpc("baker", colAt(25), MID - 3);
-    api.spawnNpc("farmgirl", colAt(27), MID + 4);
-    api.spawnNpc("lumberjack", colAt(8), MID + 6);
-    api.spawnNpc("fisherman", colAt(38), MID - 6);
-
-    if (api.getVar("chapter1_loot_spawned", false))
+    if (api.getVar("town_loot_spawned", false))
         return;
-    api.setVar("chapter1_loot_spawned", true);
-    api.spawnItem("dried_rations", colAt(6), MID - 9);
-    api.spawnItem("bread_loaf", colAt(28), MID + 10);
-    api.spawnItem("waterskin", colAt(33), MID - 12);
-    api.spawnItem("berry_pouch", colAt(12), MID + 14);
-    api.spawnItem("health_potion", colAt(30), MID - 6);
+    api.setVar("town_loot_spawned", true);
+    api.spawnItem("health_potion", colAt(6), MID - 9);
+    api.spawnItem("bread_loaf", colAt(28), MID + 11);
+    api.spawnItem("whetstone", colAt(34), MID - 12);
+    api.spawnItem("health_potion", colAt(13), MID + 14);
 }
 
-// ============================================================================
-// Part two - the Hollowbrook Maze. One branching maze from the far bank of the
-// river to the far edge of the map. Bigger set-piece props fill each wall
-// cluster's interior; small rough undergrowth fills the seam wherever a wall
-// meets a corridor (see buildBranchingMaze).
-// ============================================================================
 function buildMaze() {
-    const coreObstacles = ["pine_tree", "oak_tree", "boulder_large", "cliff_face", "dead_tree", "snowy_pine", "dead_twisted_tree", "fallen_log"];
-    const edgeObstacles = ["bush", "rocks_small", "tree_stump", "ivy_rock", "berry_bush"];
-    const cells = buildBranchingMaze(MAZE_WEST, MAZE_EAST, MAZE_NORTH, MAZE_SOUTH, MAZE_CORRIDOR, MAZE_WALL,
-        coreObstacles, edgeObstacles, 11001, { flip: DIR < 0, diagonalSeam: true, solid: true });
-
-    // Every placement in the maze draws from ONE pool, so two things can never
-    // share a cell. takeCells() always consumes the same cells for the same
-    // seed, so a reload that skips a spawn-once guard still lines up.
+    const core = ["castle_wall_section", "stone_wall_corner", "stone_wall_corner_alt", "support_beam", "cave_in_rubble", "stalagmite_formation"];
+    const edge = ["rocks_small", "cave_torch_sconce", "ivy_rock", "barrels_crates", "stalactite_cluster"];
+    // Three stages side by side. Each is a whole maze with its entrance and exit on the same middle rows, so the
+    // exit of one lines up with the entrance of the next; the door goes in that seam (like an exit gate).
+    const third = Math.floor((MAZE_EAST - MAZE_WEST + 1) / 3);
+    const stages = [[MAZE_WEST, MAZE_WEST + third - 1], [MAZE_WEST + third, MAZE_WEST + 2 * third], [MAZE_WEST + 2 * third + 1, MAZE_EAST]];
+    const built = stages.map(([w, e], k) => buildBranchingMaze(w, e, MAZE_NORTH, MAZE_SOUTH, MAZE_CORRIDOR, MAZE_WALL,
+        core, edge, 181801 + k * 7, { flip: DIR < 0, diagonalSeam: true, solid: true, wallPrefix: "mzwall_" + "abc"[k] + "_" }));
+    const cells = built[0].concat(built[1], built[2]);
     const pool = cells.slice();
+    const rows = built[0].exitRows;
+    doorInfo = { bronzeCol: stages[0][1] - 1, silverCol: stages[1][1] - 1, rows };
 
-    // 46 hostiles (the original 62, scaled to the smaller maze): wolf 8, goblin 9,
-    // boar 9, bear 12, slime_water 8 - none in the first stretch by the ford.
-    const hostileSpots = takeCells(pool, 0.06, 1.0, 46, 11002);
-    if (!api.getVar("hollowbrook_hostiles_spawned", false)) {
-        api.setVar("hollowbrook_hostiles_spawned", true);
-        const hostileTypes = [];
-        [["wolf", 8], ["goblin", 9], ["boar", 9], ["bear", 12], ["slime_water", 8]].forEach(([type, n]) => {
-            for (let k = 0; k < n; k++)
-                hostileTypes.push(type);
-        });
-        hostileTypes.forEach((type, k) => api.spawnEnemy(type, hostileSpots[k].col, hostileSpots[k].row, 30));
+    // Each Doorward waits in the last column of cells before its door: the row nearest the opening, but not the
+    // opening's own cell (so the doorway stays clear).
+    const wardCell = k => {
+        const lastCol = Math.max(...built[k].map(c => c.col));
+        const inMouth = c => c.row >= rows[0] - 1 && c.row <= rows[1] + 1;
+        const cands = pool.filter(c => built[k].indexOf(c) >= 0 && c.col === lastCol && !inMouth(c))
+            .sort((a, b) => Math.abs(a.row - MID) - Math.abs(b.row - MID));
+        const cell = cands[0];
+        pool.splice(pool.indexOf(cell), 1);
+        return cell;
+    };
+    const ward1 = wardCell(0), ward2 = wardCell(1);
+    api.spawnNpc("tribal_warrior_man", ward1.col, ward1.row);
+    api.spawnNpc("tribal_caveman_warrior", ward2.col, ward2.row);
+
+    // Each key lies inside the stage before its own door, with two guards left near it.
+    const progressOf = col => (col - MAZE_WEST) / (MAZE_EAST - MAZE_WEST);
+    const p1 = progressOf(stages[0][1]), p2 = progressOf(stages[1][1]);
+    const key1 = takeCells(pool, 0.04, p1 - 0.02, 1, 181802)[0];
+    const key2 = takeCells(pool, p1 + 0.03, p2 - 0.02, 1, 181803)[0];
+    spawnLoot([key1, key2], ["keep_key_bronze", "keep_key_silver"], "keys_spawned");
+    const guardsFor = spot => pool.map(c => ({ c, d: Math.hypot(c.col - spot.col, c.row - spot.row) }))
+        .filter(x => x.d >= 4).sort((a, b) => a.d - b.d).slice(0, 2).map(x => x.c);
+    if (!api.getVar("key_guards_spawned", false)) {
+        api.setVar("key_guards_spawned", true);
+        guardsFor(key1).forEach(g => api.spawnEnemy("orc", g.col, g.row, 50));
+        guardsFor(key2).forEach(g => api.spawnEnemy("troll", g.col, g.row, 70));
     }
 
-    // The order-of-three riddle-keepers Wren talks about - found roughly in the
-    // order she names them, owl first, crystal last (see talkToRiddleKeeper).
-    const owl = takeCells(pool, 0.10, 0.35, 1, 11003)[0];
-    const elder = takeCells(pool, 0.40, 0.65, 1, 11004)[0];
-    const echo = takeCells(pool, 0.70, 0.92, 1, 11005)[0];
-    api.spawnNpc("bird_night_owl", owl.col, owl.row);
-    api.spawnNpc("tribal_elder_woman", elder.col, elder.row);
-    api.spawnNpc("crystal_spirit", echo.col, echo.row);
+    spawnPacks(takeCells(pool, 0.06, 1.0, 44, 181804),
+        [["skeleton_swordsman", 10, 35], ["skeleton_archer", 8, 30], ["mummy", 8, 45], ["ghoul", 8, 35], ["zombie_peasant", 10, 30]],
+        "maze_hostiles_spawned");
 
-    // A rare friendly pair in the maze - fox poses the small riddle early, deer
-    // answers it a good stretch later.
-    const fox = takeCells(pool, 0.12, 0.45, 1, 11006)[0];
-    const deer = takeCells(pool, 0.60, 0.95, 1, 11007)[0];
-    api.spawnNpc("fox", fox.col, fox.row);
-    api.spawnNpc("deer", deer.col, deer.row);
-
-    const hostage = takeCells(pool, 0.35, 0.75, 1, 11008)[0];
-    if (!api.getVar("hostage_spawned", false)) {
-        api.setVar("hostage_spawned", true);
-        api.spawnNpc("farmhand_young", hostage.col, hostage.row);
-    }
-
-    const acorn = takeCells(pool, 0.93, 1.0, 1, 11009)[0];
-    const loot = takeCells(pool, 0.05, 0.95, 13, 11010);
-    if (api.getVar("hollowbrook_loot_spawned", false))
-        return;
-    api.setVar("hollowbrook_loot_spawned", true);
-    api.spawnItem("glowing_acorn", acorn.col, acorn.row);
-    ["gold_coin_pile", "rope_coil", "herb_bundle", "honey_jar", "mana_potion",
-     "health_potion", "health_potion", "health_potion", "health_potion",
-     "health_potion", "health_potion", "health_potion", "health_potion"].forEach((id, k) => api.spawnItem(id, loot[k].col, loot[k].row));
+    spawnLoot(takeCells(pool, 0.05, 0.95, 12, 181810),
+        ["health_potion", "health_potion", "health_potion", "health_potion", "health_potion", "health_potion",
+         "health_potion", "mana_potion", "elixir_of_clarity", "stamina_draught", "antidote_vial", "reinforced_boots"], "maze_loot_spawned");
+    return built[2].exitRows;
 }
 
-// ============================================================================
-// Conversations
-// ============================================================================
+function buildPocket() {
+    const [c0, c1] = pocketCols();
+    scatterOrganic(["stone_archway", "standing_torch_sconce", "stalagmite_formation", "support_beam"], c0, c1, MAZE_NORTH + 2, MAZE_SOUTH - 2, 8, 181820,
+        [{ col: colAt(POCKET_U0 + 5), row: MID }]);
+    if (!api.getVar("ring_spawned", false)) {
+        api.setVar("ring_spawned", true);
+        api.spawnItem("keepers_ring", colAt(POCKET_U0 + 5), MID);
+    }
+}
+
 function* onTalkTo(name) {
-    if (name === "herbalist") {
-        yield* talkToWren();
-    } else if (name === "baker" || name === "farmgirl" || name === "lumberjack" || name === "fisherman") {
-        yield* talkToVillager(name);
-    } else if (name === "bird_night_owl" || name === "tribal_elder_woman" || name === "crystal_spirit") {
-        yield* talkToRiddleKeeper(name);
-    } else if (name === "farmhand_young") {
-        yield* rescueHostage();
-    } else if (name === "fox" || name === "deer") {
-        yield* talkToWildKeeper(name);
+    if (name === "dwarf_warrior") {
+        yield* talkToCaptain();
+    } else if (DOORS[name]) {
+        yield* talkToDoorward(name);
+    } else if (name === "blacksmith" || name === "innkeeper" || name === "elder") {
+        yield* talkToTownsfolk(name);
     }
 }
 
-function* talkToWren() {
-    const timesTalked = api.getVar("wren_talks", 0);
-    api.setVar("wren_talks", timesTalked + 1);
+function* talkToCaptain() {
+    const n = api.getVar("captain_talks", 0);
+    api.setVar("captain_talks", n + 1);
     api.playSound("select");
-
-    if (timesTalked === 0) {
-        yield api.say("Wren", "There you are. I was starting to think you'd sleep through the whole hum.");
-        yield api.say("Lara", "The what?");
-        yield api.say("Wren", "Low, steady, coming from past the river, out in the old maze. Started three nights ago and hasn't stopped.");
-        yield api.say("Wren", "Before you cross - old Fernhollow riddle, for luck: \"I listen before I ever speak, I remember what the listening finds, and only then do I answer.\" Three folk out there live that riddle, in that order. Find them, if you want the luck.");
-    } else if (timesTalked === 1) {
-        yield api.say("Lara", "And you? Do you live it too?");
-        yield api.say("Wren", "I just grow things and hope they don't ask too many questions back. The footbridge is at the end of the market road. Mind the maze, and whatever's guarding past it.");
+    if (api.getVar("door_silver_open", false)) {
+        yield api.say("Captain Brann", "Both doors open. I have not seen the far end of the Undercroft in nineteen years. Go on - and shut nothing behind you.");
+    } else if (n === 0) {
+        yield api.say("Captain Brann", "The Keepwalk. Once the keep's bailey, now the town that grew in its lee. The Undercroft below is where the old garrison kept everything worth stealing - and where they locked everything they were afraid of.");
+        yield api.say("Captain Brann", "Two doors cross it. The bronze door about a third of the way in, the silver door two-thirds. Each has a Doorward who was told: open for the key, and for nothing else. They are very good at it.");
+        yield api.say("Lara", "And the keys?");
+        yield api.say("Captain Brann", "In the stretch before each door, guarded by whatever we left to guard them. The bronze key first, then the silver. You can't reach the silver key without the bronze door open - I have tried. Twice.");
     } else {
-        yield api.say("Wren", "Go on, then. Over the bridge, through the Thicket, past the stones, through the bramble, toward whatever's humming.");
-        api.playSound("select");
+        yield api.say("Captain Brann", "Bronze key opens the first door, silver key the second. Each key lies before its own door. Bring plenty of potions - the guards were told to be thorough.");
     }
 }
 
-// A line or two from each neighbour, cycling - just enough to make the village
-// feel lived in.
-function* talkToVillager(name) {
+function* talkToDoorward(name) {
+    const d = DOORS[name];
+    api.playSound("select");
+    if (api.getVar(d.id + "_open", false)) {
+        yield api.say(d.who, "Door's open. I'll keep the post anyway. Somebody should.");
+        return;
+    }
+    if (api.hasItem(d.key)) {
+        api.removeItem(d.key, 1);
+        api.setVar(d.id + "_open", true);
+        api.setBarrier(d.id, 0, 0, 1, 1, false);
+        api.giveExperience(80);
+        yield api.say(d.who, "*he turns the " + d.metal + " key in the air, looks at the stamp on it, and nods once* That's the one. Stand back.");
+        yield api.say(d.who, "*a long iron sound as the door swings inward along the whole width of the vault* Go on. " + d.next.charAt(0).toUpperCase() + d.next.slice(1) + " is yours.");
+        yield* companionSays("vex_recruited", "Vex", "Pin tumbler, seven pins, bronze. Elegant. I would like to meet whoever made it, and I suspect they are long gone.");
+        return;
+    }
+    const n = api.getVar("ward_talks_" + name, 0);
+    api.setVar("ward_talks_" + name, n + 1);
+    if (n === 0) {
+        yield api.say(d.who, "This door opens for the " + d.metal + " key and for nothing else. Not a favour, not a fight. I was told that, and I was told that anyone who says otherwise is trying to get past me.");
+        yield api.say("Lara", "And where is the key?");
+        yield api.say(d.who, "Back the way you came, in the stretch before this door. Whatever was left to guard it will not be pleased to see you.");
+    } else {
+        yield api.say(d.who, "The " + d.metal + " key. Before this door, not after. Guarded.");
+    }
+}
+
+function* talkToTownsfolk(name) {
     const lines = {
-        baker: ["Bread's still warm. The hum hasn't spoiled the dough, at least.",
-                "Take a loaf with you. Nobody goes into that maze hungry and comes out cheerful."],
-        farmgirl: ["Three nights of that low note, and the hens have stopped laying out of spite.",
-                   "Wren says it's something buried. I say it's something bored."],
-        lumberjack: ["I cut the Thicket back every spring. Every spring it cuts me back a little harder.",
-                     "There's a fox in there that asks riddles. I didn't believe it either."],
-        fisherman: ["The river's gone glassy since the hum started. Fish still bite. They just apologise first.",
-                    "That footbridge is older than the village. Nobody remembers who built it. Nobody's ever fallen off, either."],
+        blacksmith: ["I made half the locks in the Undercroft. Good locks. It's a strange thing, being proud of work whose entire purpose is to keep people out.",
+                     "The bronze key wears green at the edges. That's how you know it's the true one. The silver ones stay bright, which makes them easier to fake."],
+        innkeeper: ["The Undercroft draws a cold breath every evening. Warm soup, warm bed, warm words. That's the whole trade.",
+                    "Nobody comes back from the Undercroft in a hurry. They come back thoughtful, mostly."],
+        elder: ["A keep is a promise made of stone. This one was made in a hurry, by people who were sure of very little except that the dark was coming.",
+                "Frightened people build the strongest doors. It's the gentlest ones that need opening."],
     }[name];
-    const displayName = { baker: "Baker", farmgirl: "Farmgirl", lumberjack: "Lumberjack", fisherman: "Fisherman" }[name];
+    const displayName = { blacksmith: "Smith", innkeeper: "Landlord", elder: "Chaplain" }[name];
     const n = api.getVar("talk_" + name, 0);
     api.setVar("talk_" + name, n + 1);
     api.playSound("select");
     yield api.say(displayName, lines[n % lines.length]);
 }
 
-// Order-of-three riddle: bird_night_owl (listens) -> tribal_elder_woman
-// (remembers) -> crystal_spirit (answers). Talking out of order resets the
-// step with an in-fiction hint, never a hard fail - same soft-fail style
-// this project already uses for order puzzles.
-function* talkToRiddleKeeper(name) {
-    const order = ["bird_night_owl", "tribal_elder_woman", "crystal_spirit"];
-    const displayName = { bird_night_owl: "Owl", tribal_elder_woman: "Elder", crystal_spirit: "Echo" }[name];
-    const step = api.getVar("riddle_step", 0);
-    api.playSound("select");
-
-    if (api.getVar("riddle_solved", false)) {
-        yield api.say(displayName, "*nods, already answered*");
-        return;
-    }
-
-    if (order[step] === name) {
-        const newStep = step + 1;
-        api.setVar("riddle_step", newStep);
-        if (newStep === 1)
-            yield api.say("Owl", "*blinks slowly, listening* ...Go on, then. Someone should remember this.");
-        else if (newStep === 2)
-            yield api.say("Elder", "I remember. I've remembered longer than anyone still living here. Now someone only has to answer.");
-        else {
-            yield api.say("Echo", "*a small crystalline chime* The answer was never a word. It was the order you found us in.");
-            yield api.say("Lara", "...Listen, remember, answer. That's it, isn't it.");
-            api.setVar("riddle_solved", true);
-            api.giveExperience(80);
-            api.playSound("select");
-        }
-    } else {
-        api.setVar("riddle_step", 0);
-        yield api.say(displayName, "*waits, patiently* Not yet. Not in that order.");
-    }
-}
-
-// A second, smaller riddle, hidden inside the maze itself rather than the
-// village - a two-step call-and-response, not another order-of-three. Fox poses
-// it early on; Deer only answers once found a good stretch later.
-function* talkToWildKeeper(name) {
-    const order = ["fox", "deer"];
-    const displayName = { fox: "Fox", deer: "Deer" }[name];
-    const step = api.getVar("wildRiddle_step", 0);
-    api.playSound("select");
-
-    if (api.getVar("wildRiddle_solved", false)) {
-        yield api.say(displayName, "*watches you pass, unbothered*");
-        return;
-    }
-
-    if (order[step] === name) {
-        const newStep = step + 1;
-        api.setVar("wildRiddle_step", newStep);
-        if (newStep === 1)
-            yield api.say("Fox", "*tilts its head* What grows thicker for every bit that's cut away from it?");
-        else {
-            yield api.say("Deer", "*doesn't flinch as you approach* A path, worn in by feet, not by any hand pruning it. Fox already knew. Fox likes to ask anyway.");
-            api.setVar("wildRiddle_solved", true);
-            api.giveExperience(50);
-            api.playSound("select");
-        }
-    } else {
-        yield api.say(displayName, "*just watches, waiting for the other one first*");
-    }
-}
-
-function* rescueHostage() {
-    if (api.getVar("hostage_rescued", false)) {
-        yield api.say("Farmhand", "Thank you again, truly.");
-        return;
-    }
-    api.setVar("hostage_rescued", true);
-    api.playSound("select");
-    yield api.say("Farmhand", "You- you're not one of them. Oh, thank every root in this wood.");
-    yield api.say("Lara", "Are you hurt?");
-    yield api.say("Farmhand", "Scared more than hurt. I wandered too far past the river chasing a lost goat. Please, just- get me back toward the village road.");
-    yield api.say("Lara", "The footbridge is back the way you came, then the market road. Go carefully.");
-    api.giveExperience(100);
-}
-
 function* onEnemyDefeated(name) {
-    // A flavor line for a few enemy archetypes - deliberately rare (not once per
-    // matching kill, which reads as spammy once several in a row have died the
-    // same way) via a flat low-probability roll first. Plain Math.random() on
-    // purpose, unlike the seeded mulberry32() the generators use: that
-    // determinism is for level LAYOUT, which doesn't apply to a cosmetic quip.
     if (Math.random() > 0.1)
         return;
-
-    if (name === "wolf") {
+    if (name === "skeleton_archer") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Sorry, old thing. You were just in the way.");
-    } else if (name === "goblin") {
+        yield api.say("Lara", "Still nocking an arrow at the door it was told to watch. The door is behind me now.");
+    } else if (name === "mummy") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Scavenger, not a soldier. There'll be easier ground for it somewhere else.");
-    } else if (name === "slime_water") {
-        yield api.wait(0.3);
-        yield api.say("Lara", "...That water didn't used to do that. Wren wasn't exaggerating.");
+        yield api.say("Lara", "Whoever was wrapped in these must have been very afraid of being found.");
     }
 }
 
 function* onItemCollected(itemId) {
-    if (itemId !== "glowing_acorn")
+    if (itemId !== "keepers_ring")
         return;
-
     yield api.wait(0.3);
-    yield api.say("Lara", "...Huh.");
-    yield api.say("Lara", "It's warm. And it's humming - not an echo of whatever Wren heard. The note itself, right here in my hand.");
-    yield api.say("???", "Now you understand why nobody in Fernhollow will say it out loud.");
-    yield api.say("Lara", "Who's there?");
-    yield api.say("???", "Someone who found one of those a long time ago, and is still finding out what it means. Follow the hum, Lara. It gets louder from here, not quieter.");
-
-    api.setGlobalVar("chapter", 2);
+    yield api.say("Lara", "An iron ring, two keys' worth of wear on it, and room for a third. It sits on my finger like it has been waiting for one.");
+    yield api.say("???", "Second of nine. Keys are only trust, made small enough to carry. Whoever locked those doors was afraid, not cruel - remember that when you are the one holding the ring.");
+    yield api.say("Lara", "You keep saying that. Like you've held one yourself.");
+    yield api.say("???", "Once. It was heavier than I expected. Onward - a village of gold, now, that has forgotten what gold is for.");
+    api.setGlobalVar("chapter", 19);
     api.playSound("select");
     yield api.wait(0.8);
-    yield api.say("Lara", "East, then, past Fernhollow - toward wherever this thing actually came from.");
-    api.loadLevel("chapter2.json");
+    api.loadLevel("chapter19.json");
 }

@@ -522,6 +522,202 @@
                 "durationSeconds": 40
             },
             "consumeOnUse": true
+        },
+        "clerks_stamp": {
+            "name": "Clerk's Stamp",
+            "description": "A brass stamp worn smooth on one side. Whatever it stamps, the world agrees to.",
+            "prop": "notice_board",
+            "width": 150,
+            "keyItem": true
+        },
+        "keepers_ring": {
+            "name": "Keeper's Ring",
+            "description": "An iron ring with two keys' worth of wear on it, and room for a third.",
+            "prop": "portcullis",
+            "width": 150,
+            "keyItem": true
+        },
+        "reeves_ledger": {
+            "name": "Reeve's Ledger",
+            "description": "A thin ledger of every cup, coin and crown that ever left Gildmere. The last page is blank on purpose.",
+            "prop": "bookshelf",
+            "width": 150,
+            "keyItem": true
+        },
+        "sluice_wheel": {
+            "name": "Sluice Wheel",
+            "description": "A small brass wheel that once turned a river. It still turns, and the water still listens.",
+            "prop": "well",
+            "width": 150,
+            "keyItem": true
+        },
+        "peace_banner": {
+            "name": "Peace Banner",
+            "description": "Two guild colours stitched into one cloth. The seam is not quite straight, and that is the point.",
+            "prop": "castle_banner_wallmount",
+            "width": 150,
+            "keyItem": true
+        },
+        "first_coin": {
+            "name": "The First Coin",
+            "description": "The coin every trade on the Mile began with. Worn blank by hands, and warm.",
+            "prop": "wooden_chest",
+            "width": 150,
+            "keyItem": true
+        },
+        "surveyors_star": {
+            "name": "Surveyor's Star",
+            "description": "A star of brass points. One of them always aims at wherever you are meant to be.",
+            "prop": "ancient_obelisk",
+            "width": 150,
+            "keyItem": true
+        },
+        "chapel_clapper": {
+            "name": "Chapel Clapper",
+            "description": "The clapper of a bell that had nothing to ring for. It rings now, softly, at nothing.",
+            "prop": "gravestone_cluster",
+            "width": 150,
+            "keyItem": true
+        },
+        "second_door_key": {
+            "name": "Second Door Key",
+            "description": "A key with no teeth. It does not open the door; it is what the door was made to ask for.",
+            "prop": "stone_archway",
+            "width": 150,
+            "keyItem": true
+        },
+        "lost_music_box": {
+            "name": "Lost Music Box",
+            "description": "A wind-up box with a bent key. It plays half a tune, and then waits.",
+            "image": "music_box",
+            "width": 150,
+            "keyItem": true
+        },
+        "lost_locket": {
+            "name": "Lost Locket",
+            "description": "A silver locket, warm as if it had just been held.",
+            "image": "memory_locket",
+            "width": 135,
+            "keyItem": true
+        },
+        "lost_talisman": {
+            "name": "Lost Talisman",
+            "description": "A woven charm with a knot for every winter it has survived.",
+            "image": "woven_talisman",
+            "width": 135,
+            "keyItem": true
+        },
+        "keep_key_bronze": {
+            "name": "Bronze Keep Key",
+            "description": "Heavy, green at the edges, and stamped with a single stair.",
+            "image": "old_key",
+            "width": 135,
+            "keyItem": true
+        },
+        "keep_key_silver": {
+            "name": "Silver Keep Key",
+            "description": "Lighter than it looks. Stamped with two stairs and a door.",
+            "image": "old_key",
+            "width": 135,
+            "keyItem": true
+        },
+        "gildmere_chalice": {
+            "name": "Gildmere Chalice",
+            "description": "A gilded cup that is never quite empty, and never quite yours.",
+            "image": "gemstone_cluster",
+            "width": 135,
+            "keyItem": true
+        },
+        "gildmere_signet": {
+            "name": "Gildmere Signet",
+            "description": "A gilded ring cut with a crest nobody remembers granting.",
+            "image": "ornate_ring",
+            "width": 135,
+            "keyItem": true
+        },
+        "gildmere_censer": {
+            "name": "Gildmere Censer",
+            "description": "A gilded bead-chain censer. It smells of a room you have never been in.",
+            "image": "pearl_strand",
+            "width": 135,
+            "keyItem": true
+        },
+        "gildmere_crown": {
+            "name": "Gildmere Crown",
+            "description": "A small gilded circlet. It is heavier than gold has any right to be.",
+            "image": "jeweled_pendant",
+            "width": 135,
+            "keyItem": true
+        },
+        "sluice_crank": {
+            "name": "Sluice Crank",
+            "description": "A crank handle, cold and wet, with a groove worn by one particular hand.",
+            "image": "lockpick_set",
+            "width": 135,
+            "keyItem": true
+        },
+        "sluice_chain": {
+            "name": "Sluice Chain",
+            "description": "A short length of chain, every link the size of a knuckle.",
+            "image": "rope_coil",
+            "width": 135,
+            "keyItem": true
+        },
+        "sluice_gear": {
+            "name": "Sluice Gear",
+            "description": "A brass gear with one tooth missing. The missing tooth is somewhere else.",
+            "image": "spool_of_copper_wire",
+            "width": 135,
+            "keyItem": true
+        },
+        "guild_ore": {
+            "name": "Guild Ore",
+            "description": "A lump of blue-veined ore stamped with the Smiths' hammer.",
+            "image": "ore_chunk",
+            "width": 135,
+            "keyItem": true
+        },
+        "guild_wool": {
+            "name": "Guild Wool",
+            "description": "A bolt of tight-woven wool stamped with the Weavers' shuttle.",
+            "image": "cloth_bolt",
+            "width": 135,
+            "keyItem": true
+        },
+        "copper_bundle": {
+            "name": "Copper Bundle",
+            "description": "A neat coil of copper wire, tied off with a bootlace.",
+            "image": "spool_of_copper_wire",
+            "width": 135,
+            "keyItem": true
+        },
+        "brass_gear": {
+            "name": "Brass Gear",
+            "description": "A small brass gear that fits nothing you own.",
+            "image": "small_ingot",
+            "width": 130,
+            "keyItem": true
+        },
+        "signal_lens": {
+            "name": "Signal Lens",
+            "description": "A clear lens that shows the world a little further off than it is.",
+            "image": "signal_fragment",
+            "width": 130,
+            "keyItem": true
+        },
+        "survey_marker": {
+            "name": "Survey Marker",
+            "description": "A brass benchmark disc, stamped with a coordinate that has been rubbed out.",
+            "image": "broken_compass",
+            "width": 135,
+            "keyItem": true
+        },
+        "magistrates_warrant": {
+            "name": "Magistrate's Warrant",
+            "description": "A warrant with the name left blank. It will be honoured exactly once.",
+            "image": "sealed_scroll",
+            "width": 135,
+            "keyItem": true
         }
     }
 }
