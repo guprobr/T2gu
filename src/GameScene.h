@@ -423,6 +423,21 @@ private:
         // whatever it hit.
         qreal lastWaypointDistance = -1.0; // -1 = no reading yet
         qreal stuckTimer = 0.0;
+
+        // Trail-follow state (see followTrail()). While > 0 the trail is
+        // ignored and the grid path above is used instead - set when no
+        // trail point is reachable from here (the follower is off the
+        // trail) or when trail steering stopped making progress.
+        qreal trailSuppressSeconds = 0.0;
+        QPointF trailProgressAnchor; // where trail steering last measured progress from
+        qreal trailStuckTimer = 0.0;
+
+        // Crowd shuffle state (see shuffleInCrowd()), used only while the
+        // leader is standing still. shuffleTimer is the remaining walk time
+        // toward shuffleTarget, or the remaining pause once there.
+        bool hasShuffleTarget = false;
+        QPointF shuffleTarget;
+        qreal shuffleTimer = 0.0;
     };
 
     enum class HealthBarDisplay { HeroOnly, All, None };
@@ -479,6 +494,41 @@ private:
     // genuinely unreachable, or the search exceeded its node cap) so a
     // companion still tries something rather than freezing outright.
     void moveAlongPath(Character *character, PartyPath &pathState, QPointF targetWorld, qreal speed, qreal dtSeconds);
+    // Records the controlled character's route (m_leaderTrail) and how long
+    // it has been standing still (m_leaderStillSeconds). Starts a fresh
+    // trail whenever the leader changes or jumps (level load, snapshot
+    // restore, script teleport) - the old route no longer leads anywhere.
+    void updateLeaderTrail(Character *leader, qreal dtSeconds);
+    // Drives a following party member along the leader's trail to the spot
+    // `arc` pixels of trail behind the leader, instead of pathfinding to it.
+    // Every trail point is a spot the leader really stood on and collision
+    // is a single feet-point test shared by every character, so walking
+    // the trail can't wedge the way a tile-center grid path can. Returns
+    // true if the follower is already close enough to that spot to hold
+    // (velocity set to zero), false if it's still moving. Falls back to
+    // moveAlongPath() (A*) when no trail point is reachable from here.
+    bool followTrail(Character *character, PartyPath &pathState, QPointF leaderFeet, qreal arc, qreal speed, qreal dtSeconds);
+    // Finds the point `arc` pixels back along m_leaderTrail from the
+    // leader's live position, and the trail index just older than it (-1 if
+    // there's none). A trail shorter than `arc` yields its oldest point.
+    QPointF trailPointAtArc(QPointF leaderFeet, qreal arc, int &olderIndex) const;
+    // Whether the straight line between two points crosses only walkable
+    // ground (tile walkability + m_blockingAreas, sampled every few pixels
+    // - the same feet-point test real movement uses).
+    bool isSegmentWalkable(QPointF from, QPointF to) const;
+    // While the leader stands still, a follower already near it idles in
+    // a loose crowd instead of a line: it picks a short random step
+    // that keeps kPartyCrowdSpacingX/Y clear of every other member (on
+    // either axis is enough - see violatesCrowdSpacing()), walks it slowly,
+    // pauses, and repeats. A follower found overlapping someone re-picks
+    // immediately.
+    void shuffleInCrowd(Character *character, PartyPath &pathState, QPointF leaderFeet, qreal dtSeconds);
+    // True if `point` would sit inside another live party member's spacing
+    // box - closer than kPartyCrowdSpacingX horizontally AND
+    // kPartyCrowdSpacingY vertically at once. `self` is skipped;
+    // includeShuffleTargets also counts the spots other members are
+    // currently walking to, so two of them don't pick the same one.
+    bool violatesCrowdSpacing(QPointF point, const Character *self, bool includeShuffleTargets) const;
     // Grid BFS (4-directional, no diagonals - this engine's mazes are
     // grid-aligned corridors, so diagonal shortcuts would just cut through
     // wall corners) from fromWorld to toWorld, walkability tested the same
@@ -610,6 +660,14 @@ private:
     QHash<Character *, qreal> m_fireballCooldowns;
     // Per-follower grid path for updatePartyAI() - see PartyPath/findPath().
     QHash<Character *, PartyPath> m_partyPaths;
+    // The controlled character's recent route, oldest sample first - see
+    // updateLeaderTrail()/followTrail(). Never dereferenced through
+    // m_trailLeader, only compared, but destroyEntity() still clears it so
+    // a recycled address can't be mistaken for the same leader.
+    QVector<QPointF> m_leaderTrail;
+    Character *m_trailLeader = nullptr;
+    QPointF m_lastLeaderFeet;
+    qreal m_leaderStillSeconds = 0.0;
     // Cells findPath() should treat as impassable a bit longer than the
     // map's own static data says, keyed by tile cell with seconds
     // remaining (decremented/pruned once per tick in onTick()). Populated

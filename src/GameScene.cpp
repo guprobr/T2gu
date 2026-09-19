@@ -220,7 +220,7 @@ constexpr int kPlayerAttackDamage = 15;
 // behind.
 constexpr qreal kPartyFollowFallbackSpeed = 320.0;
 constexpr qreal kPartyRunSpeedMultiplier = 1.6;
-constexpr qreal kPartyFollowStopRadius = 110.0; // px - stop once this close to its formation slot, avoids jitter
+constexpr qreal kPartyFollowStopRadius = 110.0; // px - a follower this close to the leader holds still, avoids jitter
 constexpr qreal kPartyEngageRadius = 440.0;     // px - same range an enemy notices the player at
 // See kEnemyAttackRadius/kEnemyAttackReach's comment above - identical
 // radius-bigger-than-reach whiff bug existed here too (100 vs 80).
@@ -302,22 +302,44 @@ qreal partyCatchUpMultiplier(qreal distanceToTarget)
     return 1.0 + t * (kPartyCatchUpMaxMultiplier - 1.0);
 }
 
-// Where a following (non-fighting) party member tries to stand, relative to
-// the controlled character - staggered left/right and progressively
-// further back so several companions spread out instead of stacking on the
-// same pixel (characters don't collide with each other, so nothing else
-// would keep them apart). Fixed in world space rather than relative to the
-// leader's facing direction - simpler, and "near the player" doesn't
-// require a literally-behind formation to read correctly.
-QPointF partyFollowOffset(int followerIndex)
-{
-    constexpr qreal kSideOffset = 92.0;
-    constexpr qreal kBehindBase = 100.0;
-    constexpr qreal kBehindStep = 80.0;
-    const qreal side = (followerIndex % 2 == 0) ? -1.0 : 1.0;
-    const int rank = followerIndex / 2;
-    return QPointF(side * kSideOffset, kBehindBase + rank * kBehindStep);
-}
+// --- Party trail-following and idle crowd ---
+// A following (non-fighting) party member walks the controlled character's
+// own recorded route instead of pathfinding to it - see followTrail().
+// Follower i aims for the spot (i + 1) * kPartyTrailSlotSpacing pixels of
+// trail behind the leader, so a moving party reads as a line.
+constexpr qreal kPartyTrailSampleSpacing = 40.0;   // px the leader moves between recorded trail points
+constexpr qreal kPartyTrailSlotSpacing = 120.0;    // px of trail between consecutive followers
+constexpr qreal kPartyTrailTeleportDistance = 400.0; // px - a leader jump this big in one tick starts a new trail
+constexpr qreal kPartyTrailSlotTolerance = 30.0;   // px - close enough to its slot to hold still
+constexpr qreal kPartyTrailRetrySeconds = 0.4;     // A* is used this long after a trail lookup finds nothing reachable
+constexpr qreal kPartyTrailSuppressSeconds = 3.0;  // ...or after trail steering stops making progress
+constexpr qreal kPartySegmentSampleStep = 24.0;    // px between walkability samples in isSegmentWalkable()
+
+// Once the leader has stood still for kPartyCrowdSettleSeconds (so a brief
+// pause between key presses doesn't break the line), followers that can
+// see it and are within the crowd area stop lining up and shuffle around it
+// instead. Two members conflict only when they're closer than
+// kPartyCrowdSpacingX horizontally AND kPartyCrowdSpacingY vertically at
+// once - clear on either axis is enough, so the crowd stays loose rather
+// than snapping to a grid. Sprites are taller than they are wide, hence
+// the smaller vertical figure.
+constexpr qreal kPartyCrowdSettleSeconds = 0.35;
+constexpr qreal kPartyCrowdRadiusX = 300.0; // px - half-width of the crowd area around the leader
+constexpr qreal kPartyCrowdRadiusY = 230.0; // px - half-height
+constexpr qreal kPartyCrowdSpacingX = 140.0;
+constexpr qreal kPartyCrowdSpacingY = 110.0;
+constexpr qreal kPartyCrowdGatherArc = 120.0;   // px of trail behind the leader that late arrivals head for
+constexpr qreal kPartyCrowdInnerFraction = 0.6; // outside this fraction of the crowd area, steps must move inward
+constexpr qreal kPartyCrowdOuterFraction = 0.9; // steps never land outside this fraction of it
+constexpr qreal kPartyShuffleSpeedFactor = 0.45; // of the follower's normal walk speed
+constexpr qreal kPartyShuffleMinStep = 40.0;     // px
+constexpr qreal kPartyShuffleMaxStep = 170.0;    // px
+constexpr qreal kPartyShuffleArriveRadius = 8.0; // px
+constexpr qreal kPartyShuffleMaxWalkSeconds = 3.0;
+constexpr qreal kPartyShufflePauseMinSeconds = 0.8;
+constexpr qreal kPartyShufflePauseMaxSeconds = 2.4;
+constexpr qreal kPartyShuffleRetrySeconds = 0.25; // wait after finding no valid step
+constexpr int kPartyShuffleCandidateTries = 16;
 
 // A straight-line target reliably got a following/chasing party member
 // stuck on the maze walls this game's chapters are now built from (see
@@ -1200,6 +1222,8 @@ void GameScene::updatePartyAI(qreal dtSeconds)
     // for a tall sprite, quietly steering it toward the wrong tile.
     const QPointF playerFeet = controlled->feetPos();
     const bool playerDead = controlled->isDead();
+    updateLeaderTrail(controlled, dtSeconds);
+    const bool leaderStill = m_leaderStillSeconds >= kPartyCrowdSettleSeconds;
     // Companions match the player's own run/walk pace (not the fixed
     // kPartyFollowFallbackSpeed multiplier alone) so they don't lag behind
     // every time the player sprints, but each gets its own small, fixed
@@ -1218,6 +1242,8 @@ void GameScene::updatePartyAI(qreal dtSeconds)
             attackCooldown -= dtSeconds;
 
         if (character->isDead() || character->isActing()) {
+            if (character->isDead())
+                m_partyPaths[character].hasShuffleTarget = false;
             ++followerIndex;
             continue;
         }
@@ -1276,29 +1302,238 @@ void GameScene::updatePartyAI(qreal dtSeconds)
                     * partyCatchUpMultiplier(distance);
                 moveAlongPath(character, m_partyPaths[character], nearestEnemy->character->feetPos(), chaseSpeed, dtSeconds);
             }
+            m_partyPaths[character].hasShuffleTarget = false;
             ++followerIndex;
             continue;
         }
 
-        // No enemy nearby - follow the controlled character. The catch-up
-        // boost is keyed on distance to the *player*, not to this
-        // follower's own formation slot - a companion that's still close
-        // to the leader shouldn't get a speed boost just because its
-        // particular staggered slot happens to be a bit further off.
-        const QPointF target = playerFeet + partyFollowOffset(followerIndex);
-        const QPointF toTarget = target - selfFeet;
-        const qreal distanceToSlot = std::hypot(toTarget.x(), toTarget.y());
-        if (distanceToSlot > kPartyFollowStopRadius) {
-            const QPointF toPlayer = playerFeet - selfFeet;
-            const qreal distanceToPlayer = std::hypot(toPlayer.x(), toPlayer.y());
-            const qreal followSpeed = moveSpeedFor(character->speed(), kPartyFollowFallbackSpeed) * speedMultiplier
-                * partyCatchUpMultiplier(distanceToPlayer);
-            moveAlongPath(character, m_partyPaths[character], target, followSpeed, dtSeconds);
-        } else {
-            character->setVelocity(QPointF(0, 0));
-        }
+        // No enemy nearby - follow the controlled character along its trail,
+        // or, once it has stopped, mill about near it. The catch-up boost
+        // is keyed on distance to the *player*, not to this follower's own
+        // trail slot - a companion that's still close to the leader
+        // shouldn't get a speed boost just because its particular slot
+        // happens to be a bit further back.
+        PartyPath &path = m_partyPaths[character];
+        const QPointF toPlayer = playerFeet - selfFeet;
+        const qreal distanceToPlayer = std::hypot(toPlayer.x(), toPlayer.y());
+        const qreal followSpeed = moveSpeedFor(character->speed(), kPartyFollowFallbackSpeed) * speedMultiplier
+            * partyCatchUpMultiplier(distanceToPlayer);
+        const qreal slotArc = (followerIndex + 1) * kPartyTrailSlotSpacing;
+
+        // Crowd membership needs a clear line to the leader - a follower
+        // just around a corner from it is still lining up along the trail.
+        const bool inCrowd = leaderStill
+            && std::abs(toPlayer.x()) <= kPartyCrowdRadiusX && std::abs(toPlayer.y()) <= kPartyCrowdRadiusY
+            && isSegmentWalkable(selfFeet, playerFeet);
+        if (inCrowd)
+            shuffleInCrowd(character, path, playerFeet, dtSeconds);
+        else
+            followTrail(character, path, playerFeet, leaderStill ? std::min(slotArc, kPartyCrowdGatherArc) : slotArc,
+                        followSpeed, dtSeconds);
         ++followerIndex;
     }
+}
+
+void GameScene::updateLeaderTrail(Character *leader, qreal dtSeconds)
+{
+    const QPointF feet = leader->feetPos();
+    const QPointF moved = feet - m_lastLeaderFeet;
+    const bool jumped = std::hypot(moved.x(), moved.y()) > kPartyTrailTeleportDistance;
+    if (leader != m_trailLeader || jumped || m_leaderTrail.isEmpty()) {
+        m_trailLeader = leader;
+        m_leaderTrail.clear();
+        m_leaderTrail.append(feet);
+        m_lastLeaderFeet = feet;
+        m_leaderStillSeconds = 0.0;
+        return;
+    }
+
+    // Position, not velocity: a leader shoving against a wall is standing
+    // still as far as the party can tell.
+    if (std::hypot(moved.x(), moved.y()) < 1.0)
+        m_leaderStillSeconds += dtSeconds;
+    else
+        m_leaderStillSeconds = 0.0;
+    m_lastLeaderFeet = feet;
+
+    const QPointF sinceSample = feet - m_leaderTrail.last();
+    if (std::hypot(sinceSample.x(), sinceSample.y()) >= kPartyTrailSampleSpacing)
+        m_leaderTrail.append(feet);
+
+    // Every sample is at least kPartyTrailSampleSpacing from the last, so
+    // this many cover the furthest slot (plus a little slack) at minimum.
+    const int maxSamples = static_cast<int>(std::ceil(m_party.size() * kPartyTrailSlotSpacing / kPartyTrailSampleSpacing)) + 4;
+    if (m_leaderTrail.size() > maxSamples)
+        m_leaderTrail.remove(0, m_leaderTrail.size() - maxSamples);
+}
+
+QPointF GameScene::trailPointAtArc(QPointF leaderFeet, qreal arc, int &olderIndex) const
+{
+    QPointF previous = leaderFeet;
+    qreal remaining = arc;
+    for (int i = m_leaderTrail.size() - 1; i >= 0; --i) {
+        const QPointF sample = m_leaderTrail.at(i);
+        const QPointF segment = sample - previous;
+        const qreal length = std::hypot(segment.x(), segment.y());
+        if (length >= remaining && length > 0.0) {
+            olderIndex = i;
+            return previous + segment * (remaining / length);
+        }
+        remaining -= length;
+        previous = sample;
+    }
+    olderIndex = -1;
+    return previous; // trail shorter than arc (or empty): the oldest point, or the leader itself
+}
+
+bool GameScene::isSegmentWalkable(QPointF from, QPointF to) const
+{
+    const QPointF delta = to - from;
+    const int steps = std::max(1, static_cast<int>(std::ceil(std::hypot(delta.x(), delta.y()) / kPartySegmentSampleStep)));
+    for (int i = 1; i <= steps; ++i) {
+        const QPointF p = from + delta * (static_cast<qreal>(i) / steps);
+        if (!m_map.isWalkable(p.x(), p.y()) || m_blockingAreas.containsPoint(p.x(), p.y()))
+            return false;
+    }
+    return true;
+}
+
+bool GameScene::followTrail(Character *character, PartyPath &pathState, QPointF leaderFeet, qreal arc, qreal speed,
+                            qreal dtSeconds)
+{
+    const QPointF selfFeet = character->feetPos();
+    int olderIndex = -1;
+    const QPointF slot = trailPointAtArc(leaderFeet, arc, olderIndex);
+
+    const QPointF toSlot = slot - selfFeet;
+    const QPointF toLeader = leaderFeet - selfFeet;
+    if (std::hypot(toSlot.x(), toSlot.y()) <= kPartyTrailSlotTolerance
+        || std::hypot(toLeader.x(), toLeader.y()) <= kPartyFollowStopRadius) {
+        character->setVelocity(QPointF(0, 0));
+        pathState.waypoints.clear();
+        pathState.trailStuckTimer = 0.0;
+        return true;
+    }
+    pathState.hasShuffleTarget = false;
+
+    if (pathState.trailSuppressSeconds > 0.0)
+        pathState.trailSuppressSeconds -= dtSeconds;
+    if (pathState.trailSuppressSeconds <= 0.0) {
+        // Steer for the point of the trail nearest the slot that's in a
+        // straight walkable line from here: the slot itself if it's
+        // visible, otherwise the newest earlier trail point that is (the
+        // corner the follower still has to round, say).
+        bool found = isSegmentWalkable(selfFeet, slot);
+        QPointF steer = slot;
+        for (int i = olderIndex; !found && i >= 0; --i) {
+            if (isSegmentWalkable(selfFeet, m_leaderTrail.at(i))) {
+                steer = m_leaderTrail.at(i);
+                found = true;
+            }
+        }
+
+        if (found) {
+            pathState.waypoints.clear(); // any A* route from an earlier fallback is moot now
+            pathState.trailStuckTimer += dtSeconds;
+            if (pathState.trailStuckTimer >= kPartyStuckSeconds) {
+                const QPointF progress = selfFeet - pathState.trailProgressAnchor;
+                if (std::hypot(progress.x(), progress.y()) < kPartyStuckProgressThreshold)
+                    pathState.trailSuppressSeconds = kPartyTrailSuppressSeconds;
+                pathState.trailProgressAnchor = selfFeet;
+                pathState.trailStuckTimer = 0.0;
+            }
+            const QPointF toSteer = steer - selfFeet;
+            const qreal distance = std::hypot(toSteer.x(), toSteer.y());
+            if (distance > 1.0)
+                character->setVelocity(QPointF(toSteer.x() / distance * speed, toSteer.y() / distance * speed));
+            else
+                character->setVelocity(QPointF(0, 0));
+            return false;
+        }
+        // Nothing on the trail is reachable from here - off the trail after
+        // a fight or a control switch, or a barrier went up across it.
+        pathState.trailSuppressSeconds = kPartyTrailRetrySeconds;
+    }
+
+    pathState.trailStuckTimer = 0.0;
+    pathState.trailProgressAnchor = selfFeet;
+    moveAlongPath(character, pathState, slot, speed, dtSeconds);
+    return false;
+}
+
+bool GameScene::violatesCrowdSpacing(QPointF point, const Character *self, bool includeShuffleTargets) const
+{
+    const auto conflicts = [point](QPointF other) {
+        return std::abs(point.x() - other.x()) < kPartyCrowdSpacingX && std::abs(point.y() - other.y()) < kPartyCrowdSpacingY;
+    };
+    for (Character *member : std::as_const(m_party)) {
+        if (member == self || member->isDead())
+            continue;
+        if (conflicts(member->feetPos()))
+            return true;
+        if (includeShuffleTargets) {
+            const auto it = m_partyPaths.constFind(member);
+            if (it != m_partyPaths.constEnd() && it->hasShuffleTarget && conflicts(it->shuffleTarget))
+                return true;
+        }
+    }
+    return false;
+}
+
+void GameScene::shuffleInCrowd(Character *character, PartyPath &pathState, QPointF leaderFeet, qreal dtSeconds)
+{
+    pathState.waypoints.clear();
+    pathState.trailStuckTimer = 0.0;
+    QRandomGenerator &rng = *QRandomGenerator::global();
+    const QPointF selfFeet = character->feetPos();
+    const bool overlapping = violatesCrowdSpacing(selfFeet, character, false);
+
+    if (pathState.hasShuffleTarget) {
+        pathState.shuffleTimer -= dtSeconds;
+        const QPointF toTarget = pathState.shuffleTarget - selfFeet;
+        const qreal distance = std::hypot(toTarget.x(), toTarget.y());
+        if (distance > kPartyShuffleArriveRadius && pathState.shuffleTimer > 0.0
+            && isSegmentWalkable(selfFeet, pathState.shuffleTarget)) {
+            const qreal speed = moveSpeedFor(character->speed(), kPartyFollowFallbackSpeed) * kPartyShuffleSpeedFactor;
+            character->setVelocity(QPointF(toTarget.x() / distance * speed, toTarget.y() / distance * speed));
+            return;
+        }
+        pathState.hasShuffleTarget = false;
+        pathState.shuffleTimer = kPartyShufflePauseMinSeconds
+            + rng.generateDouble() * (kPartyShufflePauseMaxSeconds - kPartyShufflePauseMinSeconds);
+    } else if (pathState.shuffleTimer > 0.0) {
+        pathState.shuffleTimer -= dtSeconds;
+    }
+
+    character->setVelocity(QPointF(0, 0));
+    if (pathState.shuffleTimer > 0.0 && !overlapping)
+        return;
+
+    // How far out in the crowd area a point is: 0 at the leader, 1 at the
+    // edge of the area.
+    const auto crowdDepth = [leaderFeet](QPointF p) {
+        return std::max(std::abs(p.x() - leaderFeet.x()) / kPartyCrowdRadiusX,
+                        std::abs(p.y() - leaderFeet.y()) / kPartyCrowdRadiusY);
+    };
+    const qreal selfDepth = crowdDepth(selfFeet);
+    for (int attempt = 0; attempt < kPartyShuffleCandidateTries; ++attempt) {
+        const qreal angle = rng.generateDouble() * 2.0 * M_PI;
+        const qreal step = kPartyShuffleMinStep + rng.generateDouble() * (kPartyShuffleMaxStep - kPartyShuffleMinStep);
+        const QPointF candidate = selfFeet + QPointF(std::cos(angle) * step, std::sin(angle) * step);
+        const qreal depth = crowdDepth(candidate);
+        // A follower that just arrived at the edge works its way inward
+        // rather than drifting about out there; once inside, any step that
+        // stays in the area is fine.
+        if (depth > kPartyCrowdOuterFraction || (selfDepth > kPartyCrowdInnerFraction && depth >= selfDepth))
+            continue;
+        if (violatesCrowdSpacing(candidate, character, true) || !isSegmentWalkable(selfFeet, candidate))
+            continue;
+        pathState.hasShuffleTarget = true;
+        pathState.shuffleTarget = candidate;
+        pathState.shuffleTimer = kPartyShuffleMaxWalkSeconds;
+        return;
+    }
+    pathState.shuffleTimer = kPartyShuffleRetrySeconds; // nothing fit this time - try again shortly
 }
 
 void GameScene::moveAlongPath(Character *character, PartyPath &pathState, QPointF targetWorld, qreal speed, qreal dtSeconds)
@@ -2489,6 +2724,10 @@ void GameScene::beforeEntityDestroyed(QGraphicsItem *entity)
         m_partyAttackCooldowns.remove(character);
         m_fireballCooldowns.remove(character);
         m_partyPaths.remove(character);
+        if (m_trailLeader == character) {
+            m_trailLeader = nullptr;
+            m_leaderTrail.clear();
+        }
         for (int i = m_pendingFireballHits.size() - 1; i >= 0; --i) {
             if (m_pendingFireballHits.at(i).target == character)
                 m_pendingFireballHits.removeAt(i);

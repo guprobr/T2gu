@@ -229,6 +229,33 @@ other tileset's index-9 terrain is purely decorative.
   sitting on a nearby (but tile-distinct) open cell — this is a real bug
   that made at least one chapter's key item invisible before the fix.
 
+## Party movement
+
+- A following (non-fighting) party member does **not** pathfind to the
+  leader. `GameScene::updateLeaderTrail()` records the controlled
+  character's feet positions (`m_leaderTrail`), and `followTrail()` walks
+  each follower to the spot `(index + 1) * kPartyTrailSlotSpacing` pixels
+  of trail behind it. This works because collision is one feet-point test
+  shared by every character (`Character::isBlocked`), so anywhere the
+  leader stood is walkable for a follower — unlike the tile-center grid in
+  `findPath()`, which can disagree with real collision and wedge a
+  character (the reason `m_temporarilyBlockedCells` exists).
+- `findPath()`/`moveAlongPath()` (A*) still run for **combat chases** and
+  as the **rejoin fallback** when no trail point is reachable (after a
+  fight, a control switch, or a barrier across the trail). Don't delete
+  them.
+- Once the leader has stood still for `kPartyCrowdSettleSeconds`,
+  followers that can see it and are inside the crowd area stop lining up
+  and `shuffleInCrowd()` idles them in a loose crowd: short random steps
+  that keep `kPartyCrowdSpacingX`/`Y` clear of every other member (a
+  conflict needs both axes too close, so clear on either is enough).
+  Followers outside the area or without a line to the leader keep
+  following the trail toward `kPartyCrowdGatherArc`.
+- The trail restarts whenever the leader changes or jumps more than
+  `kPartyTrailTeleportDistance` in one tick (level load, snapshot
+  restore, script teleport), and `destroyEntity()` clears it if the leader
+  is deleted.
+
 ## Combat
 
 - `playerDied()` means the **currently controlled** character is dead

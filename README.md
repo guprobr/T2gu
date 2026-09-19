@@ -1,5 +1,7 @@
 # ShadowShine
 
+![ShadowShine screenshot](screenshot.png)
+
 > *A 100-chapter isometric RPG. Six chapters are done. The other ninety-four are, uh, "in the pipeline."*
 
 **ShadowShine** (formerly "Umbraloom", until we decided nobody could spell it) is a from-scratch **C++20 / Qt6** isometric RPG engine, plus the story it runs. It's a rewrite of an old C/SDL2 engine, which lives on in `T2gu-legacy/` like an embarrassing photo in a parent's attic: preserved, unbuilt, and not to be touched.
