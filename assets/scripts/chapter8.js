@@ -1,26 +1,12 @@
 // ============================================================================
-// ShadowShine - Chapter 2: "Ada Town" (reformulated, 2026-09-15)
+// ShadowShine - Chapter 8: "Lanternside"
 // ============================================================================
 //
-// Replaces "The Buried Court" stone-ruin theme entirely - Ada Town is a
-// dirt-and-grass village (see assets/maps/chapter2.json's dirt_grass
-// tileset, blob-autotiled with scattered grass patches over a dirt-
-// dominant base), not a half-collapsed ruin. The entrance is a little
-// forest (Ada Woods); the branching maze itself IS the town - its walls
-// are houses, fences, market stalls, and wells instead of broken pillars,
-// and its corridors are the town's own streets and alleys, abandoned to
-// whatever's left roaming them now. Same underlying quest and companion as
-// before (three fragments, found in any order, raise a real
-// api.setBarrier gate; Vigil, the `dark_knight` bound to guard what's past
-// it) and the same hostile roster (skeleton/skeleton_archer/ghoul/mummy -
-// an abandoned town overrun by the dead reads exactly as coherently as an
-// abandoned ruin did) - this is a re-theming of the setting, not a
-// redesign of the chapter's mechanics.
-//
-// Map layout (assets/maps/chapter2.json):
-//   - Ada Woods (the entrance): cols 2-26
-//   - Ada Town (one maze, its walls are the town itself): cols 28-150, full playable height
-//   - The Vault Gate + Vault: cols 152-165
+// Two parts: the TOWN comes first, the MAZE after it. This level runs left to right
+// (the hero spawns against the west edge). Map: 162x90, tileset dirty_plate_asphalt, lighting torch.
+//   - town   cols 1-44
+//   - maze   cols 45-150, rows 0-89, corridors 2 wide, walls 3 thick
+//   - pocket cols 151-160 (where the maze lets out)
 // ============================================================================
 
 // Deterministic PRNG - every generator below uses this instead of
@@ -331,261 +317,357 @@ function scatterOrganic(names, colStart, colEnd, rowStart, rowEnd, count, seed, 
     }
 }
 
-function respawnCompanions() {
-    if (api.getGlobalVar("vigil_recruited", false))
-        api.spawnCharacter("dark_knight", 4, 45, 90);
+// ---- Layout (from the map spec - the same numbers are stored in the map's own "layout" field) ----
+const W = 162, H = 90;
+const DIR = 1;                        // 1: this level runs left -> right
+const START_U = 3;                        // the hero spawns this many columns in from the start edge
+const MID = 45;                        // row of the road that leads to the maze gate
+const TOWN_U = 44;                        // the town fills u = 1..TOWN_U (u counts from the start edge)
+const MAZE_WEST = 45, MAZE_EAST = 150;   // absolute columns of the maze block
+const MAZE_NORTH = 0, MAZE_SOUTH = 89;        // its rows
+const MAZE_CORRIDOR = 2, MAZE_WALL = 3;
+const POCKET_U0 = 151, POCKET_U1 = 160;   // the exit pocket beyond the maze (u), 10 columns
+
+// ============================================================================
+// Two-part level shape helpers: the TOWN comes first, the MAZE after it.
+// (Identical in every chapter script written in this shape.)
+// ============================================================================
+// `u` is a column counted from the START edge of the level (u = 0 is the border
+// column the hero spawns against), so one description works for a level that
+// runs left-to-right (DIR = 1) and one that runs right-to-left (DIR = -1).
+function colAt(u) { return DIR > 0 ? u : W - 1 - u; }
+
+// Where a cell sits along the maze: 0 at the entrance .. 1 at the exit.
+function mazeProgress(cell) {
+    const along = DIR > 0 ? cell.col - MAZE_WEST : MAZE_EAST - cell.col;
+    return along / (MAZE_EAST - MAZE_WEST);
 }
 
+// Removes and returns up to `count` distinct cells from `pool` whose maze
+// progress lies in [from, to]. Always consumes the same cells for the same
+// seed, whether or not the caller ends up spawning anything on them - so a
+// reload that skips a spawn-once guard still lines every later placement up.
+function takeCells(pool, from, to, count, seed) {
+    const rand = mulberry32(seed);
+    const picked = [];
+    for (let n = 0; n < count; n++) {
+        const eligible = [];
+        for (let k = 0; k < pool.length; k++) {
+            const p = mazeProgress(pool[k]);
+            if (p >= from && p <= to)
+                eligible.push(k);
+        }
+        if (eligible.length === 0)
+            break;
+        const k = eligible[Math.floor(rand() * eligible.length)];
+        picked.push(pool[k]);
+        pool.splice(k, 1);
+    }
+    return picked;
+}
+
+// [[propName, u, rowOffsetFromTheRoad], ...] -> props. Rows are relative to
+// MID, the row of the road that leads into the maze gate.
+function placeProps(list) {
+    list.forEach(([name, u, dr]) => api.spawnProp(name, colAt(u), MID + dr));
+}
+
+// An invisible barrier across the maze's exit opening (raise it with
+// blocked = true, lift it with false).
+function setExitGate(id, exitRows, blocked) {
+    const firstCol = DIR > 0 ? MAZE_EAST - 1 : MAZE_WEST;   // the exit passes through the 2-deep border
+    api.setBarrier(id, firstCol, exitRows[0], 2, exitRows[1] - exitRows[0] + 1, blocked);
+}
+
+// Companions follow the hero from chapter to chapter only if this puts them
+// back - a loadLevel() wipes everything except vars and inventory.
+function respawnCompanions() {
+    if (api.getGlobalVar("vigil_recruited", false))
+        api.spawnCharacter("dark_knight", colAt(START_U + 1), MID, 70);
+    if (api.getGlobalVar("cobb_recruited", false))
+        api.spawnCharacter("dwarf_miner", colAt(START_U + 2), MID, 75);
+    if (api.getGlobalVar("vex_recruited", false))
+        api.spawnCharacter("cyber_engineer", colAt(START_U + 3), MID, 70);
+    if (api.getGlobalVar("nettle_recruited", false))
+        api.spawnCharacter("cyber_medic", colAt(START_U + 4), MID, 70);
+}
+
+// A companion's aside, only if they've actually been recruited.
+function* companionSays(flag, who, line) {
+    if (api.getGlobalVar(flag, false))
+        yield api.say(who, line);
+}
+
+// Spawns hostile packs onto `spots`, in order, exactly once per playthrough
+// (guarded by a chapter-local var so a reload doesn't double the population).
+// packs: [[archetype, count, hp], ...]
+function spawnPacks(spots, packs, guardVar) {
+    if (api.getVar(guardVar, false))
+        return;
+    api.setVar(guardVar, true);
+    let k = 0;
+    packs.forEach(([type, count, hp]) => {
+        for (let n = 0; n < count && k < spots.length; n++, k++)
+            api.spawnEnemy(type, spots[k].col, spots[k].row, hp);
+    });
+}
+
+// Spawns world pickups onto `spots`, once (same guard idea as spawnPacks).
+function spawnLoot(spots, itemIds, guardVar) {
+    if (api.getVar(guardVar, false))
+        return;
+    api.setVar(guardVar, true);
+    itemIds.forEach((id, k) => { if (spots[k]) api.spawnItem(id, spots[k].col, spots[k].row); });
+}
+
+// The pocket beyond the maze as an absolute column range.
+function pocketCols() {
+    const a = colAt(POCKET_U0), b = colAt(POCKET_U1);
+    return [Math.min(a, b), Math.max(a, b)];
+}
+
+
+// ----------------------------------------------------------------------------
+// Chapter 8 - "Lanternside" (dirty_plate_asphalt, torch). Runs LEFT to RIGHT.
+// A slum of tarp shanties and tenements lit by lanterns that never go out;
+// the torch lighting flickers over everything.
+//
+// QUEST (fetch-N): the checkpoint at the far end of the Lanternside Stacks
+// only lets a traveller through for three permit chips. The chips only exist
+// out in the stacks - four of them lie scattered through the maze. Hand three
+// to the checkpoint's warden and the checkpoint gate (the maze's exit) lifts.
+// ----------------------------------------------------------------------------
+const TOWN = [
+    ["rain_barrel", 3, -30],
+    ["crate_stack_cat", 3, 37],
+    ["wrecked_cart", 3, 41],
+    ["leaning_tenement", 4, 12],
+    ["crate_stack_cat", 5, -41],
+    ["wrecked_cart", 5, -29],
+    ["barrels_crates", 5, -16],
+    ["barrels_crates", 6, -26],
+    ["cyber_supply_crate", 7, 18],
+    ["crate_stack_cat", 8, -39],
+    ["data_pillar", 8, -24],
+    ["ash_covered_barrels", 9, -14],
+    ["barrels_crates", 10, 31],
+    ["cyber_supply_crate", 11, -19],
+    ["crate_tarp_shanty", 11, -13],
+    ["cyber_supply_crate", 11, 24],
+    ["rain_barrel", 11, 27],
+    ["salvage_pile", 12, -40],
+    ["ash_covered_barrels", 12, -38],
+    ["leaning_tenement", 12, -22],
+    ["wrecked_cart", 12, 21],
+    ["wrecked_cart", 12, 29],
+    ["salvage_pile", 13, 26],
+    ["data_pillar", 14, -17],
+    ["barrels_crates", 14, -12],
+    ["crate_tarp_shanty", 16, 23],
+    ["barrels_crates", 17, -37],
+    ["wrecked_cart", 17, -30],
+    ["signal_relay_mast", 17, -26],
+    ["data_pillar", 17, -18],
+    ["cyber_supply_crate", 18, -22],
+    ["data_pillar", 18, 3],
+    ["holo_terminal", 19, -3],
+    ["vendor_kiosk", 25, -3],
+    ["crate_stack_cat", 26, 3],
+    ["rain_barrel", 27, -39],
+    ["vendor_kiosk", 27, -24],
+    ["data_pillar", 27, 29],
+    ["salvage_pile", 27, 39],
+    ["crate_tarp_shanty", 28, 19],
+    ["cyber_supply_crate", 29, -31],
+    ["ash_covered_barrels", 29, -9],
+    ["salvage_pile", 32, -34],
+    ["salvage_pile", 32, -28],
+    ["data_pillar", 32, -25],
+    ["leaning_tenement", 32, -16],
+    ["holo_terminal", 33, 22],
+    ["crate_stack_cat", 33, 24],
+    ["barrels_crates", 33, 31],
+    ["patched_pushcart", 34, 9],
+    ["cyber_supply_crate", 34, 28],
+    ["salvage_pile", 34, 41],
+    ["patched_pushcart", 35, 38],
+    ["ash_covered_barrels", 36, -18],
+    ["salvage_pile", 36, -5],
+    ["patched_pushcart", 36, 40],
+    ["crate_stack_cat", 37, -43],
+    ["rain_barrel", 38, 16],
+    ["leaning_tenement", 39, 13],
+    ["barrels_crates", 39, 18],
+    ["patched_pushcart", 39, 33],
+    ["poor_market_stall", 40, -8],
+    ["ash_covered_barrels", 40, 9],
+    ["alley_lantern_post", 41, -3],
+    ["barrels_crates", 41, 35],
+    ["barrels_crates", 42, -25],
+    ["patched_pushcart", 42, -10]
+];
+
 function* onLevelStart() {
-    api.spawnCharacter("lara_cyber", 3, 45);
+    api.spawnCharacter("lara_cyber", colAt(START_U), MID);
     api.giveControl("lara_cyber");
     respawnCompanions();
 
-    buildAdaWoods();
-    buildAdaTown();
-    raiseVaultGate();
-    buildVault();
+    buildTown();
+    const exitRows = buildMaze();
+    buildPocket();
+    if (!api.getVar("checkpoint_open", false))
+        setExitGate("checkpoint_gate", exitRows, true);
 
-    if (api.getVar("chapter2_intro_seen", false))
+    if (api.getVar("chapter8_intro_seen", false))
         return;
-    api.setVar("chapter2_intro_seen", true);
+    api.setVar("chapter8_intro_seen", true);
 
-    yield api.wait(0.5);
-    yield api.say("Lara", "Ada Town. Or what's left wearing the name - I can smell the dirt roads under all that quiet.");
-    yield api.say("Hint", "Three fragments are hidden somewhere in the streets ahead - find all three to open whatever the town's been keeping shut.");
+    yield api.wait(0.6);
+    yield api.say("Lara", "Lanterns. Hundreds of them, strung between rooftops, every one lit, not a wick or a flame in sight.");
+    yield* companionSays("vex_recruited", "Vex", "Those aren't lanterns. That's a power line with opinions. Beautiful work, honestly.");
+    yield* companionSays("nettle_recruited", "Nettle", "The people here look tired in the way that means they've stopped noticing they're tired.");
+    yield api.say("Hint", "This level runs left to right. The town is behind you; the maze is ahead, to the east.");
 }
 
-// Ada Woods - a little forest at the entrance, no maze here, just the last
-// stretch of trees before the town's own streets take over. Basic
-// supplies and a first breath of quiet before things get louder.
-function buildAdaWoods() {
-    api.spawnProp("notice_board", 8, 45);
-    api.spawnProp("fallen_log", 14, 20);
-    api.spawnProp("tree_stump", 12, 68);
-    scatterOrganic(["pine_tree", "oak_tree", "bush", "wildflowers", "rocks_small"], 2, 24, 4, 86, 26, 22001, [
-        { col: 8, row: 45 }, { col: 14, row: 20 }, { col: 12, row: 68 },
-    ]);
+function buildTown() {
+    placeProps(TOWN);
+    api.spawnProp("holo_terminal", colAt(TOWN_U - 1), MID - 3);
+    api.spawnProp("signal_relay_mast", colAt(TOWN_U - 1), MID + 4);
 
-    if (api.getVar("chapter2_loot_spawned", false))
+    api.spawnNpc("android", colAt(13), MID - 3);          // Ledger, the fixer
+    api.spawnNpc("gnome_inventor", colAt(24), MID + 5);   // Tinker
+    api.spawnNpc("cyber_rogue", colAt(10), MID + 6);      // Runner
+    api.spawnNpc("merchant", colAt(30), MID - 5);
+
+    if (api.getVar("town_loot_spawned", false))
         return;
-    api.setVar("chapter2_loot_spawned", true);
-    api.spawnItem("dried_rations", 6, 30);
-    api.spawnItem("waterskin", 18, 70);
-    api.spawnItem("whetstone", 10, 60);
-    api.spawnItem("health_potion", 20, 30);
+    api.setVar("town_loot_spawned", true);
+    api.spawnItem("repair_kit", colAt(6), MID - 9);
+    api.spawnItem("stamina_draught", colAt(28), MID + 11);
+    api.spawnItem("spool_of_copper_wire", colAt(34), MID - 12);
+    api.spawnItem("health_potion", colAt(14), MID + 14);
+    api.spawnItem("health_potion", colAt(20), MID - 11);
 }
 
-// Ada Town itself - one genuine branching maze (cols 28-150, full playable
-// height) where the maze's own walls ARE the town: houses, a leaning
-// tenement, a chapel, a smithy, and a chicken coop fill each wall block's
-// interior; fences, a wrecked cart, and a rotted haystack fill the seam
-// wherever a building actually meets the street. Populated directly in
-// its own streets: undead hostiles (an abandoned town overrun by the dead
-// reads exactly as coherently as an abandoned ruin did), three Keeper
-// NPCs (each holding one of the three fragments, findable in any order -
-// see onTalkTo/talkToKeeper), a hostage, and loot.
-function buildAdaTown() {
-    const coreObstacles = ["cottage_a", "cottage_b", "haunted_cottage", "leaning_tenement", "chapel", "chicken_coop", "blacksmith_forge"];
-    const edgeObstacles = ["fence_straight", "fence_corner", "broken_fence", "wrecked_cart", "rotted_haystack"];
-    const cells = buildBranchingMaze(28, 150, 1, 88, 2, 4, coreObstacles, edgeObstacles, 22101, { solid: true });
+function buildMaze() {
+    const core = ["crate_tarp_shanty", "salvage_pile", "leaning_tenement", "conduit_coil", "overgrown_solar_array", "dormant_sentry_turret", "data_pillar"];
+    const edge = ["barrels_crates", "ash_covered_barrels", "crate_stack_cat", "rain_barrel", "cyber_supply_crate"];
+    const cells = buildBranchingMaze(MAZE_WEST, MAZE_EAST, MAZE_NORTH, MAZE_SOUTH, MAZE_CORRIDOR, MAZE_WALL,
+        core, edge, 80801, { flip: DIR < 0, diagonalSeam: true, solid: true });
+    const pool = cells.slice();
 
-    // One shared, non-overlapping cell set for everything placed in the
-    // maze - 34 hostiles + 3 Keepers + the hostage + 13 loot items (8
-    // health potions - tripled from the original 2, per-level healing
-    // supply pass - 2 general trinkets, and 3 originals) = 53 cells.
-    const spots = sampleCells(cells, 53, 22102);
-    let i = 0;
+    spawnPacks(takeCells(pool, 0.06, 1.0, 38, 80802),
+        [["mech_spider", 12, 35], ["mech_crimson_warbot", 8, 45], ["mech_red_spider_tank", 4, 60], ["cyber_brawler", 8, 45], ["cyber_swordfighter", 6, 40]],
+        "maze_hostiles_spawned");
 
-    if (!api.getVar("colonnade_hostiles_spawned", false)) {
-        api.setVar("colonnade_hostiles_spawned", true);
-        const hostileTypes = [
-            "skeleton", "skeleton", "skeleton", "skeleton", "skeleton", "skeleton", "skeleton", "skeleton", "skeleton", "skeleton",
-            "skeleton_archer", "skeleton_archer", "skeleton_archer", "skeleton_archer", "skeleton_archer", "skeleton_archer", "skeleton_archer", "skeleton_archer",
-            "ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "ghoul",
-            "mummy", "mummy", "mummy", "mummy", "mummy", "mummy", "mummy", "mummy",
-        ];
-        hostileTypes.forEach(type => { api.spawnEnemy(type, spots[i].col, spots[i].row, 32); i++; });
-    } else {
-        i += 34;
+    // The warden stands in the last stretch before the exit gate - reachable, on the near side of it.
+    const warden = takeCells(pool, 0.94, 1.0, 1, 80803)[0];
+    api.spawnNpc("cyber_trooper", warden.col, warden.row);
+
+    // Four permit chips in four different stretches of the maze (three are enough).
+    const chipBands = [[0.10, 0.30], [0.32, 0.52], [0.54, 0.74], [0.76, 0.92]];
+    const chipSpots = chipBands.map((b, k) => takeCells(pool, b[0], b[1], 1, 80804 + k)[0]);
+    spawnLoot(chipSpots, ["tech_chip", "tech_chip", "tech_chip", "tech_chip"], "chips_spawned");
+
+    spawnLoot(takeCells(pool, 0.05, 0.95, 10, 80810),
+        ["health_potion", "health_potion", "health_potion", "health_potion", "health_potion", "health_potion",
+         "small_ingot", "cyber_visor", "tech_gauntlet", "mana_potion"], "maze_loot_spawned");
+    return cells.exitRows;
+}
+
+function buildPocket() {
+    const [c0, c1] = pocketCols();
+    scatterOrganic(["alley_lantern_post", "salvage_pile", "cyber_supply_crate", "data_pillar"], c0, c1, MAZE_NORTH + 2, MAZE_SOUTH - 2, 10, 80820,
+        [{ col: colAt(POCKET_U0 + 5), row: MID }]);
+    if (!api.getVar("core_spawned", false)) {
+        api.setVar("core_spawned", true);
+        api.spawnItem("lantern_core", colAt(POCKET_U0 + 5), MID);
     }
-
-    // Three Keepers, each holding one fragment of the vault-seal - talk to
-    // all three, in ANY order (unlike Chapter 4's terminal sequence), to
-    // raise the gate. See onTalkTo/talkToKeeper().
-    api.spawnNpc("gnome_wizard", spots[i].col, spots[i].row); i++;
-    api.spawnNpc("harpy", spots[i].col, spots[i].row); i++;
-    api.spawnNpc("tribal_elder_woman", spots[i].col, spots[i].row); i++;
-
-    if (!api.getVar("hostage_spawned", false)) {
-        api.setVar("hostage_spawned", true);
-        api.spawnNpc("herbalist", spots[i].col, spots[i].row);
-    }
-    i++;
-
-    if (api.getVar("colonnade_loot_spawned", false))
-        return;
-    api.setVar("colonnade_loot_spawned", true);
-    api.spawnItem("small_ingot", spots[i].col, spots[i].row); i++;
-    api.spawnItem("silver_coin_pouch", spots[i].col, spots[i].row); i++;
-    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
-    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
-    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
-    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
-    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
-    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
-    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
-    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
-    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
-    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
-    api.spawnItem("nail_pouch", spots[i].col, spots[i].row); i++;
-    api.spawnItem("lockpick_set", spots[i].col, spots[i].row); i++;
-    api.spawnItem("stamina_draught", spots[i].col, spots[i].row); i++;
-}
-
-// A real, mandatory barrier - down (blocking) until all three fragments
-// are found, guarded here rather than left to a script race, so a reload
-// before solving it re-raises the same gate.
-function raiseVaultGate() {
-    if (!api.getVar("vault_gate_open", false))
-        api.setBarrier("vault_gate", 152, 0, 1, 90, true);
-}
-
-// The old counting-house vault, past the town proper - Vigil and the
-// actual vault_sigil pickup both live here, placed unconditionally (the
-// barrier itself, not a script check, is what keeps them out of reach
-// until all three fragments are found).
-function buildVault() {
-    api.spawnProp("sunken_archway", 158, 45);
-    api.spawnProp("moss_grown_altar", 162, 45);
-    scatterOrganic(["rubble_pile", "runic_standing_stone"], 154, 165, 10, 80, 10, 22201, [
-        { col: 158, row: 45 }, { col: 162, row: 45 }, { col: 160, row: 45 },
-    ]);
-
-    if (!api.getGlobalVar("vigil_recruited", false))
-        api.spawnNpc("dark_knight", 160, 45);
-
-    if (api.getVar("vault_loot_spawned", false))
-        return;
-    api.setVar("vault_loot_spawned", true);
-    api.spawnItem("vault_sigil", 163, 45);
-    api.spawnItem("health_potion", 156, 30);
 }
 
 function* onTalkTo(name) {
-    if (name === "dark_knight") {
-        yield* talkToVigil();
-    } else if (name === "gnome_wizard" || name === "harpy" || name === "tribal_elder_woman") {
-        yield* talkToKeeper(name);
-    } else if (name === "herbalist") {
-        yield* rescueHostage();
+    if (name === "android") {
+        yield* talkToLedger();
+    } else if (name === "cyber_trooper") {
+        yield* talkToWarden();
+    } else if (name === "gnome_inventor" || name === "cyber_rogue" || name === "merchant") {
+        yield* talkToTownsfolk(name);
     }
 }
 
-function* talkToVigil() {
-    const timesTalked = api.getVar("vigil_talks", 0);
-    api.setVar("vigil_talks", timesTalked + 1);
+function* talkToLedger() {
+    const n = api.getVar("ledger_talks", 0);
+    api.setVar("ledger_talks", n + 1);
     api.playSound("select");
-
-    if (timesTalked === 0) {
-        yield api.say("Vigil", "Guardian. Awakened. State your need.");
-        yield api.say("Lara", "...You've been standing here the whole time we were solving the town's own front door.");
-        yield api.say("Vigil", "Longer than I've kept count of. The three answered for you. That is enough to open it - it was never enough to let me leave on my own.");
+    if (n === 0) {
+        yield api.say("Ledger", "Good. Someone with boots. The Stacks run east from here - a maze of everything this district ever threw away.");
+        yield api.say("Ledger", "At the far end there's a checkpoint. It wants three permit chips to open. Permit chips don't get sold; they get *found*. Four are lying out in the Stacks. Bring three to the warden.");
+        yield api.say("Lara", "And past the checkpoint?");
+        yield api.say("Ledger", "The lantern-core. Every light in Lanternside runs off a copy of it, and the original stopped answering its own name three nights ago. Same night as the hum.");
     } else {
-        yield api.say("Vigil", "The town is answered. My garrison is not coming back for me, and this vault was never really what I was guarding. I'll carry what's left of it, if you'll have the weight.");
-        api.despawnNpc("dark_knight");
-        api.spawnCharacter("dark_knight", 158, 45, 90);
-        api.setGlobalVar("vigil_recruited", true);
-        api.playSound("select");
+        yield api.say("Ledger", "Chips first, warden second. He can count, and he doesn't take promises.");
     }
 }
 
-// Order-independent: talk to all three Keepers, in any order, to raise
-// the vault gate. Unlike Chapter 4's terminal sequence, getting the ORDER
-// right doesn't matter here - only finding all three does.
-function* talkToKeeper(name) {
-    const displayName = { gnome_wizard: "the Wizard", harpy: "the Harpy", tribal_elder_woman: "the Scholar" }[name];
-    const already = api.getVar(`fragment_${name}`, false);
+function* talkToWarden() {
     api.playSound("select");
-
-    if (api.getVar("vault_gate_open", false)) {
-        yield api.say(displayName, "*the fragment is already given*");
+    if (api.getVar("checkpoint_open", false)) {
+        yield api.say("Warden", "Go on through. Mind the core. It's been in a mood.");
         return;
     }
-
-    if (already) {
-        yield api.say(displayName, "You already carry what I had to give.");
+    const have = api.getItemCount("tech_chip");
+    if (have < 3) {
+        yield api.say("Warden", "CHECKPOINT. Three permit chips, please. You have " + have + ".");
+        yield api.say("Lara", "There are four out in the Stacks, aren't there.");
+        yield api.say("Warden", "*static* ...I'm not permitted to confirm the number.");
         return;
     }
-
-    api.setVar(`fragment_${name}`, true);
-    if (name === "gnome_wizard")
-        yield api.say("the Wizard", "I warded this piece so well I forgot the warding was mine to lift. Here - it never liked me much anyway.");
-    else if (name === "harpy")
-        yield api.say("the Harpy", "*tilts her head* I only ever nested in what was already empty. Here. I never wanted it, just kept it safe.");
-    else
-        yield api.say("the Scholar", "I came to study this town's old records and stayed to guard a grief instead. Take the last piece - someone should finally use it.");
-
-    const count = ["gnome_wizard", "harpy", "tribal_elder_woman"].filter(n => api.getVar(`fragment_${n}`, false)).length;
-    if (count === 3) {
-        yield api.wait(0.3);
-        yield api.say("Lara", "Three pieces, three keepers. That's the whole answer, isn't it.");
-        api.setBarrier("vault_gate", 152, 0, 1, 90, false);
-        api.setVar("vault_gate_open", true);
-        api.giveExperience(80);
-        api.playSound("select");
-    }
-}
-
-function* rescueHostage() {
-    if (api.getVar("hostage_rescued", false)) {
-        yield api.say("Herbalist", "Still grateful, truly.");
-        return;
-    }
-    api.setVar("hostage_rescued", true);
-    api.playSound("select");
-    yield api.say("Herbalist", "You found me. I came for the herbs still growing wild in the old garden plots - they hold medicine nothing else does - and lost the way out three days ago.");
-    yield api.say("Lara", "Three days?");
-    yield api.say("Herbalist", "Felt like three days. Might've been one. Either way - the way back is west of here, if the dead have moved on.");
+    api.removeItem("tech_chip", 3);
+    api.setVar("checkpoint_open", true);
+    api.setBarrier("checkpoint_gate", 0, 0, 1, 1, false);
     api.giveExperience(100);
+    yield api.say("Warden", "One. Two. Three. VALID. *a heavy clunk from the gate behind him* ...Honestly? I was hoping someone would finally use those.");
+    yield* companionSays("cobb_recruited", "Cobb", "Bribing a wall with paperwork. I've seen dwarves do worse with less.");
+}
+
+function* talkToTownsfolk(name) {
+    const lines = {
+        gnome_inventor: ["I built the first lantern here. Well, I plugged in the first lantern. Somebody else built it. I forget who. Probably me.",
+                         "If the Stacks buzz at you, that's not a threat. That's a bad ground wire."],
+        cyber_rogue: ["Runners go in for scrap and come out for air. I've done both. Prefer neither.",
+                      "Four chips out there, warden takes three. You can keep the extra. Or sell it. Whichever hurts less."],
+        merchant: ["Everything's for sale except the lanterns. Those aren't ours to sell.",
+                   "Prices are up. Not because of the hum. I just like the sound of saying it."],
+    }[name];
+    const displayName = { gnome_inventor: "Tinker", cyber_rogue: "Runner", merchant: "Merchant" }[name];
+    const n = api.getVar("talk_" + name, 0);
+    api.setVar("talk_" + name, n + 1);
+    api.playSound("select");
+    yield api.say(displayName, lines[n % lines.length]);
 }
 
 function* onEnemyDefeated(name) {
-    // A flavor line for a few enemy archetypes below - deliberately rare
-    // (not once per matching kill, which reads as spammy once several in a
-    // row have died the same way) via a flat low-probability roll before
-    // even checking which archetype this is. Plain Math.random() on
-    // purpose, unlike the seeded mulberry32() this file's own generators
-    // use elsewhere - that determinism is for level LAYOUT reproducibility
-    // (so a placement bug is catchable once and trusted forever), which
-    // doesn't apply to a cosmetic post-kill quip.
     if (Math.random() > 0.1)
         return;
-
-    if (name === "skeleton" || name === "skeleton_archer") {
+    if (name === "mech_spider") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Whatever kept it standing this long, it isn't malice. Just habit, maybe - the same street, over and over.");
-    } else if (name === "ghoul") {
+        yield api.say("Lara", "Wired for a job somebody cancelled. It kept going anyway.");
+    } else if (name === "cyber_brawler") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Hungry, and past caring why. This town hasn't fed anything living in a long time.");
-    } else if (name === "mummy") {
-        yield api.wait(0.3);
-        yield api.say("Lara", "Someone wrapped that with real care, once. Doesn't make it safe to leave walking the streets.");
+        yield api.say("Lara", "Hired muscle. Nobody's paying the muscle any more.");
     }
 }
 
 function* onItemCollected(itemId) {
-    if (itemId !== "vault_sigil")
+    if (itemId !== "lantern_core")
         return;
-
     yield api.wait(0.3);
-    yield api.say("Lara", "This was never a lock. It's a promise someone sealed shut instead of keeping.");
-    yield api.say("Vigil", "A promise I was left to hold, whether or not anyone ever came back for it. You came back for it.");
-    yield api.say("???", "The seal was never yours to break, and yet - here we are. You're closer than the last one who tried this door.");
-    yield api.say("Lara", "There's always a last one who tried, with you. Who were they?");
-    yield api.say("???", "Someone who stopped at the door. This town's floor isn't the end of it - go find what it's standing on.");
-
-    api.setGlobalVar("chapter", 3);
+    yield api.say("Lara", "It's warm, and it's *steady* - the first thing I've touched in three days that isn't flickering.");
+    yield api.say("???", "Second of ten. Do you hear it yet? Not the hum. The thing under the hum, that the hum is trying to say.");
+    yield api.say("Lara", "Every time I think I have it, it's the next word that matters.");
+    yield api.say("???", "Then walk to the next word. East gives way to hills, and hills to a road with a price on it.");
+    api.setGlobalVar("chapter", 9);
     api.playSound("select");
     yield api.wait(0.8);
-    api.loadLevel("chapter3.json");
+    api.loadLevel("chapter9.json");
 }

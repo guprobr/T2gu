@@ -61,6 +61,8 @@ add_executable(T2gu2
     src/SelectionInfoWidget.h
     src/GameState.h
     src/Version.h
+    src/AssetPath.cpp
+    src/AssetPath.h
 )
 
 target_link_libraries(T2gu2 PRIVATE Qt6::Widgets Qt6::Qml Qt6::Multimedia)
@@ -88,3 +90,29 @@ if (CMAKE_BUILD_TYPE STREQUAL "Release")
         set_property(TARGET T2gu2 PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
     endif()
 endif()
+
+
+# ---- Install (Linux): `cmake --install build` / `make install` -------------
+#
+#   cmake -S . -B build -DCMAKE_INSTALL_PREFIX=$HOME/.local   # default: /usr/local
+#   cmake --build build && cmake --install build              # sudo for /usr/local
+#
+# Installs the binary, the whole assets/ tree (~1 GB), the app icons and the
+# launcher entry. The binary finds its assets at <prefix>/share/t2gu2/assets
+# on its own (see src/AssetPath.h), so the install does not depend on the
+# source tree staying where it was built. Set the prefix when configuring:
+# the launcher's Exec= line is filled in from it here, at configure time.
+# (-march=native above ties a Release binary to the CPU it was built on.)
+include(GNUInstallDirs)
+
+install(TARGETS T2gu2 RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(DIRECTORY assets/ DESTINATION ${CMAKE_INSTALL_DATADIR}/t2gu2/assets)
+
+configure_file(packaging/t2gu2.desktop.in ${CMAKE_BINARY_DIR}/t2gu2.desktop @ONLY)
+install(FILES ${CMAKE_BINARY_DIR}/t2gu2.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
+
+foreach(size 32 64 128 256 512)
+    install(FILES assets/icons/app_icon_${size}.png
+            DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/${size}x${size}/apps
+            RENAME t2gu2.png)
+endforeach()

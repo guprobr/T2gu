@@ -60,8 +60,30 @@ function mulberry32(seed) {
 // off the spanning tree's direct route) so callers can place NPCs/enemies
 // on verified-open ground via sampleCells() below, instead of hand-
 // computing coordinates.
-function buildBranchingMaze(west, east, northRow, southRow, corridorWidth, wallWidth, coreObstacles, edgeObstacles, seed) {
+function buildBranchingMaze(west, east, northRow, southRow, corridorWidth, wallWidth, coreObstacles, edgeObstacles, seed, options) {
     const rand = mulberry32(seed);
+    // Optional, both off by default (a chapter that passes no `options` generates
+    // exactly what it always did - the random stream is untouched):
+    //   flip         - mirror the finished maze left/right, so the entrance is on the
+    //                  EAST edge and the exit on the WEST (for right-to-left levels).
+    //                  The maze is still built entrance-west internally; only the
+    //                  columns handed to spawnProp() and the returned cell centers are
+    //                  mirrored (west <-> east).
+    //   diagonalSeam - also treat a wall tile that touches a corridor only DIAGONALLY
+    //                  as a seam tile (small edge prop, not a big core set-piece).
+    //                  Without it, a wide core prop (cliff_face is 680px) on a corner
+    //                  tile has a collision footprint that spills ~1.3 tiles into the
+    //                  corridor corner and can swallow a spawn point there.
+    //   solid         - back every wall tile with an invisible full-tile barrier. A prop only
+    //                  blocks a small footprint at its base (50% of its width by 18% of its
+    //                  height), so a wall of props alone leaves a free slit through every
+    //                  tile row - measured in the real engine, a bot walks a dead-straight
+    //                  line through a whole shipped maze. `solid` makes the walls real.
+    const flip = !!(options && options.flip);
+    const diagonalSeam = !!(options && options.diagonalSeam);
+    const solid = !!(options && options.solid);
+    const wallRects = [];
+    const X = c => (flip ? west + east - c : c);
     const cellSize = corridorWidth + wallWidth;
     // Reserved two columns deep (not one) on each side, purely to pack more
     // props into the outer maze border - a single-tile-thick wall line reads
@@ -166,7 +188,9 @@ function buildBranchingMaze(west, east, northRow, southRow, corridorWidth, wallW
     // right on the seam between wall and corridor - fill those with a
     // freshly-rolled small prop each, not the block's shared big type.
     function isSeamWall(c, r) {
-        return isOpenAt(c - 1, r) || isOpenAt(c + 1, r) || isOpenAt(c, r - 1) || isOpenAt(c, r + 1);
+        if (isOpenAt(c - 1, r) || isOpenAt(c + 1, r) || isOpenAt(c, r - 1) || isOpenAt(c, r + 1))
+            return true;
+        return diagonalSeam && (isOpenAt(c - 1, r - 1) || isOpenAt(c + 1, r - 1) || isOpenAt(c - 1, r + 1) || isOpenAt(c + 1, r + 1));
     }
 
     // Renders one contiguous non-open rectangle as a coherent core cluster
@@ -175,14 +199,33 @@ function buildBranchingMaze(west, east, northRow, southRow, corridorWidth, wallW
     // corridor tile.
     function fillBlock(c0, r0, c1, r1) {
         if (c0 > c1 || r0 > r1) return;
+        if (solid) {
+            // The non-open tiles of this block as rectangles: runs along each row, then
+            // identical runs on consecutive rows merged into one.
+            let active = new Map();
+            for (let r = r0; r <= r1 + 1; r++) {
+                const next = new Map();
+                for (let c = c0; r <= r1 && c <= c1; c++) {
+                    if (isOpenAt(c, r)) continue;
+                    let c2 = c;
+                    while (c2 + 1 <= c1 && !isOpenAt(c2 + 1, r)) c2++;
+                    const key = c + "," + c2;
+                    next.set(key, active.has(key) ? active.get(key) : { c0: c, c1: c2, r0: r, r1: r });
+                    next.get(key).r1 = r;
+                    c = c2;
+                }
+                active.forEach((rect, key) => { if (!next.has(key)) wallRects.push(rect); });
+                active = next;
+            }
+        }
         const coreType = coreObstacles[Math.floor(rand() * coreObstacles.length)];
         for (let r = r0; r <= r1; r++) {
             for (let c = c0; c <= c1; c++) {
                 if (isOpenAt(c, r)) continue;
                 if (isSeamWall(c, r))
-                    api.spawnProp(edgeObstacles[Math.floor(rand() * edgeObstacles.length)], c, r);
+                    api.spawnProp(edgeObstacles[Math.floor(rand() * edgeObstacles.length)], X(c), r);
                 else
-                    api.spawnProp(coreType, c, r);
+                    api.spawnProp(coreType, X(c), r);
             }
         }
     }
@@ -214,13 +257,22 @@ function buildBranchingMaze(west, east, northRow, southRow, corridorWidth, wallW
         fillPerimeterColumn(east - d);
     }
 
+    wallRects.forEach((rect, k) => {
+        const firstCol = flip ? west + east - rect.c1 : rect.c0;   // mirrored like every prop
+        api.setBarrier("mzwall_" + k, firstCol, rect.r0, rect.c1 - rect.c0 + 1, rect.r1 - rect.r0 + 1, true);
+    });
+
     const cellCenters = [];
     for (let cx = 0; cx < numCellsX; cx++)
         for (let cy = 0; cy < numCellsY; cy++)
             cellCenters.push({
-                col: Math.round((cellColStart(cx) + cellColEnd(cx)) / 2),
+                col: X(Math.round((cellColStart(cx) + cellColEnd(cx)) / 2)),
                 row: Math.round((cellRowStart(cy) + cellRowEnd(cy)) / 2),
             });
+    // Where the maze opens onto the outside (row ranges, same either way round) -
+    // lets a caller line a gate, road or river crossing up with the openings.
+    cellCenters.entranceRows = [cellRowStart(startCy), cellRowEnd(startCy)];
+    cellCenters.exitRows = [cellRowStart(exitCy), cellRowEnd(exitCy)];
     return cellCenters;
 }
 
@@ -345,7 +397,13 @@ function buildAshfallEdge() {
 function buildMourningRowMaze() {
     const coreObstacles = ["burnt_cottage_ruin", "ruined_chapel", "destroyed_market_stall", "collapsed_well", "charred_tree", "wrecked_cart", "withered_well"];
     const edgeObstacles = ["gravestone_cluster", "broken_fence", "scorched_fence_remains", "fence_corner", "ash_covered_barrels"];
-    const cells = buildBranchingMaze(17, 172, 1, 94, 2, 4, coreObstacles, edgeObstacles, 51001);
+    const cells = buildBranchingMaze(17, 172, 1, 94, 2, 4, coreObstacles, edgeObstacles, 51001, { solid: true });
+
+    // This tileset has no border ring (see GameScene::decorateMapEdges), so the map's top and
+    // bottom rows would be a free corridor running around the whole maze. Seal them, the same
+    // way a ring tileset's border tiles are sealed.
+    api.setBarrier("mzedge_north", 0, 0, 174, 1, true);
+    api.setBarrier("mzedge_south", 0, 95, 174, 1, true);
 
     // One shared, non-overlapping cell set for EVERYTHING placed in the
     // maze - 26 hostiles (double the old maze+district total of 13:

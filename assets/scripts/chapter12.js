@@ -1,26 +1,12 @@
 // ============================================================================
-// ShadowShine - Chapter 2: "Ada Town" (reformulated, 2026-09-15)
+// ShadowShine - Chapter 12: "Cinderport"
 // ============================================================================
 //
-// Replaces "The Buried Court" stone-ruin theme entirely - Ada Town is a
-// dirt-and-grass village (see assets/maps/chapter2.json's dirt_grass
-// tileset, blob-autotiled with scattered grass patches over a dirt-
-// dominant base), not a half-collapsed ruin. The entrance is a little
-// forest (Ada Woods); the branching maze itself IS the town - its walls
-// are houses, fences, market stalls, and wells instead of broken pillars,
-// and its corridors are the town's own streets and alleys, abandoned to
-// whatever's left roaming them now. Same underlying quest and companion as
-// before (three fragments, found in any order, raise a real
-// api.setBarrier gate; Vigil, the `dark_knight` bound to guard what's past
-// it) and the same hostile roster (skeleton/skeleton_archer/ghoul/mummy -
-// an abandoned town overrun by the dead reads exactly as coherently as an
-// abandoned ruin did) - this is a re-theming of the setting, not a
-// redesign of the chapter's mechanics.
-//
-// Map layout (assets/maps/chapter2.json):
-//   - Ada Woods (the entrance): cols 2-26
-//   - Ada Town (one maze, its walls are the town itself): cols 28-150, full playable height
-//   - The Vault Gate + Vault: cols 152-165
+// Two parts: the TOWN comes first, the MAZE after it. This level runs left to right
+// (the hero spawns against the west edge). Map: 174x96, tileset stone_grass, lighting torch.
+//   - town   cols 1-46
+//   - maze   cols 47-162, rows 1-94, corridors 3 wide, walls 3 thick
+//   - pocket cols 163-172 (where the maze lets out)
 // ============================================================================
 
 // Deterministic PRNG - every generator below uses this instead of
@@ -331,261 +317,341 @@ function scatterOrganic(names, colStart, colEnd, rowStart, rowEnd, count, seed, 
     }
 }
 
-function respawnCompanions() {
-    if (api.getGlobalVar("vigil_recruited", false))
-        api.spawnCharacter("dark_knight", 4, 45, 90);
+// ---- Layout (from the map spec - the same numbers are stored in the map's own "layout" field) ----
+const W = 174, H = 96;
+const DIR = 1;                        // 1: this level runs left -> right
+const START_U = 3;                        // the hero spawns this many columns in from the start edge
+const MID = 44;                        // row of the road that leads to the maze gate
+const TOWN_U = 46;                        // the town fills u = 1..TOWN_U (u counts from the start edge)
+const MAZE_WEST = 47, MAZE_EAST = 162;   // absolute columns of the maze block
+const MAZE_NORTH = 1, MAZE_SOUTH = 94;        // its rows
+const MAZE_CORRIDOR = 3, MAZE_WALL = 3;
+const POCKET_U0 = 163, POCKET_U1 = 172;   // the exit pocket beyond the maze (u), 10 columns
+
+// ============================================================================
+// Two-part level shape helpers: the TOWN comes first, the MAZE after it.
+// (Identical in every chapter script written in this shape.)
+// ============================================================================
+// `u` is a column counted from the START edge of the level (u = 0 is the border
+// column the hero spawns against), so one description works for a level that
+// runs left-to-right (DIR = 1) and one that runs right-to-left (DIR = -1).
+function colAt(u) { return DIR > 0 ? u : W - 1 - u; }
+
+// Where a cell sits along the maze: 0 at the entrance .. 1 at the exit.
+function mazeProgress(cell) {
+    const along = DIR > 0 ? cell.col - MAZE_WEST : MAZE_EAST - cell.col;
+    return along / (MAZE_EAST - MAZE_WEST);
 }
 
+// Removes and returns up to `count` distinct cells from `pool` whose maze
+// progress lies in [from, to]. Always consumes the same cells for the same
+// seed, whether or not the caller ends up spawning anything on them - so a
+// reload that skips a spawn-once guard still lines every later placement up.
+function takeCells(pool, from, to, count, seed) {
+    const rand = mulberry32(seed);
+    const picked = [];
+    for (let n = 0; n < count; n++) {
+        const eligible = [];
+        for (let k = 0; k < pool.length; k++) {
+            const p = mazeProgress(pool[k]);
+            if (p >= from && p <= to)
+                eligible.push(k);
+        }
+        if (eligible.length === 0)
+            break;
+        const k = eligible[Math.floor(rand() * eligible.length)];
+        picked.push(pool[k]);
+        pool.splice(k, 1);
+    }
+    return picked;
+}
+
+// [[propName, u, rowOffsetFromTheRoad], ...] -> props. Rows are relative to
+// MID, the row of the road that leads into the maze gate.
+function placeProps(list) {
+    list.forEach(([name, u, dr]) => api.spawnProp(name, colAt(u), MID + dr));
+}
+
+// An invisible barrier across the maze's exit opening (raise it with
+// blocked = true, lift it with false).
+function setExitGate(id, exitRows, blocked) {
+    const firstCol = DIR > 0 ? MAZE_EAST - 1 : MAZE_WEST;   // the exit passes through the 2-deep border
+    api.setBarrier(id, firstCol, exitRows[0], 2, exitRows[1] - exitRows[0] + 1, blocked);
+}
+
+// Companions follow the hero from chapter to chapter only if this puts them
+// back - a loadLevel() wipes everything except vars and inventory.
+function respawnCompanions() {
+    if (api.getGlobalVar("vigil_recruited", false))
+        api.spawnCharacter("dark_knight", colAt(START_U + 1), MID, 70);
+    if (api.getGlobalVar("cobb_recruited", false))
+        api.spawnCharacter("dwarf_miner", colAt(START_U + 2), MID, 75);
+    if (api.getGlobalVar("vex_recruited", false))
+        api.spawnCharacter("cyber_engineer", colAt(START_U + 3), MID, 70);
+    if (api.getGlobalVar("nettle_recruited", false))
+        api.spawnCharacter("cyber_medic", colAt(START_U + 4), MID, 70);
+}
+
+// A companion's aside, only if they've actually been recruited.
+function* companionSays(flag, who, line) {
+    if (api.getGlobalVar(flag, false))
+        yield api.say(who, line);
+}
+
+// Spawns hostile packs onto `spots`, in order, exactly once per playthrough
+// (guarded by a chapter-local var so a reload doesn't double the population).
+// packs: [[archetype, count, hp], ...]
+function spawnPacks(spots, packs, guardVar) {
+    if (api.getVar(guardVar, false))
+        return;
+    api.setVar(guardVar, true);
+    let k = 0;
+    packs.forEach(([type, count, hp]) => {
+        for (let n = 0; n < count && k < spots.length; n++, k++)
+            api.spawnEnemy(type, spots[k].col, spots[k].row, hp);
+    });
+}
+
+// Spawns world pickups onto `spots`, once (same guard idea as spawnPacks).
+function spawnLoot(spots, itemIds, guardVar) {
+    if (api.getVar(guardVar, false))
+        return;
+    api.setVar(guardVar, true);
+    itemIds.forEach((id, k) => { if (spots[k]) api.spawnItem(id, spots[k].col, spots[k].row); });
+}
+
+// The pocket beyond the maze as an absolute column range.
+function pocketCols() {
+    const a = colAt(POCKET_U0), b = colAt(POCKET_U1);
+    return [Math.min(a, b), Math.max(a, b)];
+}
+
+
+// ----------------------------------------------------------------------------
+// Chapter 12 - "Cinderport" (stone_grass, torch). Runs LEFT to RIGHT. A stone
+// foundry harbour lit by forge-glow and torches, then the Slagworks - a maze
+// of ruined foundry halls with WIDE (3-tile) corridors, grass pushing up
+// through the stone.
+//
+// QUEST (boss hunt): the crucible gate at the far end of the Slagworks is
+// held by the Slagwarden - a golem the foundry once used to keep the forges
+// from burning down. The hum woke it to its worst instructions. Defeat it and
+// the crucible gate (the maze's exit) lifts.
+// ----------------------------------------------------------------------------
+const TOWN = [
+    ["water_trough", 3, 9],
+    ["rain_barrel", 3, 48],
+    ["stacked_ale_barrels", 4, 14],
+    ["fence_straight", 5, -17],
+    ["barrels_crates", 5, 36],
+    ["cart", 6, -24],
+    ["stone_fireplace", 6, -13],
+    ["barrels_crates", 6, 31],
+    ["cottage_a", 7, 14],
+    ["rocks_small", 7, 18],
+    ["water_trough", 10, -25],
+    ["wooden_chest", 10, -13],
+    ["barrels_crates", 11, -23],
+    ["bench", 12, 43],
+    ["fence_straight", 13, -41],
+    ["blacksmith_forge", 13, -35],
+    ["water_trough", 14, 22],
+    ["fence_straight", 15, -39],
+    ["stacked_ale_barrels", 15, -20],
+    ["rocks_small", 16, -15],
+    ["stacked_ale_barrels", 16, 21],
+    ["wooden_chest", 16, 25],
+    ["rain_barrel", 16, 42],
+    ["cart", 17, -35],
+    ["cottage_b", 18, -12],
+    ["bench", 18, 38],
+    ["stacked_ale_barrels", 19, 3],
+    ["courtyard_well", 20, -3],
+    ["notice_board", 26, -3],
+    ["water_trough", 27, 3],
+    ["salvage_pile", 28, -35],
+    ["barrels_crates", 28, -30],
+    ["water_trough", 28, -28],
+    ["market_stall", 29, -16],
+    ["wooden_chest", 29, 25],
+    ["salvage_pile", 29, 44],
+    ["rain_barrel", 30, -19],
+    ["market_stall", 30, 22],
+    ["cart", 31, 32],
+    ["stacked_ale_barrels", 32, 41],
+    ["cart", 32, 46],
+    ["rocks_small", 33, 30],
+    ["barrels_crates", 34, 10],
+    ["wooden_chest", 35, 46],
+    ["blacksmith_forge", 36, 14],
+    ["cottage_a", 37, 21],
+    ["rocks_small", 38, -16],
+    ["standing_torch_sconce", 38, -3],
+    ["cottage_a", 38, 11],
+    ["salvage_pile", 38, 28],
+    ["wooden_chest", 38, 37],
+    ["rocks_small", 39, 46],
+    ["bench", 40, -30],
+    ["cart", 40, 18],
+    ["bench", 41, 13],
+    ["barrels_crates", 41, 47],
+    ["bench", 42, -34],
+    ["stacked_ale_barrels", 42, -18],
+    ["fence_straight", 43, -38],
+    ["tavern_bar_counter", 43, -15],
+    ["rain_barrel", 44, 12],
+    ["salvage_pile", 44, 25]
+];
+
 function* onLevelStart() {
-    api.spawnCharacter("lara_cyber", 3, 45);
+    api.spawnCharacter("lara_cyber", colAt(START_U), MID);
     api.giveControl("lara_cyber");
     respawnCompanions();
 
-    buildAdaWoods();
-    buildAdaTown();
-    raiseVaultGate();
-    buildVault();
+    buildTown();
+    const exitRows = buildMaze();
+    buildPocket();
+    if (!api.getVar("warden_down", false))
+        setExitGate("crucible_gate", exitRows, true);
 
-    if (api.getVar("chapter2_intro_seen", false))
+    if (api.getVar("chapter12_intro_seen", false))
         return;
-    api.setVar("chapter2_intro_seen", true);
+    api.setVar("chapter12_intro_seen", true);
 
-    yield api.wait(0.5);
-    yield api.say("Lara", "Ada Town. Or what's left wearing the name - I can smell the dirt roads under all that quiet.");
-    yield api.say("Hint", "Three fragments are hidden somewhere in the streets ahead - find all three to open whatever the town's been keeping shut.");
+    yield api.wait(0.6);
+    yield api.say("Lara", "Cinderport. You can feel the forges before you see them - the air itself is bruised orange.");
+    yield* companionSays("cobb_recruited", "Cobb", "Now THAT is a foundry. Do you smell the iron? The honest, stubborn iron?");
+    yield* companionSays("vigil_recruited", "Vigil", "Forge-glow makes for poor cover. Everyone will see us coming.");
+    yield api.say("Hint", "This level runs left to right. The town is behind you; the Slagworks are ahead, to the east.");
 }
 
-// Ada Woods - a little forest at the entrance, no maze here, just the last
-// stretch of trees before the town's own streets take over. Basic
-// supplies and a first breath of quiet before things get louder.
-function buildAdaWoods() {
-    api.spawnProp("notice_board", 8, 45);
-    api.spawnProp("fallen_log", 14, 20);
-    api.spawnProp("tree_stump", 12, 68);
-    scatterOrganic(["pine_tree", "oak_tree", "bush", "wildflowers", "rocks_small"], 2, 24, 4, 86, 26, 22001, [
-        { col: 8, row: 45 }, { col: 14, row: 20 }, { col: 12, row: 68 },
-    ]);
+function buildTown() {
+    placeProps(TOWN);
+    api.spawnProp("signpost", colAt(TOWN_U - 1), MID - 3);
+    api.spawnProp("standing_torch_sconce", colAt(TOWN_U), MID - 4);
+    api.spawnProp("standing_torch_sconce", colAt(TOWN_U), MID + 5);
 
-    if (api.getVar("chapter2_loot_spawned", false))
+    api.spawnNpc("blacksmith_2", colAt(14), MID - 3);     // the Forgemaster
+    api.spawnNpc("dwarf_bomber", colAt(24), MID + 5);     // Blaster
+    api.spawnNpc("lumberjack", colAt(10), MID + 6);       // the stoker
+    api.spawnNpc("merchant", colAt(30), MID - 5);
+
+    if (api.getVar("town_loot_spawned", false))
         return;
-    api.setVar("chapter2_loot_spawned", true);
-    api.spawnItem("dried_rations", 6, 30);
-    api.spawnItem("waterskin", 18, 70);
-    api.spawnItem("whetstone", 10, 60);
-    api.spawnItem("health_potion", 20, 30);
+    api.setVar("town_loot_spawned", true);
+    api.spawnItem("whetstone", colAt(6), MID - 9);
+    api.spawnItem("small_ingot", colAt(28), MID + 11);
+    api.spawnItem("ore_chunk", colAt(34), MID - 12);
+    api.spawnItem("health_potion", colAt(13), MID + 14);
 }
 
-// Ada Town itself - one genuine branching maze (cols 28-150, full playable
-// height) where the maze's own walls ARE the town: houses, a leaning
-// tenement, a chapel, a smithy, and a chicken coop fill each wall block's
-// interior; fences, a wrecked cart, and a rotted haystack fill the seam
-// wherever a building actually meets the street. Populated directly in
-// its own streets: undead hostiles (an abandoned town overrun by the dead
-// reads exactly as coherently as an abandoned ruin did), three Keeper
-// NPCs (each holding one of the three fragments, findable in any order -
-// see onTalkTo/talkToKeeper), a hostage, and loot.
-function buildAdaTown() {
-    const coreObstacles = ["cottage_a", "cottage_b", "haunted_cottage", "leaning_tenement", "chapel", "chicken_coop", "blacksmith_forge"];
-    const edgeObstacles = ["fence_straight", "fence_corner", "broken_fence", "wrecked_cart", "rotted_haystack"];
-    const cells = buildBranchingMaze(28, 150, 1, 88, 2, 4, coreObstacles, edgeObstacles, 22101, { solid: true });
+function buildMaze() {
+    const core = ["stone_wall_corner", "stone_wall_corner_alt", "castle_wall_section", "stacked_ale_barrels", "mine_cart", "support_beam"];
+    const edge = ["barrels_crates", "rain_barrel", "rocks_small", "salvage_pile", "ivy_rock"];
+    const cells = buildBranchingMaze(MAZE_WEST, MAZE_EAST, MAZE_NORTH, MAZE_SOUTH, MAZE_CORRIDOR, MAZE_WALL,
+        core, edge, 121201, { flip: DIR < 0, diagonalSeam: true, solid: true });
+    const pool = cells.slice();
 
-    // One shared, non-overlapping cell set for everything placed in the
-    // maze - 34 hostiles + 3 Keepers + the hostage + 13 loot items (8
-    // health potions - tripled from the original 2, per-level healing
-    // supply pass - 2 general trinkets, and 3 originals) = 53 cells.
-    const spots = sampleCells(cells, 53, 22102);
-    let i = 0;
+    spawnPacks(takeCells(pool, 0.06, 1.0, 38, 121202),
+        [["fire_spirit", 10, 40], ["imp", 12, 30], ["lizardman", 8, 45], ["orc", 8, 45]], "maze_hostiles_spawned");
 
-    if (!api.getVar("colonnade_hostiles_spawned", false)) {
-        api.setVar("colonnade_hostiles_spawned", true);
-        const hostileTypes = [
-            "skeleton", "skeleton", "skeleton", "skeleton", "skeleton", "skeleton", "skeleton", "skeleton", "skeleton", "skeleton",
-            "skeleton_archer", "skeleton_archer", "skeleton_archer", "skeleton_archer", "skeleton_archer", "skeleton_archer", "skeleton_archer", "skeleton_archer",
-            "ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "ghoul",
-            "mummy", "mummy", "mummy", "mummy", "mummy", "mummy", "mummy", "mummy",
-        ];
-        hostileTypes.forEach(type => { api.spawnEnemy(type, spots[i].col, spots[i].row, 32); i++; });
-    } else {
-        i += 34;
+    // The Slagwarden waits in the last stretch before the exit. One golem, a great deal of it.
+    const warden = takeCells(pool, 0.90, 0.98, 1, 121203)[0];
+    if (!api.getVar("warden_down", false) && !api.getVar("warden_spawned", false)) {
+        api.setVar("warden_spawned", true);
+        api.spawnEnemy("golem", warden.col, warden.row, 260);
     }
 
-    // Three Keepers, each holding one fragment of the vault-seal - talk to
-    // all three, in ANY order (unlike Chapter 4's terminal sequence), to
-    // raise the gate. See onTalkTo/talkToKeeper().
-    api.spawnNpc("gnome_wizard", spots[i].col, spots[i].row); i++;
-    api.spawnNpc("harpy", spots[i].col, spots[i].row); i++;
-    api.spawnNpc("tribal_elder_woman", spots[i].col, spots[i].row); i++;
+    spawnLoot(takeCells(pool, 0.05, 0.95, 12, 121210),
+        ["health_potion", "health_potion", "health_potion", "health_potion", "health_potion", "health_potion",
+         "health_potion", "mana_potion", "tech_gauntlet", "reinforced_boots", "elixir_of_clarity", "stamina_draught"], "maze_loot_spawned");
+    return cells.exitRows;
+}
 
-    if (!api.getVar("hostage_spawned", false)) {
-        api.setVar("hostage_spawned", true);
-        api.spawnNpc("herbalist", spots[i].col, spots[i].row);
+function buildPocket() {
+    const [c0, c1] = pocketCols();
+    scatterOrganic(["blacksmith_forge", "stacked_ale_barrels", "stone_fireplace", "standing_torch_sconce"], c0, c1, MAZE_NORTH + 2, MAZE_SOUTH - 2, 8, 121220,
+        [{ col: colAt(POCKET_U0 + 5), row: MID }]);
+    if (!api.getVar("compass_spawned", false)) {
+        api.setVar("compass_spawned", true);
+        api.spawnItem("cinder_compass", colAt(POCKET_U0 + 5), MID);
     }
-    i++;
-
-    if (api.getVar("colonnade_loot_spawned", false))
-        return;
-    api.setVar("colonnade_loot_spawned", true);
-    api.spawnItem("small_ingot", spots[i].col, spots[i].row); i++;
-    api.spawnItem("silver_coin_pouch", spots[i].col, spots[i].row); i++;
-    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
-    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
-    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
-    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
-    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
-    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
-    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
-    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
-    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
-    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
-    api.spawnItem("nail_pouch", spots[i].col, spots[i].row); i++;
-    api.spawnItem("lockpick_set", spots[i].col, spots[i].row); i++;
-    api.spawnItem("stamina_draught", spots[i].col, spots[i].row); i++;
-}
-
-// A real, mandatory barrier - down (blocking) until all three fragments
-// are found, guarded here rather than left to a script race, so a reload
-// before solving it re-raises the same gate.
-function raiseVaultGate() {
-    if (!api.getVar("vault_gate_open", false))
-        api.setBarrier("vault_gate", 152, 0, 1, 90, true);
-}
-
-// The old counting-house vault, past the town proper - Vigil and the
-// actual vault_sigil pickup both live here, placed unconditionally (the
-// barrier itself, not a script check, is what keeps them out of reach
-// until all three fragments are found).
-function buildVault() {
-    api.spawnProp("sunken_archway", 158, 45);
-    api.spawnProp("moss_grown_altar", 162, 45);
-    scatterOrganic(["rubble_pile", "runic_standing_stone"], 154, 165, 10, 80, 10, 22201, [
-        { col: 158, row: 45 }, { col: 162, row: 45 }, { col: 160, row: 45 },
-    ]);
-
-    if (!api.getGlobalVar("vigil_recruited", false))
-        api.spawnNpc("dark_knight", 160, 45);
-
-    if (api.getVar("vault_loot_spawned", false))
-        return;
-    api.setVar("vault_loot_spawned", true);
-    api.spawnItem("vault_sigil", 163, 45);
-    api.spawnItem("health_potion", 156, 30);
 }
 
 function* onTalkTo(name) {
-    if (name === "dark_knight") {
-        yield* talkToVigil();
-    } else if (name === "gnome_wizard" || name === "harpy" || name === "tribal_elder_woman") {
-        yield* talkToKeeper(name);
-    } else if (name === "herbalist") {
-        yield* rescueHostage();
+    if (name === "blacksmith_2") {
+        yield* talkToForgemaster();
+    } else if (name === "dwarf_bomber" || name === "lumberjack" || name === "merchant") {
+        yield* talkToTownsfolk(name);
     }
 }
 
-function* talkToVigil() {
-    const timesTalked = api.getVar("vigil_talks", 0);
-    api.setVar("vigil_talks", timesTalked + 1);
+function* talkToForgemaster() {
+    const n = api.getVar("forgemaster_talks", 0);
+    api.setVar("forgemaster_talks", n + 1);
     api.playSound("select");
-
-    if (timesTalked === 0) {
-        yield api.say("Vigil", "Guardian. Awakened. State your need.");
-        yield api.say("Lara", "...You've been standing here the whole time we were solving the town's own front door.");
-        yield api.say("Vigil", "Longer than I've kept count of. The three answered for you. That is enough to open it - it was never enough to let me leave on my own.");
+    if (api.getVar("warden_down", false)) {
+        yield api.say("Forgemaster", "It's down. Properly down. The crucible gate stood up and let go, like it had been waiting to be told it could. Go on through.");
+    } else if (n === 0) {
+        yield api.say("Forgemaster", "Cinderport's forges run on one rule: nothing burns that isn't meant to. The Slagwarden enforces it. Golem, iron-boned, older than the harbour.");
+        yield api.say("Forgemaster", "Three nights ago the hum got into it. Now it enforces the rule against *everything*. It's sitting on the crucible gate at the end of the Slagworks, and it won't let anyone or anything past.");
+        yield api.say("Lara", "So we take it down.");
+        yield api.say("Forgemaster", "You do. It's slow, it hits like a falling wall, and it takes a good deal of hitting. Don't fight it in the open - use the corners. The Slagworks have plenty. Bring potions.");
     } else {
-        yield api.say("Vigil", "The town is answered. My garrison is not coming back for me, and this vault was never really what I was guarding. I'll carry what's left of it, if you'll have the weight.");
-        api.despawnNpc("dark_knight");
-        api.spawnCharacter("dark_knight", 158, 45, 90);
-        api.setGlobalVar("vigil_recruited", true);
-        api.playSound("select");
+        yield api.say("Forgemaster", "Slagwarden. End of the Slagworks. Corners, patience, and potions - in that order.");
     }
 }
 
-// Order-independent: talk to all three Keepers, in any order, to raise
-// the vault gate. Unlike Chapter 4's terminal sequence, getting the ORDER
-// right doesn't matter here - only finding all three does.
-function* talkToKeeper(name) {
-    const displayName = { gnome_wizard: "the Wizard", harpy: "the Harpy", tribal_elder_woman: "the Scholar" }[name];
-    const already = api.getVar(`fragment_${name}`, false);
+function* talkToTownsfolk(name) {
+    const lines = {
+        dwarf_bomber: ["You want to take a golem down? Two words: shaped charges. Three, if you count 'please stand back'.",
+                       "I offered to blow a hole in the Slagwarden's shift roster. Forgemaster said that's not what a shift roster is."],
+        lumberjack: ["I haul coal. Was hauling coal. Now I mostly haul coal to a gate that doesn't open.",
+                     "A golem like that never sleeps. But it does stop to think, sometimes. That's when you swing."],
+        merchant: ["Iron's up. Everything else is down. That's the whole economy of a foundry town in one sentence.",
+                   "Wrap your hands. Slag burns worse than fire, and it has less pride about it."],
+    }[name];
+    const displayName = { dwarf_bomber: "Blaster", lumberjack: "Stoker", merchant: "Merchant" }[name];
+    const n = api.getVar("talk_" + name, 0);
+    api.setVar("talk_" + name, n + 1);
     api.playSound("select");
-
-    if (api.getVar("vault_gate_open", false)) {
-        yield api.say(displayName, "*the fragment is already given*");
-        return;
-    }
-
-    if (already) {
-        yield api.say(displayName, "You already carry what I had to give.");
-        return;
-    }
-
-    api.setVar(`fragment_${name}`, true);
-    if (name === "gnome_wizard")
-        yield api.say("the Wizard", "I warded this piece so well I forgot the warding was mine to lift. Here - it never liked me much anyway.");
-    else if (name === "harpy")
-        yield api.say("the Harpy", "*tilts her head* I only ever nested in what was already empty. Here. I never wanted it, just kept it safe.");
-    else
-        yield api.say("the Scholar", "I came to study this town's old records and stayed to guard a grief instead. Take the last piece - someone should finally use it.");
-
-    const count = ["gnome_wizard", "harpy", "tribal_elder_woman"].filter(n => api.getVar(`fragment_${n}`, false)).length;
-    if (count === 3) {
-        yield api.wait(0.3);
-        yield api.say("Lara", "Three pieces, three keepers. That's the whole answer, isn't it.");
-        api.setBarrier("vault_gate", 152, 0, 1, 90, false);
-        api.setVar("vault_gate_open", true);
-        api.giveExperience(80);
-        api.playSound("select");
-    }
+    yield api.say(displayName, lines[n % lines.length]);
 }
 
-function* rescueHostage() {
-    if (api.getVar("hostage_rescued", false)) {
-        yield api.say("Herbalist", "Still grateful, truly.");
-        return;
-    }
-    api.setVar("hostage_rescued", true);
-    api.playSound("select");
-    yield api.say("Herbalist", "You found me. I came for the herbs still growing wild in the old garden plots - they hold medicine nothing else does - and lost the way out three days ago.");
-    yield api.say("Lara", "Three days?");
-    yield api.say("Herbalist", "Felt like three days. Might've been one. Either way - the way back is west of here, if the dead have moved on.");
-    api.giveExperience(100);
-}
-
+// The boss: its death lifts the crucible gate.
 function* onEnemyDefeated(name) {
-    // A flavor line for a few enemy archetypes below - deliberately rare
-    // (not once per matching kill, which reads as spammy once several in a
-    // row have died the same way) via a flat low-probability roll before
-    // even checking which archetype this is. Plain Math.random() on
-    // purpose, unlike the seeded mulberry32() this file's own generators
-    // use elsewhere - that determinism is for level LAYOUT reproducibility
-    // (so a placement bug is catchable once and trusted forever), which
-    // doesn't apply to a cosmetic post-kill quip.
+    if (name === "golem" && !api.getVar("warden_down", false)) {
+        api.setVar("warden_down", true);
+        api.setBarrier("crucible_gate", 0, 0, 1, 1, false);
+        api.giveExperience(200);
+        api.playSound("select");
+        yield api.wait(0.5);
+        yield api.say("Lara", "It didn't fall so much as *let go*. Like it had been waiting for someone to tell it the shift was over.");
+        yield* companionSays("cobb_recruited", "Cobb", "Iron doesn't tire, lass. It just needs somebody to say it can stop.");
+        yield api.say("Lara", "The crucible gate's lifting. I can hear the chain from here.");
+        return;
+    }
     if (Math.random() > 0.1)
         return;
-
-    if (name === "skeleton" || name === "skeleton_archer") {
+    if (name === "fire_spirit") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Whatever kept it standing this long, it isn't malice. Just habit, maybe - the same street, over and over.");
-    } else if (name === "ghoul") {
+        yield api.say("Lara", "Warm, then gone. Even the fires here are exhausted.");
+    } else if (name === "lizardman") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Hungry, and past caring why. This town hasn't fed anything living in a long time.");
-    } else if (name === "mummy") {
-        yield api.wait(0.3);
-        yield api.say("Lara", "Someone wrapped that with real care, once. Doesn't make it safe to leave walking the streets.");
+        yield api.say("Lara", "It didn't want to be in the foundry either. Nobody here did.");
     }
 }
 
 function* onItemCollected(itemId) {
-    if (itemId !== "vault_sigil")
+    if (itemId !== "cinder_compass")
         return;
-
     yield api.wait(0.3);
-    yield api.say("Lara", "This was never a lock. It's a promise someone sealed shut instead of keeping.");
-    yield api.say("Vigil", "A promise I was left to hold, whether or not anyone ever came back for it. You came back for it.");
-    yield api.say("???", "The seal was never yours to break, and yet - here we are. You're closer than the last one who tried this door.");
-    yield api.say("Lara", "There's always a last one who tried, with you. Who were they?");
-    yield api.say("???", "Someone who stopped at the door. This town's floor isn't the end of it - go find what it's standing on.");
-
-    api.setGlobalVar("chapter", 3);
+    yield api.say("Lara", "The needle isn't pointing north. It's pointing... at the forge. At the coals, actually. At whatever's still burning.");
+    yield api.say("???", "Sixth of ten. Not everything that burns is destroyed, Lara. Some things only burn to be seen.");
+    yield api.say("Lara", "You say that like you're speaking from experience.");
+    yield api.say("???", "I said I hid them where a kind person would walk. I never said I stayed away myself. Onward. The next place is underground, and it's full of trains that never stopped running.");
+    api.setGlobalVar("chapter", 13);
     api.playSound("select");
     yield api.wait(0.8);
-    api.loadLevel("chapter3.json");
+    api.loadLevel("chapter13.json");
 }

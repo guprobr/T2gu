@@ -1,26 +1,12 @@
 // ============================================================================
-// ShadowShine - Chapter 2: "Ada Town" (reformulated, 2026-09-15)
+// ShadowShine - Chapter 9: "Highgate Toll"
 // ============================================================================
 //
-// Replaces "The Buried Court" stone-ruin theme entirely - Ada Town is a
-// dirt-and-grass village (see assets/maps/chapter2.json's dirt_grass
-// tileset, blob-autotiled with scattered grass patches over a dirt-
-// dominant base), not a half-collapsed ruin. The entrance is a little
-// forest (Ada Woods); the branching maze itself IS the town - its walls
-// are houses, fences, market stalls, and wells instead of broken pillars,
-// and its corridors are the town's own streets and alleys, abandoned to
-// whatever's left roaming them now. Same underlying quest and companion as
-// before (three fragments, found in any order, raise a real
-// api.setBarrier gate; Vigil, the `dark_knight` bound to guard what's past
-// it) and the same hostile roster (skeleton/skeleton_archer/ghoul/mummy -
-// an abandoned town overrun by the dead reads exactly as coherently as an
-// abandoned ruin did) - this is a re-theming of the setting, not a
-// redesign of the chapter's mechanics.
-//
-// Map layout (assets/maps/chapter2.json):
-//   - Ada Woods (the entrance): cols 2-26
-//   - Ada Town (one maze, its walls are the town itself): cols 28-150, full playable height
-//   - The Vault Gate + Vault: cols 152-165
+// Two parts: the TOWN comes first, the MAZE after it. This level runs right to left
+// (the hero spawns against the east edge). Map: 168x90, tileset grass_stone, lighting sunset.
+//   - town   cols 121-166
+//   - maze   cols 11-120, rows 1-88, corridors 2 wide, walls 4 thick
+//   - pocket cols 1-10 (where the maze lets out)
 // ============================================================================
 
 // Deterministic PRNG - every generator below uses this instead of
@@ -331,261 +317,354 @@ function scatterOrganic(names, colStart, colEnd, rowStart, rowEnd, count, seed, 
     }
 }
 
-function respawnCompanions() {
-    if (api.getGlobalVar("vigil_recruited", false))
-        api.spawnCharacter("dark_knight", 4, 45, 90);
+// ---- Layout (from the map spec - the same numbers are stored in the map's own "layout" field) ----
+const W = 168, H = 90;
+const DIR = -1;                        // -1: this level runs right -> left
+const START_U = 3;                        // the hero spawns this many columns in from the start edge
+const MID = 43;                        // row of the road that leads to the maze gate
+const TOWN_U = 46;                        // the town fills u = 1..TOWN_U (u counts from the start edge)
+const MAZE_WEST = 11, MAZE_EAST = 120;   // absolute columns of the maze block
+const MAZE_NORTH = 1, MAZE_SOUTH = 88;        // its rows
+const MAZE_CORRIDOR = 2, MAZE_WALL = 4;
+const POCKET_U0 = 157, POCKET_U1 = 166;   // the exit pocket beyond the maze (u), 10 columns
+
+// ============================================================================
+// Two-part level shape helpers: the TOWN comes first, the MAZE after it.
+// (Identical in every chapter script written in this shape.)
+// ============================================================================
+// `u` is a column counted from the START edge of the level (u = 0 is the border
+// column the hero spawns against), so one description works for a level that
+// runs left-to-right (DIR = 1) and one that runs right-to-left (DIR = -1).
+function colAt(u) { return DIR > 0 ? u : W - 1 - u; }
+
+// Where a cell sits along the maze: 0 at the entrance .. 1 at the exit.
+function mazeProgress(cell) {
+    const along = DIR > 0 ? cell.col - MAZE_WEST : MAZE_EAST - cell.col;
+    return along / (MAZE_EAST - MAZE_WEST);
 }
 
+// Removes and returns up to `count` distinct cells from `pool` whose maze
+// progress lies in [from, to]. Always consumes the same cells for the same
+// seed, whether or not the caller ends up spawning anything on them - so a
+// reload that skips a spawn-once guard still lines every later placement up.
+function takeCells(pool, from, to, count, seed) {
+    const rand = mulberry32(seed);
+    const picked = [];
+    for (let n = 0; n < count; n++) {
+        const eligible = [];
+        for (let k = 0; k < pool.length; k++) {
+            const p = mazeProgress(pool[k]);
+            if (p >= from && p <= to)
+                eligible.push(k);
+        }
+        if (eligible.length === 0)
+            break;
+        const k = eligible[Math.floor(rand() * eligible.length)];
+        picked.push(pool[k]);
+        pool.splice(k, 1);
+    }
+    return picked;
+}
+
+// [[propName, u, rowOffsetFromTheRoad], ...] -> props. Rows are relative to
+// MID, the row of the road that leads into the maze gate.
+function placeProps(list) {
+    list.forEach(([name, u, dr]) => api.spawnProp(name, colAt(u), MID + dr));
+}
+
+// An invisible barrier across the maze's exit opening (raise it with
+// blocked = true, lift it with false).
+function setExitGate(id, exitRows, blocked) {
+    const firstCol = DIR > 0 ? MAZE_EAST - 1 : MAZE_WEST;   // the exit passes through the 2-deep border
+    api.setBarrier(id, firstCol, exitRows[0], 2, exitRows[1] - exitRows[0] + 1, blocked);
+}
+
+// Companions follow the hero from chapter to chapter only if this puts them
+// back - a loadLevel() wipes everything except vars and inventory.
+function respawnCompanions() {
+    if (api.getGlobalVar("vigil_recruited", false))
+        api.spawnCharacter("dark_knight", colAt(START_U + 1), MID, 70);
+    if (api.getGlobalVar("cobb_recruited", false))
+        api.spawnCharacter("dwarf_miner", colAt(START_U + 2), MID, 75);
+    if (api.getGlobalVar("vex_recruited", false))
+        api.spawnCharacter("cyber_engineer", colAt(START_U + 3), MID, 70);
+    if (api.getGlobalVar("nettle_recruited", false))
+        api.spawnCharacter("cyber_medic", colAt(START_U + 4), MID, 70);
+}
+
+// A companion's aside, only if they've actually been recruited.
+function* companionSays(flag, who, line) {
+    if (api.getGlobalVar(flag, false))
+        yield api.say(who, line);
+}
+
+// Spawns hostile packs onto `spots`, in order, exactly once per playthrough
+// (guarded by a chapter-local var so a reload doesn't double the population).
+// packs: [[archetype, count, hp], ...]
+function spawnPacks(spots, packs, guardVar) {
+    if (api.getVar(guardVar, false))
+        return;
+    api.setVar(guardVar, true);
+    let k = 0;
+    packs.forEach(([type, count, hp]) => {
+        for (let n = 0; n < count && k < spots.length; n++, k++)
+            api.spawnEnemy(type, spots[k].col, spots[k].row, hp);
+    });
+}
+
+// Spawns world pickups onto `spots`, once (same guard idea as spawnPacks).
+function spawnLoot(spots, itemIds, guardVar) {
+    if (api.getVar(guardVar, false))
+        return;
+    api.setVar(guardVar, true);
+    itemIds.forEach((id, k) => { if (spots[k]) api.spawnItem(id, spots[k].col, spots[k].row); });
+}
+
+// The pocket beyond the maze as an absolute column range.
+function pocketCols() {
+    const a = colAt(POCKET_U0), b = colAt(POCKET_U1);
+    return [Math.min(a, b), Math.max(a, b)];
+}
+
+
+// ----------------------------------------------------------------------------
+// Chapter 9 - "Highgate Toll" (grass_stone, sunset). Runs RIGHT to LEFT: a
+// hill-fort village on grass with worn stone roads, then a stone-floored
+// fortress maze, under a long orange sunset.
+//
+// QUEST (bounty / kill-count): trolls have taken the toll road. The Reeve has
+// posted a bounty - five trolls - and the toll-bar at the far end of the
+// Highgate maze (the maze's exit) stays down until it's collected. Eight
+// trolls roam the maze; kill any five.
+// ----------------------------------------------------------------------------
+const TOWN = [
+    ["boulder_large", 4, -19],
+    ["castle_wall_section", 4, 19],
+    ["fence_corner", 5, -33],
+    ["castle_banner_wallmount", 5, 13],
+    ["market_stall", 6, -24],
+    ["water_trough", 8, 19],
+    ["cart", 9, -25],
+    ["boulder_large", 9, 12],
+    ["oak_tree", 9, 41],
+    ["oak_tree", 10, -32],
+    ["bush", 10, -19],
+    ["castle_banner_wallmount", 11, -35],
+    ["rocks_small", 11, 19],
+    ["fence_straight", 11, 25],
+    ["castle_banner_wallmount", 12, -27],
+    ["water_trough", 12, 27],
+    ["water_trough", 12, 35],
+    ["haystack", 13, 43],
+    ["oak_tree", 14, 41],
+    ["siege_ballista", 16, -35],
+    ["armory_rack", 17, 20],
+    ["bush", 17, 27],
+    ["market_stall", 18, -9],
+    ["boulder_large", 18, 14],
+    ["cottage_b", 19, -23],
+    ["armory_rack", 19, 3],
+    ["well", 20, -3],
+    ["notice_board", 26, -3],
+    ["water_trough", 27, 3],
+    ["cart", 28, -16],
+    ["cottage_a", 28, -13],
+    ["cottage_a", 28, 21],
+    ["haystack", 29, -38],
+    ["rocks_small", 30, -34],
+    ["haystack", 30, 41],
+    ["boulder_large", 31, -37],
+    ["cart", 31, 23],
+    ["bush", 32, -25],
+    ["haystack", 32, -16],
+    ["cottage_b", 32, 19],
+    ["water_trough", 33, -35],
+    ["water_trough", 33, 14],
+    ["boulder_large", 33, 32],
+    ["fence_straight", 33, 34],
+    ["oak_tree", 33, 40],
+    ["fence_straight", 35, -20],
+    ["haystack", 35, 6],
+    ["haystack", 36, -24],
+    ["corner_turret", 36, 23],
+    ["fence_corner", 37, -20],
+    ["fence_corner", 38, 37],
+    ["castle_gate_tower", 39, 8],
+    ["bush", 39, 32],
+    ["fence_straight", 40, -23],
+    ["rocks_small", 41, -20],
+    ["cart", 41, -10],
+    ["fence_corner", 41, -7],
+    ["rocks_small", 41, 16],
+    ["armory_rack", 43, 13],
+    ["fence_straight", 44, -10],
+    ["castle_banner_wallmount", 44, 37]
+];
+const BOUNTY = 5;
+
 function* onLevelStart() {
-    api.spawnCharacter("lara_cyber", 3, 45);
+    api.spawnCharacter("lara_cyber", colAt(START_U), MID);
     api.giveControl("lara_cyber");
     respawnCompanions();
 
-    buildAdaWoods();
-    buildAdaTown();
-    raiseVaultGate();
-    buildVault();
+    buildTown();
+    const exitRows = buildMaze();
+    buildPocket();
+    if (!api.getVar("bounty_done", false))
+        setExitGate("toll_bar", exitRows, true);
 
-    if (api.getVar("chapter2_intro_seen", false))
+    if (api.getVar("chapter9_intro_seen", false))
         return;
-    api.setVar("chapter2_intro_seen", true);
+    api.setVar("chapter9_intro_seen", true);
 
-    yield api.wait(0.5);
-    yield api.say("Lara", "Ada Town. Or what's left wearing the name - I can smell the dirt roads under all that quiet.");
-    yield api.say("Hint", "Three fragments are hidden somewhere in the streets ahead - find all three to open whatever the town's been keeping shut.");
+    yield api.wait(0.6);
+    yield api.say("Lara", "A fort on a hill, sunset the colour of old copper. Somebody has been collecting tolls here for a very long time.");
+    yield* companionSays("vigil_recruited", "Vigil", "A proper gatehouse. Crenels, murder holes, a banner nobody has dared take down. I approve.");
+    yield* companionSays("cobb_recruited", "Cobb", "Good stonework. Dry-laid, no mortar. That wall'll outlive the hill.");
+    yield api.say("Hint", "This level runs right to left. The town is behind you; the fortress maze is ahead, to the west.");
 }
 
-// Ada Woods - a little forest at the entrance, no maze here, just the last
-// stretch of trees before the town's own streets take over. Basic
-// supplies and a first breath of quiet before things get louder.
-function buildAdaWoods() {
-    api.spawnProp("notice_board", 8, 45);
-    api.spawnProp("fallen_log", 14, 20);
-    api.spawnProp("tree_stump", 12, 68);
-    scatterOrganic(["pine_tree", "oak_tree", "bush", "wildflowers", "rocks_small"], 2, 24, 4, 86, 26, 22001, [
-        { col: 8, row: 45 }, { col: 14, row: 20 }, { col: 12, row: 68 },
-    ]);
+function buildTown() {
+    placeProps(TOWN);
+    api.spawnProp("signpost", colAt(TOWN_U - 1), MID - 3);
+    api.spawnProp("castle_banner_wallmount", colAt(TOWN_U), MID - 4);
+    api.spawnProp("castle_banner_wallmount", colAt(TOWN_U), MID + 5);
 
-    if (api.getVar("chapter2_loot_spawned", false))
+    api.spawnNpc("elder_2", colAt(14), MID - 3);          // the Reeve
+    api.spawnNpc("dwarf_warrior", colAt(24), MID + 5);    // the Captain of the gate-guard
+    api.spawnNpc("blacksmith", colAt(10), MID + 6);
+    api.spawnNpc("merchant", colAt(30), MID - 5);
+
+    if (api.getVar("town_loot_spawned", false))
         return;
-    api.setVar("chapter2_loot_spawned", true);
-    api.spawnItem("dried_rations", 6, 30);
-    api.spawnItem("waterskin", 18, 70);
-    api.spawnItem("whetstone", 10, 60);
-    api.spawnItem("health_potion", 20, 30);
+    api.setVar("town_loot_spawned", true);
+    api.spawnItem("iron_sword", colAt(6), MID - 9);
+    api.spawnItem("round_shield", colAt(28), MID + 11);
+    api.spawnItem("whetstone", colAt(34), MID - 12);
+    api.spawnItem("health_potion", colAt(13), MID + 14);
 }
 
-// Ada Town itself - one genuine branching maze (cols 28-150, full playable
-// height) where the maze's own walls ARE the town: houses, a leaning
-// tenement, a chapel, a smithy, and a chicken coop fill each wall block's
-// interior; fences, a wrecked cart, and a rotted haystack fill the seam
-// wherever a building actually meets the street. Populated directly in
-// its own streets: undead hostiles (an abandoned town overrun by the dead
-// reads exactly as coherently as an abandoned ruin did), three Keeper
-// NPCs (each holding one of the three fragments, findable in any order -
-// see onTalkTo/talkToKeeper), a hostage, and loot.
-function buildAdaTown() {
-    const coreObstacles = ["cottage_a", "cottage_b", "haunted_cottage", "leaning_tenement", "chapel", "chicken_coop", "blacksmith_forge"];
-    const edgeObstacles = ["fence_straight", "fence_corner", "broken_fence", "wrecked_cart", "rotted_haystack"];
-    const cells = buildBranchingMaze(28, 150, 1, 88, 2, 4, coreObstacles, edgeObstacles, 22101, { solid: true });
+function buildMaze() {
+    const core = ["castle_wall_section", "boulder_large", "stone_wall_corner", "stone_wall_corner_alt", "cliff_face", "corner_turret"];
+    const edge = ["rocks_small", "ivy_rock", "bush", "tree_stump", "fence_corner"];
+    const cells = buildBranchingMaze(MAZE_WEST, MAZE_EAST, MAZE_NORTH, MAZE_SOUTH, MAZE_CORRIDOR, MAZE_WALL,
+        core, edge, 90901, { flip: DIR < 0, diagonalSeam: true, solid: true });
+    const pool = cells.slice();
 
-    // One shared, non-overlapping cell set for everything placed in the
-    // maze - 34 hostiles + 3 Keepers + the hostage + 13 loot items (8
-    // health potions - tripled from the original 2, per-level healing
-    // supply pass - 2 general trinkets, and 3 originals) = 53 cells.
-    const spots = sampleCells(cells, 53, 22102);
-    let i = 0;
+    // The eight trolls (the bounty) are spread through the whole maze; the rest of the hostiles fill in.
+    spawnPacks(takeCells(pool, 0.10, 1.0, 8, 90902), [["troll", 8, 70]], "trolls_spawned");
+    spawnPacks(takeCells(pool, 0.06, 1.0, 34, 90903),
+        [["orc", 14, 40], ["goblin", 12, 30], ["wolf", 8, 30]], "maze_hostiles_spawned");
 
-    if (!api.getVar("colonnade_hostiles_spawned", false)) {
-        api.setVar("colonnade_hostiles_spawned", true);
-        const hostileTypes = [
-            "skeleton", "skeleton", "skeleton", "skeleton", "skeleton", "skeleton", "skeleton", "skeleton", "skeleton", "skeleton",
-            "skeleton_archer", "skeleton_archer", "skeleton_archer", "skeleton_archer", "skeleton_archer", "skeleton_archer", "skeleton_archer", "skeleton_archer",
-            "ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "ghoul",
-            "mummy", "mummy", "mummy", "mummy", "mummy", "mummy", "mummy", "mummy",
-        ];
-        hostileTypes.forEach(type => { api.spawnEnemy(type, spots[i].col, spots[i].row, 32); i++; });
-    } else {
-        i += 34;
+    spawnLoot(takeCells(pool, 0.05, 0.95, 12, 90910),
+        ["health_potion", "health_potion", "health_potion", "health_potion", "health_potion", "health_potion",
+         "silver_coin_pouch", "leather_gloves", "reinforced_boots", "stamina_draught", "gold_coin_pile", "mana_potion"], "maze_loot_spawned");
+    return cells.exitRows;
+}
+
+function buildPocket() {
+    const [c0, c1] = pocketCols();
+    scatterOrganic(["castle_banner_wallmount", "boulder_large", "oak_tree", "stone_wall_corner"], c0, c1, MAZE_NORTH + 2, MAZE_SOUTH - 2, 9, 90920,
+        [{ col: colAt(POCKET_U0 + 5), row: MID }, { col: colAt(POCKET_U0 + 2), row: MID + 3 }]);
+    api.spawnNpc("dwarf_bomber", colAt(POCKET_U0 + 2), MID + 3);    // the tollkeeper's man on the far side
+    if (!api.getVar("seal_spawned", false)) {
+        api.setVar("seal_spawned", true);
+        api.spawnItem("tollkeeper_seal", colAt(POCKET_U0 + 5), MID);
     }
-
-    // Three Keepers, each holding one fragment of the vault-seal - talk to
-    // all three, in ANY order (unlike Chapter 4's terminal sequence), to
-    // raise the gate. See onTalkTo/talkToKeeper().
-    api.spawnNpc("gnome_wizard", spots[i].col, spots[i].row); i++;
-    api.spawnNpc("harpy", spots[i].col, spots[i].row); i++;
-    api.spawnNpc("tribal_elder_woman", spots[i].col, spots[i].row); i++;
-
-    if (!api.getVar("hostage_spawned", false)) {
-        api.setVar("hostage_spawned", true);
-        api.spawnNpc("herbalist", spots[i].col, spots[i].row);
-    }
-    i++;
-
-    if (api.getVar("colonnade_loot_spawned", false))
-        return;
-    api.setVar("colonnade_loot_spawned", true);
-    api.spawnItem("small_ingot", spots[i].col, spots[i].row); i++;
-    api.spawnItem("silver_coin_pouch", spots[i].col, spots[i].row); i++;
-    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
-    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
-    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
-    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
-    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
-    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
-    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
-    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
-    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
-    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
-    api.spawnItem("nail_pouch", spots[i].col, spots[i].row); i++;
-    api.spawnItem("lockpick_set", spots[i].col, spots[i].row); i++;
-    api.spawnItem("stamina_draught", spots[i].col, spots[i].row); i++;
-}
-
-// A real, mandatory barrier - down (blocking) until all three fragments
-// are found, guarded here rather than left to a script race, so a reload
-// before solving it re-raises the same gate.
-function raiseVaultGate() {
-    if (!api.getVar("vault_gate_open", false))
-        api.setBarrier("vault_gate", 152, 0, 1, 90, true);
-}
-
-// The old counting-house vault, past the town proper - Vigil and the
-// actual vault_sigil pickup both live here, placed unconditionally (the
-// barrier itself, not a script check, is what keeps them out of reach
-// until all three fragments are found).
-function buildVault() {
-    api.spawnProp("sunken_archway", 158, 45);
-    api.spawnProp("moss_grown_altar", 162, 45);
-    scatterOrganic(["rubble_pile", "runic_standing_stone"], 154, 165, 10, 80, 10, 22201, [
-        { col: 158, row: 45 }, { col: 162, row: 45 }, { col: 160, row: 45 },
-    ]);
-
-    if (!api.getGlobalVar("vigil_recruited", false))
-        api.spawnNpc("dark_knight", 160, 45);
-
-    if (api.getVar("vault_loot_spawned", false))
-        return;
-    api.setVar("vault_loot_spawned", true);
-    api.spawnItem("vault_sigil", 163, 45);
-    api.spawnItem("health_potion", 156, 30);
 }
 
 function* onTalkTo(name) {
-    if (name === "dark_knight") {
-        yield* talkToVigil();
-    } else if (name === "gnome_wizard" || name === "harpy" || name === "tribal_elder_woman") {
-        yield* talkToKeeper(name);
-    } else if (name === "herbalist") {
-        yield* rescueHostage();
+    if (name === "elder_2") {
+        yield* talkToReeve();
+    } else if (name === "dwarf_bomber") {
+        yield* talkToTollman();
+    } else if (name === "dwarf_warrior" || name === "blacksmith" || name === "merchant") {
+        yield* talkToTownsfolk(name);
     }
 }
 
-function* talkToVigil() {
-    const timesTalked = api.getVar("vigil_talks", 0);
-    api.setVar("vigil_talks", timesTalked + 1);
+function* talkToReeve() {
+    const n = api.getVar("reeve_talks", 0);
+    api.setVar("reeve_talks", n + 1);
     api.playSound("select");
-
-    if (timesTalked === 0) {
-        yield api.say("Vigil", "Guardian. Awakened. State your need.");
-        yield api.say("Lara", "...You've been standing here the whole time we were solving the town's own front door.");
-        yield api.say("Vigil", "Longer than I've kept count of. The three answered for you. That is enough to open it - it was never enough to let me leave on my own.");
+    const kills = api.getVar("troll_kills", 0);
+    if (api.getVar("bounty_done", false)) {
+        yield api.say("Reeve", "Five trolls, and the toll-bar's up. I've never seen the road so quiet. Take the seal - the tollkeeper won't argue with it.");
+    } else if (n === 0) {
+        yield api.say("Reeve", "Highgate keeps a toll. Always has. It buys the road its upkeep - and lately trolls have been keeping the road instead.");
+        yield api.say("Reeve", "The bounty's posted: five of them, from the Highgate maze to the west. The toll-bar there drops when the bounty's collected, not before. There are eight out there. You'll know them; they're the ones that don't step aside.");
+        yield api.say("Lara", "Five trolls. That's a lot of road.");
+        yield api.say("Reeve", "It's a lot of trolls.");
     } else {
-        yield api.say("Vigil", "The town is answered. My garrison is not coming back for me, and this vault was never really what I was guarding. I'll carry what's left of it, if you'll have the weight.");
-        api.despawnNpc("dark_knight");
-        api.spawnCharacter("dark_knight", 158, 45, 90);
-        api.setGlobalVar("vigil_recruited", true);
-        api.playSound("select");
+        yield api.say("Reeve", kills === 0 ? "Five to collect. None yet. The maze is west, through the stone gate." : kills + " of " + BOUNTY + " collected. Keep on.");
     }
 }
 
-// Order-independent: talk to all three Keepers, in any order, to raise
-// the vault gate. Unlike Chapter 4's terminal sequence, getting the ORDER
-// right doesn't matter here - only finding all three does.
-function* talkToKeeper(name) {
-    const displayName = { gnome_wizard: "the Wizard", harpy: "the Harpy", tribal_elder_woman: "the Scholar" }[name];
-    const already = api.getVar(`fragment_${name}`, false);
+function* talkToTollman() {
     api.playSound("select");
-
-    if (api.getVar("vault_gate_open", false)) {
-        yield api.say(displayName, "*the fragment is already given*");
-        return;
-    }
-
-    if (already) {
-        yield api.say(displayName, "You already carry what I had to give.");
-        return;
-    }
-
-    api.setVar(`fragment_${name}`, true);
-    if (name === "gnome_wizard")
-        yield api.say("the Wizard", "I warded this piece so well I forgot the warding was mine to lift. Here - it never liked me much anyway.");
-    else if (name === "harpy")
-        yield api.say("the Harpy", "*tilts her head* I only ever nested in what was already empty. Here. I never wanted it, just kept it safe.");
-    else
-        yield api.say("the Scholar", "I came to study this town's old records and stayed to guard a grief instead. Take the last piece - someone should finally use it.");
-
-    const count = ["gnome_wizard", "harpy", "tribal_elder_woman"].filter(n => api.getVar(`fragment_${n}`, false)).length;
-    if (count === 3) {
-        yield api.wait(0.3);
-        yield api.say("Lara", "Three pieces, three keepers. That's the whole answer, isn't it.");
-        api.setBarrier("vault_gate", 152, 0, 1, 90, false);
-        api.setVar("vault_gate_open", true);
-        api.giveExperience(80);
-        api.playSound("select");
+    if (api.getVar("bounty_done", false)) {
+        yield api.say("Tollman", "Bar's up. The seal's on the bench behind me. Don't let it go to your head.");
+    } else {
+        yield api.say("Tollman", "Toll-bar's down. Bounty's the price of a raise, and I'm told you're still short. I can wait. I'm very good at waiting.");
     }
 }
 
-function* rescueHostage() {
-    if (api.getVar("hostage_rescued", false)) {
-        yield api.say("Herbalist", "Still grateful, truly.");
-        return;
-    }
-    api.setVar("hostage_rescued", true);
+function* talkToTownsfolk(name) {
+    const lines = {
+        dwarf_warrior: ["Captain of the gate-guard, which is a grand way of saying I stand near the gate. The trolls don't care about the title.",
+                        "Don't take the walls head-on. Trolls hate a corner. So do I, but I hate it quietly."],
+        blacksmith: ["I sharpen. I don't fight. But I've never sharpened so many blades in one week.",
+                     "Whetstone's on the bench. Take it. Trolls chip a blade like it's a personal favour."],
+        merchant: ["Toll's the reason there's a road. Trolls are the reason there isn't. Somebody will have to decide which matters more.",
+                   "The sunset's free, at least. Best view in the county."],
+    }[name];
+    const displayName = { dwarf_warrior: "Captain", blacksmith: "Smith", merchant: "Merchant" }[name];
+    const n = api.getVar("talk_" + name, 0);
+    api.setVar("talk_" + name, n + 1);
     api.playSound("select");
-    yield api.say("Herbalist", "You found me. I came for the herbs still growing wild in the old garden plots - they hold medicine nothing else does - and lost the way out three days ago.");
-    yield api.say("Lara", "Three days?");
-    yield api.say("Herbalist", "Felt like three days. Might've been one. Either way - the way back is west of here, if the dead have moved on.");
-    api.giveExperience(100);
+    yield api.say(displayName, lines[n % lines.length]);
 }
 
+// The bounty: count troll kills. Lift the toll-bar at the fifth.
 function* onEnemyDefeated(name) {
-    // A flavor line for a few enemy archetypes below - deliberately rare
-    // (not once per matching kill, which reads as spammy once several in a
-    // row have died the same way) via a flat low-probability roll before
-    // even checking which archetype this is. Plain Math.random() on
-    // purpose, unlike the seeded mulberry32() this file's own generators
-    // use elsewhere - that determinism is for level LAYOUT reproducibility
-    // (so a placement bug is catchable once and trusted forever), which
-    // doesn't apply to a cosmetic post-kill quip.
+    if (name === "troll" && !api.getVar("bounty_done", false)) {
+        const kills = api.getVar("troll_kills", 0) + 1;
+        api.setVar("troll_kills", kills);
+        api.playSound("select");
+        if (kills === BOUNTY) {
+            api.setVar("bounty_done", true);
+            api.setBarrier("toll_bar", 0, 0, 1, 1, false);
+            api.giveExperience(120);
+            yield api.wait(0.3);
+            yield api.say("Lara", "That's the fifth. Somewhere far west a chain rattles and a heavy bar swings up.");
+            yield* companionSays("vigil_recruited", "Vigil", "The bounty stands paid. It was an honour.");
+        } else if (kills === 2 || kills === 4) {
+            yield api.wait(0.3);
+            yield api.say("Lara", kills + " of " + BOUNTY + ".");
+        }
+        return;
+    }
     if (Math.random() > 0.1)
         return;
-
-    if (name === "skeleton" || name === "skeleton_archer") {
+    if (name === "orc") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Whatever kept it standing this long, it isn't malice. Just habit, maybe - the same street, over and over.");
-    } else if (name === "ghoul") {
+        yield api.say("Lara", "Trained, at least. Somebody paid for that discipline.");
+    } else if (name === "goblin") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Hungry, and past caring why. This town hasn't fed anything living in a long time.");
-    } else if (name === "mummy") {
-        yield api.wait(0.3);
-        yield api.say("Lara", "Someone wrapped that with real care, once. Doesn't make it safe to leave walking the streets.");
+        yield api.say("Lara", "Scouts for the trolls, I think. The trolls do like a warning.");
     }
 }
 
 function* onItemCollected(itemId) {
-    if (itemId !== "vault_sigil")
+    if (itemId !== "tollkeeper_seal")
         return;
-
     yield api.wait(0.3);
-    yield api.say("Lara", "This was never a lock. It's a promise someone sealed shut instead of keeping.");
-    yield api.say("Vigil", "A promise I was left to hold, whether or not anyone ever came back for it. You came back for it.");
-    yield api.say("???", "The seal was never yours to break, and yet - here we are. You're closer than the last one who tried this door.");
-    yield api.say("Lara", "There's always a last one who tried, with you. Who were they?");
-    yield api.say("???", "Someone who stopped at the door. This town's floor isn't the end of it - go find what it's standing on.");
-
-    api.setGlobalVar("chapter", 3);
+    yield api.say("Lara", "It's heavier than it looks. Iron and wax, and somewhere inside, the smallest hum.");
+    yield api.say("???", "Third of ten. Tolls are only ever paid for one thing, Lara: passage. The whole road has been asking for it.");
+    yield api.say("Lara", "Then it can have it. Where next?");
+    yield api.say("???", "Toward the place where the dead hold a fair, and nobody's told them it ended.");
+    api.setGlobalVar("chapter", 10);
     api.playSound("select");
     yield api.wait(0.8);
-    api.loadLevel("chapter3.json");
+    api.loadLevel("chapter10.json");
 }

@@ -1,4 +1,5 @@
 #include "GameScene.h"
+#include "AssetPath.h"
 
 #include <QDebug>
 #include <QDir>
@@ -619,7 +620,7 @@ GameScene::GameScene(GameState *state, const QString &mapPath, QObject *parent)
         // large and keeps growing as new art lands. Laid out in a simple
         // grid across the map so they're all visible standing around; only
         // whichever one is currently controlled actually moves.
-        const QDir charactersDir(QStringLiteral(ASSET_DIR "/characters"));
+        const QDir charactersDir(assetPath(QStringLiteral("/characters")));
         const QStringList characterNames = charactersDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
 
         constexpr int columnsPerRow = 10;
@@ -647,7 +648,7 @@ GameScene::GameScene(GameState *state, const QString &mapPath, QObject *parent)
     // The props catalog itself is always loaded (api.spawnProp() needs it
     // in every chapter, not just the sandbox) - only the showcase grid and
     // the sandbox's hand-authored layouts below are proof-of-concept-only.
-    QFile propsCatalogFile(QStringLiteral(ASSET_DIR "/props/props.json"));
+    QFile propsCatalogFile(assetPath(QStringLiteral("/props/props.json")));
     if (propsCatalogFile.open(QIODevice::ReadOnly)) {
         const QJsonObject propsCatalog = QJsonDocument::fromJson(propsCatalogFile.readAll()).object();
         m_propsCatalog = propsCatalog.value("props").toObject(); // kept around for spawnPropAt()
@@ -669,7 +670,7 @@ GameScene::GameScene(GameState *state, const QString &mapPath, QObject *parent)
                 const QJsonObject entry = it.value().toObject();
                 const qreal targetWidth = entry.value("width").toDouble();
                 const bool blocksMovement = entry.value("blocksMovement").toBool(true);
-                const QString imagePath = QStringLiteral(ASSET_DIR "/props/%1.png").arg(name);
+                const QString imagePath = assetPath(QStringLiteral("/props/%1.png")).arg(name);
                 if (!QFileInfo::exists(imagePath)) {
                     qWarning() << "Prop image missing for" << name << "at" << imagePath;
                     continue;
@@ -688,7 +689,7 @@ GameScene::GameScene(GameState *state, const QString &mapPath, QObject *parent)
             // now that real tree/rock props exist, those spots get the
             // real thing instead. Alternates between two variants per kind
             // purely for visual variety, not for any semantic difference.
-            QFile markersFile(QStringLiteral(ASSET_DIR "/maps/sandbox_prop_markers.json"));
+            QFile markersFile(assetPath(QStringLiteral("/maps/sandbox_prop_markers.json")));
             if (markersFile.open(QIODevice::ReadOnly)) {
                 const QJsonArray markers = QJsonDocument::fromJson(markersFile.readAll()).object().value("markers").toArray();
                 static const QStringList treeVariants = { QStringLiteral("pine_tree"), QStringLiteral("oak_tree") };
@@ -710,7 +711,7 @@ GameScene::GameScene(GameState *state, const QString &mapPath, QObject *parent)
             // south of the showcase grid/pond/enemy arena - every one of
             // the 40 catalog props placed deliberately once, instead of
             // the auto-grid above.
-            QFile villageLayoutFile(QStringLiteral(ASSET_DIR "/maps/sandbox_village_layout.json"));
+            QFile villageLayoutFile(assetPath(QStringLiteral("/maps/sandbox_village_layout.json")));
             if (villageLayoutFile.open(QIODevice::ReadOnly)) {
                 const QJsonArray layout = QJsonDocument::fromJson(villageLayoutFile.readAll()).object().value("props").toArray();
                 for (const QJsonValue &v : layout) {
@@ -722,7 +723,7 @@ GameScene::GameScene(GameState *state, const QString &mapPath, QObject *parent)
             // Three more vignettes (haunted/decimated village, periferia)
             // south of the above - see sandbox_ruins_layout.json's comment
             // for why they live here rather than in any chapter script.
-            QFile ruinsLayoutFile(QStringLiteral(ASSET_DIR "/maps/sandbox_ruins_layout.json"));
+            QFile ruinsLayoutFile(assetPath(QStringLiteral("/maps/sandbox_ruins_layout.json")));
             if (ruinsLayoutFile.open(QIODevice::ReadOnly)) {
                 const QJsonArray layout = QJsonDocument::fromJson(ruinsLayoutFile.readAll()).object().value("props").toArray();
                 for (const QJsonValue &v : layout) {
@@ -743,7 +744,7 @@ GameScene::GameScene(GameState *state, const QString &mapPath, QObject *parent)
 
     // Also always loaded, same reasoning as the props catalog - a chapter's
     // script needs it for scriptSpawnItem() regardless of sandbox mode.
-    QFile itemsCatalogFile(QStringLiteral(ASSET_DIR "/items/items.json"));
+    QFile itemsCatalogFile(assetPath(QStringLiteral("/items/items.json")));
     if (itemsCatalogFile.open(QIODevice::ReadOnly)) {
         const QJsonObject itemsCatalog = QJsonDocument::fromJson(itemsCatalogFile.readAll()).object();
         m_itemsCatalog = itemsCatalog.value("items").toObject();
@@ -764,7 +765,7 @@ GameScene::GameScene(GameState *state, const QString &mapPath, QObject *parent)
     // default described where it's used (playCreatureSound()). No warning
     // if this file is ever missing entirely - a totally silent/default
     // roster is a valid state, not an error.
-    QFile creatureSoundsFile(QStringLiteral(ASSET_DIR "/characters/sounds.json"));
+    QFile creatureSoundsFile(assetPath(QStringLiteral("/characters/sounds.json")));
     if (creatureSoundsFile.open(QIODevice::ReadOnly))
         m_creatureSoundsCatalog = QJsonDocument::fromJson(creatureSoundsFile.readAll()).object().value("sounds").toObject();
 
@@ -774,7 +775,7 @@ GameScene::GameScene(GameState *state, const QString &mapPath, QObject *parent)
     // the old flat fallback constant" at every consumer) rather than
     // warning, so a character added without updating this file doesn't
     // break the game, just plays with the pre-stats numbers.
-    QFile statsFile(QStringLiteral(ASSET_DIR "/characters/stats.json"));
+    QFile statsFile(assetPath(QStringLiteral("/characters/stats.json")));
     if (statsFile.open(QIODevice::ReadOnly))
         m_statsCatalog = QJsonDocument::fromJson(statsFile.readAll()).object().value("stats").toObject();
 
@@ -830,7 +831,7 @@ Character *GameScene::createCharacterAt(const QString &name, int tileCol, int ti
 
 Character *GameScene::createCharacterAtWorldFeet(const QString &name, QPointF worldFeetPos, int hp, bool resolveCollision)
 {
-    const QDir charactersDir(QStringLiteral(ASSET_DIR "/characters"));
+    const QDir charactersDir(assetPath(QStringLiteral("/characters")));
     const QString jsonPath = charactersDir.filePath(name + QStringLiteral("/") + name + QStringLiteral(".json"));
     if (!QFileInfo::exists(jsonPath)) {
         qWarning() << "Character sprite sheet missing for" << name << "at" << jsonPath;
@@ -916,7 +917,7 @@ Prop *GameScene::spawnPropAt(const QString &name, int tileCol, int tileRow)
     const QJsonObject entry = m_propsCatalog.value(name).toObject();
     const qreal targetWidth = entry.value("width").toDouble();
     const bool blocksMovement = entry.value("blocksMovement").toBool(true);
-    const QString imagePath = QStringLiteral(ASSET_DIR "/props/%1.png").arg(name);
+    const QString imagePath = assetPath(QStringLiteral("/props/%1.png")).arg(name);
     if (!QFileInfo::exists(imagePath)) {
         qWarning() << "Prop image missing for" << name << "at" << imagePath;
         return nullptr;
@@ -935,8 +936,8 @@ Prop *GameScene::spawnPropAt(const QString &name, int tileCol, int tileRow)
 void GameScene::decorateMapEdges(const QJsonObject &mapRoot)
 {
     const bool interior = mapRoot.value("interior").toBool(false);
-    const QString catalogPath = interior ? QStringLiteral(ASSET_DIR "/props/walls.json")
-                                          : QStringLiteral(ASSET_DIR "/props/borders.json");
+    const QString catalogPath = interior ? assetPath(QStringLiteral("/props/walls.json"))
+                                          : assetPath(QStringLiteral("/props/borders.json"));
     // Interior maps opt into a wall look by name (independent of tileset);
     // exterior maps get one automatically from whichever tileset they use.
     const QString lookupKey = interior ? mapRoot.value("wallTheme").toString()
@@ -2290,8 +2291,8 @@ QString GameScene::itemImagePath(const QJsonObject &catalogEntry) const
     // convention, kept for the handful of items that still use it.
     const QString imageName = catalogEntry.value("image").toString();
     if (!imageName.isEmpty())
-        return QStringLiteral(ASSET_DIR "/items/%1.png").arg(imageName);
-    return QStringLiteral(ASSET_DIR "/props/%1.png").arg(catalogEntry.value("prop").toString());
+        return assetPath(QStringLiteral("/items/%1.png")).arg(imageName);
+    return assetPath(QStringLiteral("/props/%1.png")).arg(catalogEntry.value("prop").toString());
 }
 
 void GameScene::playCreatureSound(const QString &characterName, const QString &kind)

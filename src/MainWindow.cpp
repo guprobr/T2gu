@@ -1,4 +1,5 @@
 #include "MainWindow.h"
+#include "AssetPath.h"
 
 #include <QApplication>
 #include <QDir>
@@ -23,7 +24,7 @@
 
 namespace {
 // A single quicksave slot under the user's own home directory (not
-// ASSET_DIR, which is the read-only install/source tree) - ".T2gu2",
+// assetDir(), which is the read-only install/source tree) - ".T2gu2",
 // dot-prefixed the same way any other Linux game/tool's per-user config
 // directory is, created on first save if it doesn't exist yet.
 QString saveFilePath()
@@ -207,7 +208,7 @@ MainWindow::MainWindow(QWidget *parent)
     // T2GU_MAP_PATH lets a developer boot straight into a different map
     // (e.g. the sandbox) without recompiling - defaults to the real
     // adventure's actual entry point.
-    loadLevel(qEnvironmentVariable("T2GU_MAP_PATH", QStringLiteral(ASSET_DIR "/maps/chapter1.json")));
+    loadLevel(qEnvironmentVariable("T2GU_MAP_PATH", assetPath(QStringLiteral("/maps/chapter1.json"))));
 }
 
 void MainWindow::loadLevel(const QString &mapPath)
@@ -480,7 +481,7 @@ void MainWindow::respawnFromBeginning()
     // var and the whole inventory, exactly as if the game had just been
     // launched.
     m_gameState = GameState();
-    loadLevel(QStringLiteral(ASSET_DIR "/maps/chapter1.json"));
+    loadLevel(assetPath(QStringLiteral("/maps/chapter1.json")));
 }
 
 void MainWindow::saveGame()
@@ -496,15 +497,16 @@ void MainWindow::saveGame()
     QJsonObject root;
     root[QStringLiteral("saveVersion")] = kCurrentSaveVersion;
     // Just the map's own filename, not the full m_currentMapPath - that's
-    // normally built from ASSET_DIR, a path CMake bakes in at compile time
-    // (target_compile_definitions(... ASSET_DIR="${CMAKE_SOURCE_DIR}/assets")),
-    // so saving it verbatim would tie a save file to the exact source/build
-    // tree it was written on, not to "chapter4," conceptually. Every real
+    // normally built from assetDir() (see AssetPath.h - the source tree's
+    // assets/ for a run out of the build directory, the data directory for an
+    // installed copy), so saving it verbatim would tie a save file to the exact
+    // source/build tree it was written on, not to "chapter4," conceptually.
+    // Every real
     // map lives together in one directory (see GameScene::scriptLoadLevel(),
     // which already resolves a script's `api.loadLevel("chapterN.json")`
     // relative to wherever the *current* map's own directory is, for the
     // same reason) - loadGame() resolves this filename against THIS
-    // install's own ASSET_DIR, so a save loads correctly regardless of
+    // install's own assetDir(), so a save loads correctly regardless of
     // which machine or build tree wrote it.
     root[QStringLiteral("map")] = QFileInfo(m_currentMapPath).fileName();
     root[QStringLiteral("level")] = m_gameState.level;
@@ -608,14 +610,14 @@ void MainWindow::loadGame()
     }
 
     // "map" (just a filename, resolved against this install's own
-    // ASSET_DIR) is the current format - see saveGame()'s own comment for
+    // assetDir()) is the current format - see saveGame()'s own comment for
     // why. "mapPath" (a full path, possibly baked from a *different*
-    // install's ASSET_DIR) is kept as a fallback purely so a save written
+    // install's assetDir()) is kept as a fallback purely so a save written
     // before this format existed still loads.
     QString mapPath;
     const QString mapFileName = root.value(QStringLiteral("map")).toString();
     if (!mapFileName.isEmpty())
-        mapPath = QStringLiteral(ASSET_DIR "/maps/") + mapFileName;
+        mapPath = assetPath(QStringLiteral("/maps/")) + mapFileName;
     else
         mapPath = root.value(QStringLiteral("mapPath")).toString();
 
@@ -680,7 +682,7 @@ void MainWindow::jumpToNextLevel()
         return; // not on a numbered chapter map (sandbox, a tileset test map) - nothing to jump to
 
     const int nextChapter = match.captured(1).toInt() + 1;
-    const QString nextPath = QStringLiteral(ASSET_DIR "/maps/chapter%1.json").arg(nextChapter);
+    const QString nextPath = assetPath(QStringLiteral("/maps/chapter%1.json")).arg(nextChapter);
     if (!QFileInfo::exists(nextPath))
         return; // already on the last chapter
     loadLevel(nextPath);

@@ -100,7 +100,7 @@ transition into that map, under the word "Loading" in smaller text:
 
 Omit it (as `sandbox.json` and the tileset test maps do) and the loading
 screen just shows "Loading" on its own, no second line. Every real chapter
-map (`chapter1.json` through `chapter6.json`) sets this.
+map (`chapter1.json` through `chapter16.json`) sets this.
 
 ## The `api` object
 

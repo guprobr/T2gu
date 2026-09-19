@@ -1,12 +1,12 @@
 // ============================================================================
-// ShadowShine - Chapter 1: "Fernhollow"
+// ShadowShine - Chapter 7: "The Frostmarket"
 // ============================================================================
 //
-// Two parts: the TOWN comes first, the MAZE after it. This level runs left to right
-// (the hero spawns against the west edge). Map: 150x78, tileset grass_water, lighting sunrise.
-//   - town   cols 1-40
-//   - river  cols 41-44 (one ford)
-//   - maze   cols 45-148, rows 1-76, corridors 2 wide, walls 4 thick
+// Two parts: the TOWN comes first, the MAZE after it. This level runs right to left
+// (the hero spawns against the east edge). Map: 156x84, tileset dirt_snow, lighting sunrise.
+//   - town   cols 113-154
+//   - maze   cols 13-112, rows 1-82, corridors 2 wide, walls 3 thick
+//   - pocket cols 1-12 (where the maze lets out)
 // ============================================================================
 
 // Deterministic PRNG - every generator below uses this instead of
@@ -318,15 +318,15 @@ function scatterOrganic(names, colStart, colEnd, rowStart, rowEnd, count, seed, 
 }
 
 // ---- Layout (from the map spec - the same numbers are stored in the map's own "layout" field) ----
-const W = 150, H = 78;
-const DIR = 1;                        // 1: this level runs left -> right
+const W = 156, H = 84;
+const DIR = -1;                        // -1: this level runs right -> left
 const START_U = 3;                        // the hero spawns this many columns in from the start edge
-const MID = 37;                        // row of the road that leads to the maze gate
-const TOWN_U = 40;                        // the town fills u = 1..TOWN_U (u counts from the start edge)
-const MAZE_WEST = 45, MAZE_EAST = 148;   // absolute columns of the maze block
-const MAZE_NORTH = 1, MAZE_SOUTH = 76;        // its rows
-const MAZE_CORRIDOR = 2, MAZE_WALL = 4;
-const POCKET_U0 = 149, POCKET_U1 = 148;   // the exit pocket beyond the maze (u), 0 columns
+const MID = 41;                        // row of the road that leads to the maze gate
+const TOWN_U = 42;                        // the town fills u = 1..TOWN_U (u counts from the start edge)
+const MAZE_WEST = 13, MAZE_EAST = 112;   // absolute columns of the maze block
+const MAZE_NORTH = 1, MAZE_SOUTH = 82;        // its rows
+const MAZE_CORRIDOR = 2, MAZE_WALL = 3;
+const POCKET_U0 = 143, POCKET_U1 = 154;   // the exit pocket beyond the maze (u), 12 columns
 
 // ============================================================================
 // Two-part level shape helpers: the TOWN comes first, the MAZE after it.
@@ -398,375 +398,293 @@ function* companionSays(flag, who, line) {
         yield api.say(who, line);
 }
 
+// Spawns hostile packs onto `spots`, in order, exactly once per playthrough
+// (guarded by a chapter-local var so a reload doesn't double the population).
+// packs: [[archetype, count, hp], ...]
+function spawnPacks(spots, packs, guardVar) {
+    if (api.getVar(guardVar, false))
+        return;
+    api.setVar(guardVar, true);
+    let k = 0;
+    packs.forEach(([type, count, hp]) => {
+        for (let n = 0; n < count && k < spots.length; n++, k++)
+            api.spawnEnemy(type, spots[k].col, spots[k].row, hp);
+    });
+}
+
+// Spawns world pickups onto `spots`, once (same guard idea as spawnPacks).
+function spawnLoot(spots, itemIds, guardVar) {
+    if (api.getVar(guardVar, false))
+        return;
+    api.setVar(guardVar, true);
+    itemIds.forEach((id, k) => { if (spots[k]) api.spawnItem(id, spots[k].col, spots[k].row); });
+}
+
+// The pocket beyond the maze as an absolute column range.
+function pocketCols() {
+    const a = colAt(POCKET_U0), b = colAt(POCKET_U1);
+    return [Math.min(a, b), Math.max(a, b)];
+}
+
 
 // ----------------------------------------------------------------------------
-// Chapter 1 - Fernhollow, reformulated (2026-09-19).
+// Chapter 7 - "The Frostmarket" (dirt_snow, sunrise). Runs RIGHT to LEFT: the
+// hero steps out of the Threshold at the far east edge of the map, at dawn, on
+// the edge of a frozen market town.
 //
-// Now in two parts. PART ONE is the village of Fernhollow itself - a real
-// town this time, cols 1-40, with Wren by the well, a few neighbours, the
-// basic supplies, and a market road that runs straight to the river. A river
-// (cols 41-44) closes it off with a single ford and a footbridge, and past it
-// PART TWO begins: the Hollowbrook Maze, cols 45-148, one genuine branching
-// maze (same generator as every other chapter) holding everything from the
-// original chapter - the order-of-three riddle, the fox-and-deer riddle, the
-// hostage, the wildlife, the loot, and the glowing acorn at the far end.
-// Runs left to right.
+// QUEST (gather-N): the herder's three draft horses bolted into the Whiteout
+// Rows when the hum began. The old rule of the market: the pasture gate stays
+// frozen shut while a horse is out. Find all three in the maze - any order -
+// and calm each one so it heads home; when the last is home, the pasture gate
+// (the maze's exit) unlatches and the frost-bell waits beyond it.
 // ----------------------------------------------------------------------------
+const TOWN = [
+    ["rocks_small", 3, -35],
+    ["rain_barrel", 3, -29],
+    ["snowy_pine", 4, -25],
+    ["cart", 5, -28],
+    ["pine_tree", 5, 30],
+    ["cottage_a", 7, -23],
+    ["poor_market_stall", 8, -19],
+    ["pine_tree", 8, 15],
+    ["cottage_a", 8, 19],
+    ["pine_tree", 9, -30],
+    ["bush", 9, 33],
+    ["snowy_pine", 10, -15],
+    ["rocks_small", 11, -24],
+    ["wheelbarrow", 12, -36],
+    ["fence_straight", 12, -29],
+    ["market_stall", 12, 20],
+    ["snowy_pine", 12, 24],
+    ["fence_straight", 14, -32],
+    ["cottage_b", 15, 9],
+    ["chicken_coop", 17, -32],
+    ["stacked_ale_barrels", 17, 3],
+    ["water_trough", 17, 20],
+    ["snowy_pine", 17, 27],
+    ["courtyard_well", 18, -3],
+    ["notice_board", 24, -3],
+    ["water_trough", 25, 3],
+    ["pine_tree", 26, -25],
+    ["fence_corner", 26, 36],
+    ["cottage_b", 27, -34],
+    ["rocks_small", 27, -30],
+    ["poor_market_stall", 27, -13],
+    ["bench", 27, 25],
+    ["snowy_pine", 29, -30],
+    ["bush", 29, 26],
+    ["water_trough", 30, -28],
+    ["fence_straight", 30, -23],
+    ["wheelbarrow", 30, 15],
+    ["fence_corner", 30, 30],
+    ["laundry_line", 31, 21],
+    ["market_stall", 31, 27],
+    ["cottage_a", 31, 33],
+    ["bush", 31, 38],
+    ["rain_barrel", 32, -36],
+    ["haystack", 32, -21],
+    ["wheelbarrow", 33, -19],
+    ["snowy_pine", 34, -25],
+    ["water_trough", 35, -17],
+    ["wheelbarrow", 35, 18],
+    ["bench", 35, 26],
+    ["bench", 35, 28],
+    ["fence_corner", 35, 37],
+    ["rain_barrel", 36, 5],
+    ["bush", 36, 33],
+    ["fence_corner", 37, -25],
+    ["snowy_pine", 37, -21],
+    ["bench", 37, 15],
+    ["fence_straight", 37, 27],
+    ["cart", 38, -19],
+    ["snowy_pine", 38, 7],
+    ["stacked_ale_barrels", 39, -8],
+    ["rain_barrel", 40, -16],
+    ["water_trough", 40, 30],
+    ["cart", 40, 38]
+];
+const STRAYS = ["horse_bay_draft", "horse_chestnut_draft", "horse_dun"];
 
 function* onLevelStart() {
     api.spawnCharacter("lara_cyber", colAt(START_U), MID);
     api.giveControl("lara_cyber");
+    respawnCompanions();
 
     buildTown();
-    buildMaze();
+    const exitRows = buildMaze();
+    buildPocket();
+    if (!api.getVar("strays_home", false))
+        setExitGate("pasture_gate", exitRows, true);
 
-    if (api.getVar("chapter1_intro_seen", false))
+    if (api.getVar("chapter7_intro_seen", false))
         return;
-    api.setVar("chapter1_intro_seen", true);
+    api.setVar("chapter7_intro_seen", true);
 
     yield api.wait(0.6);
-    yield api.say("Lara", "...Fernhollow. Same crooked fences, same well that never quite fills all the way.");
-    yield api.say("Hint", "Move with WASD or the Arrow keys.");
-    yield api.say("Hint", "Hold Shift while moving to run.");
-    yield api.say("Hint", "Press E near someone - or something - to talk, or take a closer look.");
-    yield api.say("Hint", "Press Ctrl to attack. Press I for your inventory, Tab to switch who you're playing as.");
-    yield api.say("Lara", "Wren said she'd be by the well this morning. Let's see if that's actually true for once.");
+    yield api.say("Lara", "...That's a market. Stalls, smoke, someone arguing about the price of salt. Just past the edge of where the Threshold spat us out.");
+    yield* companionSays("vigil_recruited", "Vigil", "Dawn on frozen ground. Whoever keeps this place rises early, or never sleeps.");
+    yield* companionSays("cobb_recruited", "Cobb", "I can smell the ale from here. Warm ale. There is a God, and He runs a tavern.");
+    yield api.say("Hint", "This level runs right to left. The town is behind you; the maze is ahead, to the west.");
 }
 
 // ============================================================================
-// Part one - the town. Buildings and decoration come from the composed layout
-// below (roads, the plaza and every NPC/item spot are kept clear of it).
+// Part one - the Frostmarket.
 // ============================================================================
-const TOWN = [
-    ["rain_barrel", 3, -14],
-    ["fence_straight", 3, 16],
-    ["bench", 4, -25],
-    ["rocks_small", 4, 20],
-    ["laundry_line", 4, 25],
-    ["fence_straight", 5, -30],
-    ["wildflowers", 5, -15],
-    ["laundry_line", 6, 23],
-    ["bush", 6, 29],
-    ["cottage_a", 7, 20],
-    ["wheelbarrow", 7, 25],
-    ["oak_tree", 8, -30],
-    ["pine_tree", 9, 28],
-    ["bush", 10, -31],
-    ["bush", 10, -22],
-    ["wheelbarrow", 11, -17],
-    ["wheelbarrow", 12, -26],
-    ["haystack", 12, 23],
-    ["oak_tree", 13, -28],
-    ["wildflowers", 13, -19],
-    ["oak_tree", 14, -25],
-    ["cottage_b", 14, -15],
-    ["cottage_a", 14, -7],
-    ["bush", 15, -29],
-    ["rocks_small", 15, -10],
-    ["bench", 15, 37],
-    ["bush", 16, 8],
-    ["market_stall", 16, 21],
-    ["rocks_small", 16, 25],
-    ["pine_tree", 16, 28],
-    ["well", 17, -3],
-    ["bench", 17, 3],
-    ["notice_board", 23, -3],
-    ["bench", 23, 3],
-    ["bush", 25, -24],
-    ["oak_tree", 25, -7],
-    ["fence_corner", 26, -16],
-    ["cart", 26, 22],
-    ["fence_corner", 26, 28],
-    ["wildflowers", 27, -21],
-    ["market_stall", 27, -14],
-    ["fence_straight", 27, 16],
-    ["rocks_small", 28, -11],
-    ["haystack", 29, -17],
-    ["vegetable_garden", 29, 35],
-    ["chicken_coop", 30, -30],
-    ["cottage_b", 30, 20],
-    ["fence_corner", 31, -22],
-    ["pine_tree", 31, 30],
-    ["rain_barrel", 33, 11],
-    ["fence_straight", 33, 16],
-    ["fence_corner", 34, -19],
-    ["laundry_line", 34, -17],
-    ["rain_barrel", 34, 23],
-    ["bush", 35, -33],
-    ["wildflowers", 35, 13],
-    ["rain_barrel", 36, -25],
-    ["haystack", 37, 6],
-    ["windmill", 37, 18],
-    ["bench", 37, 35],
-    ["bench", 38, -34]
-];
-
 function buildTown() {
     placeProps(TOWN);
 
-    // The river: reeds along the west bank, lily pads out on the water, and a
-    // footbridge over the one ford that lines up with the maze entrance.
-    const [gateRow0, gateRow1] = [MID - 1, MID + 2];
-    for (let r = MAZE_NORTH + 3; r < MAZE_SOUTH - 2; r += 4) {
-        if (r >= gateRow0 - 2 && r <= gateRow1 + 2)
-            continue;
-        api.spawnProp("reeds", colAt(TOWN_U), r);
-        if (r % 8 === 3)
-            api.spawnProp("lily_pads", colAt(TOWN_U + 2), r + 1);
-    }
-    api.spawnProp("wooden_bridge", colAt(TOWN_U + 2), MID);
-    api.spawnProp("signpost", colAt(TOWN_U - 2), MID - 3);
+    // A gate-house of sorts where the market road meets the maze.
+    api.spawnProp("signpost", colAt(TOWN_U - 1), MID - 3);
+    api.spawnProp("standing_torch_sconce", colAt(TOWN_U), MID - 3);
+    api.spawnProp("standing_torch_sconce", colAt(TOWN_U), MID + 4);
 
-    // Wren, and the folk she mentions.
-    api.spawnNpc("herbalist", colAt(14), MID - 2);
-    api.spawnNpc("baker", colAt(25), MID - 3);
-    api.spawnNpc("farmgirl", colAt(27), MID + 4);
-    api.spawnNpc("lumberjack", colAt(8), MID + 6);
-    api.spawnNpc("fisherman", colAt(38), MID - 6);
+    api.spawnNpc("lumberjack_2", colAt(14), MID - 3);   // the herder
+    api.spawnNpc("merchant", colAt(24), MID - 4);
+    api.spawnNpc("innkeeper", colAt(26), MID + 5);
+    api.spawnNpc("baker_2", colAt(9), MID + 6);
 
-    if (api.getVar("chapter1_loot_spawned", false))
+    if (api.getVar("town_loot_spawned", false))
         return;
-    api.setVar("chapter1_loot_spawned", true);
+    api.setVar("town_loot_spawned", true);
     api.spawnItem("dried_rations", colAt(6), MID - 9);
-    api.spawnItem("bread_loaf", colAt(28), MID + 10);
-    api.spawnItem("waterskin", colAt(33), MID - 12);
-    api.spawnItem("berry_pouch", colAt(12), MID + 14);
-    api.spawnItem("health_potion", colAt(30), MID - 6);
+    api.spawnItem("bread_loaf", colAt(30), MID + 10);
+    api.spawnItem("waterskin", colAt(34), MID - 12);
+    api.spawnItem("honey_jar", colAt(13), MID + 14);
+    api.spawnItem("health_potion", colAt(33), MID - 6);
 }
 
 // ============================================================================
-// Part two - the Hollowbrook Maze. One branching maze from the far bank of the
-// river to the far edge of the map. Bigger set-piece props fill each wall
-// cluster's interior; small rough undergrowth fills the seam wherever a wall
-// meets a corridor (see buildBranchingMaze).
+// Part two - the Whiteout Rows, a maze of snow-laden pine and boulder. Returns
+// the exit rows so the caller can hang the pasture gate on the exit.
 // ============================================================================
 function buildMaze() {
-    const coreObstacles = ["pine_tree", "oak_tree", "boulder_large", "cliff_face", "dead_tree", "snowy_pine", "dead_twisted_tree", "fallen_log"];
-    const edgeObstacles = ["bush", "rocks_small", "tree_stump", "ivy_rock", "berry_bush"];
+    const core = ["snowy_pine", "pine_tree", "boulder_large", "cliff_face", "fallen_log", "dead_tree"];
+    const edge = ["bush", "rocks_small", "tree_stump", "ivy_rock"];
     const cells = buildBranchingMaze(MAZE_WEST, MAZE_EAST, MAZE_NORTH, MAZE_SOUTH, MAZE_CORRIDOR, MAZE_WALL,
-        coreObstacles, edgeObstacles, 11001, { flip: DIR < 0, diagonalSeam: true, solid: true });
-
-    // Every placement in the maze draws from ONE pool, so two things can never
-    // share a cell. takeCells() always consumes the same cells for the same
-    // seed, so a reload that skips a spawn-once guard still lines up.
+        core, edge, 70701, { flip: DIR < 0, diagonalSeam: true, solid: true });
     const pool = cells.slice();
 
-    // 46 hostiles (the original 62, scaled to the smaller maze): wolf 8, goblin 9,
-    // boar 9, bear 12, slime_water 8 - none in the first stretch by the ford.
-    const hostileSpots = takeCells(pool, 0.06, 1.0, 46, 11002);
-    if (!api.getVar("hollowbrook_hostiles_spawned", false)) {
-        api.setVar("hollowbrook_hostiles_spawned", true);
-        const hostileTypes = [];
-        [["wolf", 8], ["goblin", 9], ["boar", 9], ["bear", 12], ["slime_water", 8]].forEach(([type, n]) => {
-            for (let k = 0; k < n; k++)
-                hostileTypes.push(type);
-        });
-        hostileTypes.forEach((type, k) => api.spawnEnemy(type, hostileSpots[k].col, hostileSpots[k].row, 30));
+    // 38 hostiles, none in the first stretch by the town.
+    spawnPacks(takeCells(pool, 0.06, 1.0, 38, 70702),
+        [["wolf", 14, 30], ["slime_ice", 10, 30], ["troll", 6, 60], ["tiger", 8, 45]], "maze_hostiles_spawned");
+
+    // The three strays, one in each third of the maze - unless already sent home.
+    const bands = [[0.12, 0.38], [0.40, 0.66], [0.68, 0.92]];
+    STRAYS.forEach((name, k) => {
+        const spot = takeCells(pool, bands[k][0], bands[k][1], 1, 70703 + k)[0];
+        if (!api.getVar("stray_home_" + name, false))
+            api.spawnNpc(name, spot.col, spot.row);
+    });
+
+    spawnLoot(takeCells(pool, 0.05, 0.95, 12, 70710),
+        ["health_potion", "health_potion", "health_potion", "health_potion", "health_potion", "health_potion",
+         "mana_potion", "stamina_draught", "silver_coin_pouch", "rope_coil", "herb_bundle", "whetstone"], "maze_loot_spawned");
+    return cells.exitRows;
+}
+
+// The pasture beyond the gate: where the frost-bell hangs.
+function buildPocket() {
+    const [c0, c1] = pocketCols();
+    scatterOrganic(["fence_straight", "haystack", "water_trough", "snowy_pine", "bush"], c0, c1, MAZE_NORTH + 2, MAZE_SOUTH - 2, 10, 70720,
+        [{ col: colAt(POCKET_U0 + 6), row: MID }]);
+    if (!api.getVar("bell_spawned", false)) {
+        api.setVar("bell_spawned", true);
+        api.spawnItem("frostmarket_bell", colAt(POCKET_U0 + 6), MID);
     }
-
-    // The order-of-three riddle-keepers Wren talks about - found roughly in the
-    // order she names them, owl first, crystal last (see talkToRiddleKeeper).
-    const owl = takeCells(pool, 0.10, 0.35, 1, 11003)[0];
-    const elder = takeCells(pool, 0.40, 0.65, 1, 11004)[0];
-    const echo = takeCells(pool, 0.70, 0.92, 1, 11005)[0];
-    api.spawnNpc("bird_night_owl", owl.col, owl.row);
-    api.spawnNpc("tribal_elder_woman", elder.col, elder.row);
-    api.spawnNpc("crystal_spirit", echo.col, echo.row);
-
-    // A rare friendly pair in the maze - fox poses the small riddle early, deer
-    // answers it a good stretch later.
-    const fox = takeCells(pool, 0.12, 0.45, 1, 11006)[0];
-    const deer = takeCells(pool, 0.60, 0.95, 1, 11007)[0];
-    api.spawnNpc("fox", fox.col, fox.row);
-    api.spawnNpc("deer", deer.col, deer.row);
-
-    const hostage = takeCells(pool, 0.35, 0.75, 1, 11008)[0];
-    if (!api.getVar("hostage_spawned", false)) {
-        api.setVar("hostage_spawned", true);
-        api.spawnNpc("farmhand_young", hostage.col, hostage.row);
-    }
-
-    const acorn = takeCells(pool, 0.93, 1.0, 1, 11009)[0];
-    const loot = takeCells(pool, 0.05, 0.95, 13, 11010);
-    if (api.getVar("hollowbrook_loot_spawned", false))
-        return;
-    api.setVar("hollowbrook_loot_spawned", true);
-    api.spawnItem("glowing_acorn", acorn.col, acorn.row);
-    ["gold_coin_pile", "rope_coil", "herb_bundle", "honey_jar", "mana_potion",
-     "health_potion", "health_potion", "health_potion", "health_potion",
-     "health_potion", "health_potion", "health_potion", "health_potion"].forEach((id, k) => api.spawnItem(id, loot[k].col, loot[k].row));
 }
 
 // ============================================================================
 // Conversations
 // ============================================================================
 function* onTalkTo(name) {
-    if (name === "herbalist") {
-        yield* talkToWren();
-    } else if (name === "baker" || name === "farmgirl" || name === "lumberjack" || name === "fisherman") {
-        yield* talkToVillager(name);
-    } else if (name === "bird_night_owl" || name === "tribal_elder_woman" || name === "crystal_spirit") {
-        yield* talkToRiddleKeeper(name);
-    } else if (name === "farmhand_young") {
-        yield* rescueHostage();
-    } else if (name === "fox" || name === "deer") {
-        yield* talkToWildKeeper(name);
+    if (name === "lumberjack_2") {
+        yield* talkToHerder();
+    } else if (STRAYS.indexOf(name) >= 0) {
+        yield* calmStray(name);
+    } else if (name === "merchant" || name === "innkeeper" || name === "baker_2") {
+        yield* talkToTownsfolk(name);
     }
 }
 
-function* talkToWren() {
-    const timesTalked = api.getVar("wren_talks", 0);
-    api.setVar("wren_talks", timesTalked + 1);
+function* talkToHerder() {
+    const n = api.getVar("herder_talks", 0);
+    api.setVar("herder_talks", n + 1);
     api.playSound("select");
-
-    if (timesTalked === 0) {
-        yield api.say("Wren", "There you are. I was starting to think you'd sleep through the whole hum.");
-        yield api.say("Lara", "The what?");
-        yield api.say("Wren", "Low, steady, coming from past the river, out in the old maze. Started three nights ago and hasn't stopped.");
-        yield api.say("Wren", "Before you cross - old Fernhollow riddle, for luck: \"I listen before I ever speak, I remember what the listening finds, and only then do I answer.\" Three folk out there live that riddle, in that order. Find them, if you want the luck.");
-    } else if (timesTalked === 1) {
-        yield api.say("Lara", "And you? Do you live it too?");
-        yield api.say("Wren", "I just grow things and hope they don't ask too many questions back. The footbridge is at the end of the market road. Mind the maze, and whatever's guarding past it.");
+    if (api.getVar("strays_home", false)) {
+        yield api.say("Herder", "All three home, and the gate just let go on its own. Go on through - you've earned the bell, and the bell's earned a rest.");
+    } else if (n === 0) {
+        yield api.say("Herder", "You're the ones who walked out of the east, aren't you. The market's been talking about nothing else.");
+        yield api.say("Herder", "I'll trade you a favour for it. Three of my draft horses bolted into the Whiteout Rows the night the hum started - bay, chestnut, and the dun. The pasture gate at the far end of the maze won't unlatch while a horse is out. Old rule. Older than the gate.");
+        yield api.say("Lara", "So we find the horses, and the gate opens.");
+        yield api.say("Herder", "Find them, and talk them down - they'll come home on their own once they're calm. Any order. Mind the wolves. And the trolls. And, honestly, the weather.");
     } else {
-        yield api.say("Wren", "Go on, then. Over the bridge, through the Thicket, past the stones, through the bramble, toward whatever's humming.");
-        api.playSound("select");
+        const left = 3 - STRAYS.filter(s => api.getVar("stray_home_" + s, false)).length;
+        yield api.say("Herder", left === 3 ? "Three still out there. Bay, chestnut, dun. Any order." : "Just " + left + " to go. They won't have gone far - horses never go far from a wall.");
     }
 }
 
-// A line or two from each neighbour, cycling - just enough to make the village
-// feel lived in.
-function* talkToVillager(name) {
+// Talking a stray down sends it home (it vanishes from the maze). When the third
+// is home, the pasture gate lifts.
+function* calmStray(name) {
+    const displayName = { horse_bay_draft: "Bay", horse_chestnut_draft: "Chestnut", horse_dun: "Dun" }[name];
+    api.playSound("select");
+    api.setVar("stray_home_" + name, true);
+    api.despawnNpc(name);
+    api.giveExperience(30);
+    const home = STRAYS.filter(s => api.getVar("stray_home_" + s, false)).length;
+    if (home < 3) {
+        yield api.say(displayName, "*snorts, plants its hooves, and stops shaking - then sets off at a walk toward the market road, tail high*");
+        yield api.say("Lara", (3 - home) + " more to find.");
+    } else {
+        api.setVar("strays_home", true);
+        api.giveExperience(60);
+        yield api.say(displayName, "*leans into your hand for a moment, then trots off after the others*");
+        yield api.say("Lara", "That's all three. Listen - far behind us, that's the pasture gate. It sounds like somebody striking a bell.");
+        yield* companionSays("nettle_recruited", "Nettle", "Frost releasing its hold on iron. It does that, when it's been asked properly.");
+        // The gate at the west end of the maze is now free.
+        api.setBarrier("pasture_gate", 0, 0, 1, 1, false);   // lifts by id - the coordinates are ignored
+    }
+}
+
+function* talkToTownsfolk(name) {
     const lines = {
-        baker: ["Bread's still warm. The hum hasn't spoiled the dough, at least.",
-                "Take a loaf with you. Nobody goes into that maze hungry and comes out cheerful."],
-        farmgirl: ["Three nights of that low note, and the hens have stopped laying out of spite.",
-                   "Wren says it's something buried. I say it's something bored."],
-        lumberjack: ["I cut the Thicket back every spring. Every spring it cuts me back a little harder.",
-                     "There's a fox in there that asks riddles. I didn't believe it either."],
-        fisherman: ["The river's gone glassy since the hum started. Fish still bite. They just apologise first.",
-                    "That footbridge is older than the village. Nobody remembers who built it. Nobody's ever fallen off, either."],
+        merchant: ["Salt, iron, rope, and one lantern nobody has managed to blow out. None of it for sale to anyone who hums.",
+                   "Frostmarket runs at dawn because the frost keeps prices honest. Nothing rots. Nothing lies."],
+        innkeeper: ["Cold ale, colder soup. The soup's a compliment, in this weather.",
+                    "The herder hasn't sat down in three days. Tell him the stew's on me if he brings those horses home."],
+        baker_2: ["Rye, mostly. Snow doesn't rise, so neither do I, before dawn.",
+                  "If you go into the maze, go early. The snow drifts back over your own tracks by noon."],
     }[name];
-    const displayName = { baker: "Baker", farmgirl: "Farmgirl", lumberjack: "Lumberjack", fisherman: "Fisherman" }[name];
+    const displayName = { merchant: "Merchant", innkeeper: "Innkeeper", baker_2: "Baker" }[name];
     const n = api.getVar("talk_" + name, 0);
     api.setVar("talk_" + name, n + 1);
     api.playSound("select");
     yield api.say(displayName, lines[n % lines.length]);
 }
 
-// Order-of-three riddle: bird_night_owl (listens) -> tribal_elder_woman
-// (remembers) -> crystal_spirit (answers). Talking out of order resets the
-// step with an in-fiction hint, never a hard fail - same soft-fail style
-// this project already uses for order puzzles.
-function* talkToRiddleKeeper(name) {
-    const order = ["bird_night_owl", "tribal_elder_woman", "crystal_spirit"];
-    const displayName = { bird_night_owl: "Owl", tribal_elder_woman: "Elder", crystal_spirit: "Echo" }[name];
-    const step = api.getVar("riddle_step", 0);
-    api.playSound("select");
-
-    if (api.getVar("riddle_solved", false)) {
-        yield api.say(displayName, "*nods, already answered*");
-        return;
-    }
-
-    if (order[step] === name) {
-        const newStep = step + 1;
-        api.setVar("riddle_step", newStep);
-        if (newStep === 1)
-            yield api.say("Owl", "*blinks slowly, listening* ...Go on, then. Someone should remember this.");
-        else if (newStep === 2)
-            yield api.say("Elder", "I remember. I've remembered longer than anyone still living here. Now someone only has to answer.");
-        else {
-            yield api.say("Echo", "*a small crystalline chime* The answer was never a word. It was the order you found us in.");
-            yield api.say("Lara", "...Listen, remember, answer. That's it, isn't it.");
-            api.setVar("riddle_solved", true);
-            api.giveExperience(80);
-            api.playSound("select");
-        }
-    } else {
-        api.setVar("riddle_step", 0);
-        yield api.say(displayName, "*waits, patiently* Not yet. Not in that order.");
-    }
-}
-
-// A second, smaller riddle, hidden inside the maze itself rather than the
-// village - a two-step call-and-response, not another order-of-three. Fox poses
-// it early on; Deer only answers once found a good stretch later.
-function* talkToWildKeeper(name) {
-    const order = ["fox", "deer"];
-    const displayName = { fox: "Fox", deer: "Deer" }[name];
-    const step = api.getVar("wildRiddle_step", 0);
-    api.playSound("select");
-
-    if (api.getVar("wildRiddle_solved", false)) {
-        yield api.say(displayName, "*watches you pass, unbothered*");
-        return;
-    }
-
-    if (order[step] === name) {
-        const newStep = step + 1;
-        api.setVar("wildRiddle_step", newStep);
-        if (newStep === 1)
-            yield api.say("Fox", "*tilts its head* What grows thicker for every bit that's cut away from it?");
-        else {
-            yield api.say("Deer", "*doesn't flinch as you approach* A path, worn in by feet, not by any hand pruning it. Fox already knew. Fox likes to ask anyway.");
-            api.setVar("wildRiddle_solved", true);
-            api.giveExperience(50);
-            api.playSound("select");
-        }
-    } else {
-        yield api.say(displayName, "*just watches, waiting for the other one first*");
-    }
-}
-
-function* rescueHostage() {
-    if (api.getVar("hostage_rescued", false)) {
-        yield api.say("Farmhand", "Thank you again, truly.");
-        return;
-    }
-    api.setVar("hostage_rescued", true);
-    api.playSound("select");
-    yield api.say("Farmhand", "You- you're not one of them. Oh, thank every root in this wood.");
-    yield api.say("Lara", "Are you hurt?");
-    yield api.say("Farmhand", "Scared more than hurt. I wandered too far past the river chasing a lost goat. Please, just- get me back toward the village road.");
-    yield api.say("Lara", "The footbridge is back the way you came, then the market road. Go carefully.");
-    api.giveExperience(100);
-}
-
 function* onEnemyDefeated(name) {
-    // A flavor line for a few enemy archetypes - deliberately rare (not once per
-    // matching kill, which reads as spammy once several in a row have died the
-    // same way) via a flat low-probability roll first. Plain Math.random() on
-    // purpose, unlike the seeded mulberry32() the generators use: that
-    // determinism is for level LAYOUT, which doesn't apply to a cosmetic quip.
     if (Math.random() > 0.1)
         return;
-
-    if (name === "wolf") {
+    if (name === "troll") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Sorry, old thing. You were just in the way.");
-    } else if (name === "goblin") {
+        yield api.say("Lara", "Big things fall loudest. Somebody's going to hear that back in town.");
+    } else if (name === "slime_ice") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Scavenger, not a soldier. There'll be easier ground for it somewhere else.");
-    } else if (name === "slime_water") {
-        yield api.wait(0.3);
-        yield api.say("Lara", "...That water didn't used to do that. Wren wasn't exaggerating.");
+        yield api.say("Lara", "Snow that was never snow. The hum's doing something to the weather, too.");
     }
 }
 
 function* onItemCollected(itemId) {
-    if (itemId !== "glowing_acorn")
+    if (itemId !== "frostmarket_bell")
         return;
-
     yield api.wait(0.3);
-    yield api.say("Lara", "...Huh.");
-    yield api.say("Lara", "It's warm. And it's humming - not an echo of whatever Wren heard. The note itself, right here in my hand.");
-    yield api.say("???", "Now you understand why nobody in Fernhollow will say it out loud.");
-    yield api.say("Lara", "Who's there?");
-    yield api.say("???", "Someone who found one of those a long time ago, and is still finding out what it means. Follow the hum, Lara. It gets louder from here, not quieter.");
-
-    api.setGlobalVar("chapter", 2);
+    yield api.say("Lara", "It rings the moment my fingers close on it - one clear note, and the frost on every roof in the market answers.");
+    yield api.say("???", "First of ten. I hid them where a kind person would eventually have to walk, so no single road could ever finish what I started.");
+    yield api.say("Lara", "Ten. You said ten.");
+    yield api.say("???", "Ten places, ten notes. Walk on. West is where the road bends back toward the sea.");
+    yield* companionSays("vex_recruited", "Vex", "Ten notes. That's a chord. Somebody built a chord out of geography.");
+    api.setGlobalVar("chapter", 8);
     api.playSound("select");
     yield api.wait(0.8);
-    yield api.say("Lara", "East, then, past Fernhollow - toward wherever this thing actually came from.");
-    api.loadLevel("chapter2.json");
+    api.loadLevel("chapter8.json");
 }

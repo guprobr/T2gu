@@ -7,6 +7,7 @@
 #include <QSplashScreen>
 #include <QTimer>
 
+#include "AssetPath.h"
 #include "MainWindow.h"
 #include "Version.h"
 
@@ -26,7 +27,7 @@ QPixmap buildSplashPixmap()
     QPainter painter(&pixmap);
     painter.setRenderHint(QPainter::Antialiasing, true);
 
-    const QPixmap appIcon(QStringLiteral(ASSET_DIR "/icons/app_icon_128.png"));
+    const QPixmap appIcon(assetPath(QStringLiteral("/icons/app_icon_128.png")));
     if (!appIcon.isNull())
         painter.drawPixmap((pixmap.width() - appIcon.width()) / 2, 24, appIcon);
 
@@ -60,22 +61,17 @@ int main(int argc, char *argv[])
         loop.exec();
     }
 
-    // Without this, Qt/the windowing shell has nothing to show but a
-    // generic fallback icon - there was never a QIcon set anywhere in this
-    // codebase before, and no .desktop file exists either (this binary is
-    // run straight from the build directory, never installed), so there
-    // was truly nothing for a Wayland compositor's app-id/icon-theme
-    // lookup to find. This in-process icon fixes the window/titlebar icon
-    // directly; it does NOT install a .desktop file, so a taskbar/app
-    // switcher that only trusts desktop-file-based icon lookups (some
-    // Wayland compositors do) may still show the generic one until this
-    // app is properly packaged/installed - a separate, larger step than
-    // "set an icon in code".
+    // The in-process icon below fixes the window/titlebar icon directly. A
+    // taskbar/app switcher that only trusts desktop-file-based icon lookups
+    // (some Wayland compositors do) additionally needs the installed
+    // t2gu2.desktop (`make install`, see packaging/t2gu2.desktop.in), and
+    // the app-id has to match its name - hence setDesktopFileName().
+    app.setDesktopFileName(QStringLiteral("t2gu2"));
     QIcon icon;
-    icon.addFile(QStringLiteral(ASSET_DIR "/icons/app_icon_32.png"));
-    icon.addFile(QStringLiteral(ASSET_DIR "/icons/app_icon_64.png"));
-    icon.addFile(QStringLiteral(ASSET_DIR "/icons/app_icon_128.png"));
-    icon.addFile(QStringLiteral(ASSET_DIR "/icons/app_icon_256.png"));
+    icon.addFile(assetPath(QStringLiteral("/icons/app_icon_32.png")));
+    icon.addFile(assetPath(QStringLiteral("/icons/app_icon_64.png")));
+    icon.addFile(assetPath(QStringLiteral("/icons/app_icon_128.png")));
+    icon.addFile(assetPath(QStringLiteral("/icons/app_icon_256.png")));
     app.setWindowIcon(icon);
 
     MainWindow window;

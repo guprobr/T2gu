@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=ShadowShine
+GenericName=Isometric RPG
+Comment=A 100-chapter isometric RPG where old-growth forest and old-growth code grew into the same roots
+Exec=@CMAKE_INSTALL_FULL_BINDIR@/T2gu2
+TryExec=@CMAKE_INSTALL_FULL_BINDIR@/T2gu2
+Icon=t2gu2
+Terminal=false
+Categories=Game;RolePlaying;
+Keywords=rpg;adventure;isometric;story;
+StartupWMClass=T2gu2

@@ -36,6 +36,76 @@
             "width": 126,
             "keyItem": true
         },
+        "frostmarket_bell": {
+            "name": "Frostmarket Bell",
+            "description": "A small brass bell that rings when nobody is touching it, and stops the moment anyone listens for why.",
+            "prop": "dovecote",
+            "width": 140,
+            "keyItem": true
+        },
+        "lantern_core": {
+            "name": "Lantern Core",
+            "description": "The still-warm heart of a street lantern, burning without oil, without a wick, and without any interest in going out.",
+            "prop": "alley_lantern_post",
+            "width": 130,
+            "keyItem": true
+        },
+        "tollkeeper_seal": {
+            "name": "Tollkeeper's Seal",
+            "description": "A wax-and-iron seal that once let travellers through Highgate for the price of a kind word. The price has since gone up.",
+            "prop": "castle_banner_wallmount",
+            "width": 150,
+            "keyItem": true
+        },
+        "wake_lantern": {
+            "name": "Wake Lantern",
+            "description": "A paper lantern from a fair nobody attends any more. It lights when you are sad, which is apparently often.",
+            "prop": "will_o_wisp",
+            "width": 140,
+            "keyItem": true
+        },
+        "bramble_crown": {
+            "name": "Bramble Crown",
+            "description": "A ring of thorn and dried berry, woven small enough for a child and sharp enough to mean it.",
+            "prop": "berry_bush",
+            "width": 140,
+            "keyItem": true
+        },
+        "cinder_compass": {
+            "name": "Cinder Compass",
+            "description": "A compass whose needle points not north but toward the nearest thing still burning.",
+            "prop": "wooden_chest",
+            "width": 140,
+            "keyItem": true
+        },
+        "relay_tuning_fork": {
+            "name": "Relay Tuning Fork",
+            "description": "A tuning fork for a frequency no ear can hear, humming very slightly against your palm as if it noticed you noticing.",
+            "prop": "signal_relay_mast",
+            "width": 130,
+            "keyItem": true
+        },
+        "mirror_shard": {
+            "name": "Mirror Shard",
+            "description": "A shard of the ford's still surface - cold, curved, and showing a slightly different sky than the one overhead.",
+            "prop": "shattered_mirror_shard",
+            "width": 150,
+            "keyItem": true
+        },
+        "vigil_lantern": {
+            "name": "Vigil Lantern",
+            "description": "A lantern kept lit by a whole village taking turns. It carries the warmth of every hand that ever held it.",
+            "prop": "standing_torch_sconce",
+            "width": 130,
+            "keyItem": true
+        },
+        "hum_keystone": {
+            "name": "Hum Keystone",
+            "description": "A stone worn smooth by something that hums through it. Ten notes on ten stones, and this one keeps the count.",
+            "prop": "runic_standing_stone",
+            "width": 150,
+            "keyItem": true
+        },
         "iron_sword": {
             "name": "Iron Sword",
             "description": "A plain, well-worn shortsword. Nothing special, and reliable for it.",

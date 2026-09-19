@@ -4,13 +4,13 @@
 
 v0.6.9
 
-> *A 100-chapter isometric RPG. Six chapters are done. The other ninety-four are, uh, "in the pipeline."*
+> *A 100-chapter isometric RPG. Sixteen chapters are done. The other eighty-four are, uh, "in the pipeline."*
 
 **ShadowShine** (formerly "Umbraloom", until we decided nobody could spell it) is a from-scratch **C++20 / Qt6** isometric RPG engine, plus the story it runs. It's a rewrite of an old C/SDL2 engine, which lives on in `T2gu-legacy/` like an embarrassing photo in a parent's attic: preserved, unbuilt, and not to be touched.
 
 ## What you get
 
-- **6 chapters**, from the cozy village of *Fernhollow* to *The Nameless Threshold*, a name that suggests things go downhill. Along the way: *Ada Town*, *The Hollow Under*, *The Rusted Line* and *Ashfall*.
+- **16 chapters**, from the cozy village of *Fernhollow* to *The Long Room*, by way of *The Nameless Threshold*, a name that suggests things go downhill. Along the way: *Ada Town*, *The Hollow Under*, *The Rusted Line*, *Ashfall*, and ten more towns that each come with their own maze, weather and quest. Levels alternate between running left to right and right to left, just to keep you honest.
 - **115 characters**, each with 65 hand-... well, *machine*-posed sprites: idle, walk, run, defend, attack, skill, hit, die, dash and jump, front and back. That's 65 poses per character, or about 7,500 poses in total, and every one had to be checked for a stray caption or a leg cut off at the knee.
 - **Real-time combat**, a party system, inventory, fireballs (only if you're smart enough; the engine checks your Intelligence stat and finds you wanting), riddles, hostages to rescue, and NPCs with opinions.
 - **Levels that are the same every time you run them.** Layouts come from a seeded PRNG (`mulberry32`), not `Math.random()`, so when a tree spawns on your head it spawns on your head *reproducibly*, and we can fix it once and trust it forever.
@@ -35,6 +35,18 @@ T2GU_MAP_PATH=assets/maps/chapter4.json ./build/T2gu2
 ```
 
 Yes, you can go straight to *The Rusted Line* without earning it. We won't judge. Much.
+
+### Installing it (Linux)
+
+```sh
+cmake -S . -B build -DCMAKE_INSTALL_PREFIX=$HOME/.local   # or leave the default, /usr/local
+cmake --build build -j$(nproc)
+cmake --install build                                     # `make install` works too; sudo for /usr/local
+```
+
+That puts `T2gu2` in `<prefix>/bin`, the app icons in the hicolor icon theme, a `t2gu2.desktop` launcher in `<prefix>/share/applications` (so it shows up in your app menu as *ShadowShine*), and the whole `assets/` tree in `<prefix>/share/t2gu2/assets`. Fair warning: that last part is about 1 GB, because every character is a 4480×10120 sprite sheet and we have opinions about frames.
+
+The installed game finds its assets on its own, next to the binary, so you can delete the source tree afterwards. Set `T2GU_ASSET_DIR` to point it somewhere else. Pick the prefix when you configure, not with `--prefix` at install time: the launcher's `Exec=` line is written from it. To uninstall, `xargs rm < build/install_manifest.txt` (it leaves some empty directories behind, which is between you and them).
 
 ## Controls
 
@@ -91,7 +103,7 @@ Want to write a chapter? Read [`docs/SCRIPTING.md`](docs/SCRIPTING.md). Want to 
 There is no unit test suite. Our testing strategy is to run every chapter headless and stare at the terminal until it prints no warnings:
 
 ```sh
-for ch in 1 2 3 4 5 6; do
+for ch in $(seq 1 16); do
   timeout 8 env QT_QPA_PLATFORM=offscreen T2GU_MAP_PATH="assets/maps/chapter$ch.json" ./build/T2gu2 2>&1 | grep -iE "error|warning|fatal|assert"
 done
 ```

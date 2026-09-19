@@ -26,10 +26,22 @@ cmake --build build -j$(nproc)
 ```
 
 - Requires Qt6 (Widgets, Qml, Multimedia).
-- `ASSET_DIR` is a compile-time absolute path baked in via
-  `target_compile_definitions` (`${CMAKE_SOURCE_DIR}/assets`) — the
-  installed binary is not relocatable by itself; see the save-format note
-  below for how saves avoid depending on this.
+- Assets are found through `assetDir()`/`assetPath()` (`src/AssetPath.h`) —
+  never build a path from the `ASSET_DIR` macro directly (`QStringLiteral(ASSET_DIR
+  "/x")` was the old pattern and is gone). Resolution order: `$T2GU_ASSET_DIR`,
+  then `<exe dir>/../share/t2gu2/assets` (what `make install` produces, so an
+  installed copy is relocatable), then `ASSET_DIR`, the compile-time absolute
+  path to the source tree's `assets/` that a run out of `build/` uses. See the
+  save-format note below for how saves avoid depending on any of these.
+- **Install (Linux):** `cmake --install build` / `make install` installs the
+  binary, all of `assets/` (~1 GB) to `<prefix>/share/t2gu2/assets`, the
+  `app_icon_*.png` set as hicolor `t2gu2.png`, and `t2gu2.desktop` (generated
+  at configure time from `packaging/t2gu2.desktop.in`, so `Exec=` follows the
+  *configure-time* `CMAKE_INSTALL_PREFIX`, not an install-time `--prefix`).
+  `main.cpp` calls `setDesktopFileName("t2gu2")` so a Wayland app-id matches
+  the desktop file. Validate the launcher with `desktop-file-validate`.
+  If `build/install_manifest.txt` is root-owned (an earlier `sudo make
+  install`), run installs with sudo or use a separate build directory.
 - `T2GU_MAP_PATH` env var overrides which map boots first (defaults to
   `chapter1.json`) — use it to jump straight into any map/chapter or the
   sandbox without recompiling or playing through.
@@ -40,7 +52,7 @@ cmake --build build -j$(nproc)
   touches level generation, combat, or scripting, and check for zero
   warnings:
   ```sh
-  for ch in 1 2 3 4 5 6; do
+  for ch in $(seq 1 16); do
     timeout 8 env QT_QPA_PLATFORM=offscreen T2GU_MAP_PATH="assets/maps/chapter$ch.json" ./build/T2gu2 2>&1 | grep -iE "error|warning|fatal|assert"
   done
   ```
@@ -181,7 +193,7 @@ before touching `ScriptEngine`/`ScriptBridge`:
   is copy-pasted verbatim into every chapter script rather than shared via
   a module, because scripts can't `import`/`require` each other in this
   engine. When fixing a bug in one of these, grep for the same function
-  name across all 6 `chapterN.js` files — they're expected to be
+  name across every `chapterN.js` file — they're expected to be
   identical (`awk '/^function X/,/^}/' fileA | md5sum` vs `fileB` is the
   fast way to confirm before/after a fix stayed in sync).
 - Every generator/scatter function takes a `seed` and uses `mulberry32`
@@ -194,7 +206,8 @@ before touching `ScriptEngine`/`ScriptBridge`:
 
 ## Level generation conventions
 
-Every chapter follows the same macro-shape: a small entrance pocket (plain
+Chapters 2–6 follow this macro-shape (chapters 1 and 7–16 are
+"town, then maze" — see the next subsection): a small entrance pocket (plain
 `scatterOrganic` decoration, no maze) → one whole-map `buildBranchingMaze`
 (a real branching structure — recursive-backtracker spanning tree + a 15%
 braid pass for extra loops, not a single corridor) → optionally one small
@@ -203,6 +216,74 @@ vault). Don't reintroduce the old segmented/multi-zone pattern without
 being asked — this shape was arrived at after several rounds of explicit
 user feedback rejecting straight corridors, then single curvy corridors,
 then segmented mazes.
+
+### Town, then maze (chapters 1 and 7–16)
+
+Chapter 1 was reformulated and ten chapters (7–16) added on this shape: a
+walkable **town first**, then the **maze**, then a small exit pocket that
+holds the chapter's key item. Levels alternate direction — 1, 8, 10, 12, 14
+and 16 run left→right, 7, 9, 11, 13 and 15 right→left — so the hero spawns
+against the west or east edge. Along the level: `[border][town][river —
+chapters 1 and 14 only][maze][pocket][border]`.
+
+| Ch | Title | Tileset | Light | Dir | Quest |
+|----|-------|---------|-------|-----|-------|
+| 1 | Fernhollow | grass_water | sunrise | → | Wren, order-of-three riddle, fox/deer riddle, hostage, glowing acorn; a river with one ford |
+| 7 | The Frostmarket | dirt_snow | sunrise | ← | herd three stray horses to the pasture gate |
+| 8 | Lanternside | dirty_plate_asphalt | torch | → | three permit chips for the checkpoint warden |
+| 9 | Highgate Toll | grass_stone | sunset | ← | five troll kills clear the toll bar |
+| 10 | The Mourning Fair | haunted_grass_cobble | mystical | → | a rite whose order (moon, sun, storm) is taught by a riddle in town |
+| 11 | The Bramble Bazaar | grass_dirt | none | ← | alchemist trade: three ingredients for the bramble crown (no gate) |
+| 12 | Cinderport | stone_grass | torch | → | boss hunt: a 260 hp golem holds the crucible gate; 3-tile corridors |
+| 13 | The Undertrack | asphalt_dirty_plate | cavern | ← | relay chain: each relay wakes only after the one upstream |
+| 14 | Mirrorwater Ford | grass_water | mystical | → | a toll of three valuables, paid in town, opens the ford gate |
+| 15 | The Vigil Lights | snow_grass | sunset | ← | wave defense: three waves at the Vigil Light |
+| 16 | The Long Room | dirt_grass | sunrise | → | hostage + relic "chord" check + boss; ends on a hook, **no `loadLevel`** |
+
+- **Maps are generated**: `python3 tools/make_chapter_maps.py [N ...] [--out DIR]`
+  rewrites `assets/maps/chapterN.json` (ground only — the `obj` grid is empty;
+  props are spawned by the script). The `SPECS` table at the bottom of that
+  file is the source of truth for size, tileset, direction and the
+  town/river/maze/pocket column split; the same numbers are stored in each
+  map's `"layout"` field and repeated as constants (`W`, `H`, `DIR`, `MID`,
+  `TOWN_U`, `MAZE_WEST/EAST/NORTH/SOUTH`, `POCKET_U0/U1`) at the top of each
+  script. Change a spec and the script constants must follow. Running it
+  with no arguments reproduces every shipped map byte for byte.
+- **Coordinates in these scripts are `u`**, a column counted from the start
+  edge; `colAt(u)` turns it into an absolute column for either direction, and
+  `mazeProgress(cell)` (0 at the maze entrance, 1 at its exit) is what
+  `takeCells(pool, from, to, count, seed)` samples by. Never write an absolute
+  column in a chapter body — it would only be right for one direction.
+- The shared helper block is still copy-pasted verbatim per script (see
+  *Scripting system*). `buildBranchingMaze` now takes a trailing options
+  object: `flip` (mirror the maze for right→left levels), `diagonalSeam`
+  (keeps wide core props from poking into corridor corners) and `solid`
+  (adds invisible full-tile `mzwall_k` barriers under every wall). **Prop
+  footprints alone leave slits between props, so a maze without `solid` can be
+  walked straight through** — proven with a scripted bot in the real engine.
+  Every chapter passes `solid: true` (chapters 2–6 got it after the fact, with
+  identical props/NPCs/enemies/items — only barriers were added). Tilesets with
+  no border ring and no interior wall ring (chapters 4 and 5, plus the
+  generated no-ring maps, which span the maze over the whole height) would
+  leave the top and bottom rows as a free corridor around the maze, so chapters
+  4 and 5 also seal rows 0 and H-1 with `mzedge_north`/`mzedge_south` barriers.
+- A quest that gates progress does it with `setExitGate(id, exitRows,
+  blocked)` (a 2×2 barrier across the maze exit; chapter 14 gates the river
+  ford instead) and lifts it with `api.setBarrier(id, 0, 0, 1, 1, false)`.
+  Spawn-once guard vars protect hostiles, loot and bosses from respawning;
+  NPCs are respawned on every level start. Hostile roster keys must not
+  collide with an NPC or companion key in the same scene (`dark_knight`,
+  `dwarf_miner`, `cyber_engineer` and `cyber_medic` are never enemies).
+- Each chapter ends its key-item pickup with `setGlobalVar("chapter", n+1)`
+  and `loadLevel("chapter{n+1}.json")`; chapter 6 now hands off to 7. Chapter
+  16 sets `chapter` to 17 and stops on the open door — there is no chapter 17.
+- Verification used a scratch harness that is **not in the repo**: a mock
+  `api` that runs `onLevelStart`, rasterizes props/water/barriers at 16 px,
+  checks BFS reachability of every NPC, item and enemy with the real talk
+  (120 px) and pickup (100 px) radii, and measures maze sealing by comparing
+  the median walking distance to the straight-line distance. Rebuild that
+  kind of check before changing a maze or a gate; then load each chapter in
+  the real engine under a memory guard (peak RSS 0.8–1.2 GB for these maps).
 
 - `buildBranchingMaze`'s wall filling is split into `coreObstacles` (one
   big set-piece type per whole contiguous wall block — trees, buildings,
@@ -514,7 +595,7 @@ the current name-as-both-things scheme.
   it commented out or unreferenced "for later."
 - Match existing patterns before introducing a new one. If two nearly-
   identical implementations already exist across files that can't share
-  code (the 6 chapter scripts), a third one should look exactly like the
+  code (the chapter scripts), a third one should look exactly like the
   other two, not introduce a stylistic variant.
 - Prefer measuring over guessing. Several bugs in this project's history
   were root-caused by directly checking real data (pixel-sampling a

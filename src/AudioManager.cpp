@@ -1,4 +1,5 @@
 #include "AudioManager.h"
+#include "AssetPath.h"
 
 #include <QUrl>
 
@@ -23,7 +24,7 @@ QSoundEffect *AudioManager::effectFor(const QString &name)
         // handles the exact same Vorbis-in-Ogg format fine. A new sfx MUST
         // ship as .wav; convert with `ffmpeg -i in.ogg -c:a pcm_s16le
         // out.wav` if it arrives as anything else.
-        effect->setSource(QUrl::fromLocalFile(QStringLiteral(ASSET_DIR "/audio/sfx/%1.wav").arg(name)));
+        effect->setSource(QUrl::fromLocalFile(assetPath(QStringLiteral("/audio/sfx/%1.wav")).arg(name)));
     }
     return effect;
 }
@@ -80,7 +81,7 @@ void AudioManager::playMusic(const QString &name, bool loop)
     }
     m_musicOutput.setVolume(1.0f);
 
-    m_musicPlayer.setSource(QUrl::fromLocalFile(QStringLiteral(ASSET_DIR "/audio/music/%1.ogg").arg(name)));
+    m_musicPlayer.setSource(QUrl::fromLocalFile(assetPath(QStringLiteral("/audio/music/%1.ogg")).arg(name)));
     m_musicPlayer.setLoops(loop ? QMediaPlayer::Infinite : 1);
     m_musicPlayer.play();
 }
