@@ -369,11 +369,11 @@ function buildTheHollow() {
     }
 
     // Order-of-three riddle-keepers, spaced deep along the same corridor -
-    // gnome_alchemist (mixes) -> earth_spirit (settles) -> tribal_elder_man
+    // gnome_alchemist (mixes) -> earth_spirit (settles) -> tribal_elder_woman
     // (remembers).
     api.spawnNpc("gnome_alchemist", spots[64].col, spots[64].row);
     api.spawnNpc("earth_spirit", spots[65].col, spots[65].row);
-    api.spawnNpc("tribal_elder_man", spots[66].col, spots[66].row);
+    api.spawnNpc("tribal_elder_woman", spots[66].col, spots[66].row);
 
     if (!api.getVar("hostage_spawned", false)) {
         api.setVar("hostage_spawned", true);
@@ -424,7 +424,7 @@ function buildEndAlcove() {
 function* onTalkTo(name) {
     if (name === "dwarf_miner") {
         yield* talkToCobb();
-    } else if (name === "gnome_alchemist" || name === "earth_spirit" || name === "tribal_elder_man") {
+    } else if (name === "gnome_alchemist" || name === "earth_spirit" || name === "tribal_elder_woman") {
         yield* talkToRiddleKeeper(name);
     } else if (name === "miner") {
         yield* rescueHostage();
@@ -455,10 +455,10 @@ function* talkToCobb() {
 }
 
 // Order-of-three riddle: gnome_alchemist (mixes) -> earth_spirit (settles)
-// -> tribal_elder_man (remembers).
+// -> tribal_elder_woman (remembers).
 function* talkToRiddleKeeper(name) {
-    const order = ["gnome_alchemist", "earth_spirit", "tribal_elder_man"];
-    const displayName = { gnome_alchemist: "Mix", earth_spirit: "Settle", tribal_elder_man: "Remember" }[name];
+    const order = ["gnome_alchemist", "earth_spirit", "tribal_elder_woman"];
+    const displayName = { gnome_alchemist: "Mix", earth_spirit: "Settle", tribal_elder_woman: "Remember" }[name];
     const step = api.getVar("riddle_step", 0);
     api.playSound("select");
 

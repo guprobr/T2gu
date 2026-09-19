@@ -353,7 +353,7 @@ function buildTrialMaze() {
 
     // One shared, non-overlapping cell set for EVERYTHING placed in the
     // maze - 60 hostiles (double the old two-Trial+chamber total of 30:
-    // wolf x16, orc x18, troll x16, minotaur x8, skeleton_swordsman x2) +
+    // wolf x16, orc x18, troll x16, lizardman x8, skeleton_swordsman x2) +
     // the three Trial-keepers + the hostage + 16 loot items (8 health
     // potions - tripled from the original 2/level baseline, per-level
     // healing supply pass - and 2 general trinkets on top of the original
@@ -363,7 +363,7 @@ function buildTrialMaze() {
 
     if (!api.getVar("trial_hostiles_spawned", false)) {
         api.setVar("trial_hostiles_spawned", true);
-        const hp = { wolf: 35, orc: 45, troll: 55, minotaur: 60, skeleton_swordsman: 40 };
+        const hp = { wolf: 35, orc: 45, troll: 55, lizardman: 60, skeleton_swordsman: 40 };
         const hostileTypes = [
             "wolf", "wolf", "wolf", "wolf", "wolf", "wolf", "wolf", "wolf",
             "wolf", "wolf", "wolf", "wolf", "wolf", "wolf", "wolf", "wolf",
@@ -371,7 +371,7 @@ function buildTrialMaze() {
             "orc", "orc", "orc", "orc", "orc", "orc", "orc", "orc", "orc",
             "troll", "troll", "troll", "troll", "troll", "troll", "troll", "troll",
             "troll", "troll", "troll", "troll", "troll", "troll", "troll", "troll",
-            "minotaur", "minotaur", "minotaur", "minotaur", "minotaur", "minotaur", "minotaur", "minotaur",
+            "lizardman", "lizardman", "lizardman", "lizardman", "lizardman", "lizardman", "lizardman", "lizardman",
             "skeleton_swordsman", "skeleton_swordsman",
         ];
         hostileTypes.forEach(type => { api.spawnEnemy(type, spots[i].col, spots[i].row, hp[type]); i++; });
@@ -379,9 +379,9 @@ function buildTrialMaze() {
         i += 60;
     }
 
-    // Trial-keepers - dark_elf_mage (Courage) -> ice_spirit (Kindness) ->
+    // Trial-keepers - dark_knight (Courage) -> ice_spirit (Kindness) ->
     // necromancer (Humility). See onTalkTo/faceTrial().
-    api.spawnNpc("dark_elf_mage", spots[i].col, spots[i].row); i++;
+    api.spawnNpc("dark_knight", spots[i].col, spots[i].row); i++;
     api.spawnNpc("ice_spirit", spots[i].col, spots[i].row); i++;
     api.spawnNpc("necromancer", spots[i].col, spots[i].row); i++;
 
@@ -438,7 +438,7 @@ function buildThreshold() {
 }
 
 function* onTalkTo(name) {
-    if (name === "dark_elf_mage" || name === "ice_spirit" || name === "necromancer") {
+    if (name === "dark_knight" || name === "ice_spirit" || name === "necromancer") {
         yield* faceTrial(name);
     } else if (name === "sun_spirit") {
         yield* rescueHostage();
@@ -453,8 +453,8 @@ function* onTalkTo(name) {
 // different framing from the listen/remember/answer riddles earlier
 // chapters share, since this is the story's biggest turn so far.
 function* faceTrial(name) {
-    const order = ["dark_elf_mage", "ice_spirit", "necromancer"];
-    const displayName = { dark_elf_mage: "the Trial of Courage", ice_spirit: "the Trial of Kindness", necromancer: "the Trial of Humility" }[name];
+    const order = ["dark_knight", "ice_spirit", "necromancer"];
+    const displayName = { dark_knight: "the Trial of Courage", ice_spirit: "the Trial of Kindness", necromancer: "the Trial of Humility" }[name];
     const step = api.getVar("trial_step", 0);
     api.playSound("select");
 
@@ -601,7 +601,7 @@ function* onEnemyDefeated(name) {
     } else if (name === "golem") {
         yield api.wait(0.3);
         yield api.say("Cobb", "Whoever built that meant it to last forever. Forever ran out today.");
-    } else if (name === "minotaur") {
+    } else if (name === "lizardman") {
         yield api.wait(0.3);
         yield api.say("Vex", "That one wasn't guarding anything. It was just angry, and this was as far as the anger got it.");
     }

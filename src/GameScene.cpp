@@ -236,8 +236,8 @@ constexpr qreal kPartyAttackCooldown = 1.2;
 // variant 3-4, orc 5, troll 3, zombie_peasant 2, the mech-* line 7-10 -
 // checked the whole hostile roster, none crack 11) shut out entirely,
 // while still letting the actual mage/spirit/undead-caster archetypes
-// (necromancer 21, dark_elf_mage/gnome_wizard 20, the elemental spirits at
-// 17-19, cyber_medic/tribal_girl_staff 16, etc.) through - the "most
+// (necromancer 21, gnome_wizard 20, the elemental spirits at
+// 17-19, cyber_medic 16, etc.) through - the "most
 // monsters don't have intelligence enough" split asked for, on the hostile
 // side specifically. On the party side this is deliberately low enough
 // that lara_cyber's own base 12 already clears it: the player's starting
@@ -1715,6 +1715,38 @@ void GameScene::toggleHealthBarDisplay()
     applyHealthBarDisplay();
 }
 
+namespace {
+// Same 10 rows every character sheet follows (see the LARASPRITE pipeline
+// notes) - idle/walk/run aren't normally driven through startAction() in
+// real gameplay (Character::updatePixmap() picks those from velocity/
+// running state instead), but startAction() works uniformly for all ten
+// for preview purposes since it just forces isActing() true and plays the
+// named row's frames once.
+const QStringList kPosePreviewRows = {
+    QStringLiteral("idle"), QStringLiteral("walk"), QStringLiteral("run"),
+    QStringLiteral("defend"), QStringLiteral("attack"), QStringLiteral("skill"),
+    QStringLiteral("hit"), QStringLiteral("die"), QStringLiteral("dash"),
+    QStringLiteral("jump"),
+};
+constexpr qreal kPosePreviewSecondsPerRow = 1.8;
+}
+
+void GameScene::togglePosePreview()
+{
+    m_posePreviewActive = !m_posePreviewActive;
+    if (!m_posePreviewActive) {
+        m_posePreviewRowIndex = -1;
+        m_posePreviewElapsed = 0.0;
+        return;
+    }
+    m_posePreviewRowIndex = 0;
+    m_posePreviewElapsed = 0.0;
+    if (Character *character = controlledCharacter()) {
+        character->setVelocity(QPointF(0, 0));
+        character->playPreviewAction(kPosePreviewRows.at(m_posePreviewRowIndex));
+    }
+}
+
 void GameScene::applyHealthBarDisplay()
 {
     for (int i = 0; i < m_party.size(); ++i) {
@@ -2539,6 +2571,19 @@ void GameScene::onTick()
             it = m_temporarilyBlockedCells.erase(it);
         else
             ++it;
+    }
+
+    // See togglePosePreview() - advances the forced pose loop on its own
+    // timer, independent of whatever combat/movement would otherwise be
+    // driving the controlled character's animation this tick.
+    if (m_posePreviewActive) {
+        m_posePreviewElapsed += dt;
+        if (m_posePreviewElapsed >= kPosePreviewSecondsPerRow) {
+            m_posePreviewElapsed -= kPosePreviewSecondsPerRow;
+            m_posePreviewRowIndex = (m_posePreviewRowIndex + 1) % kPosePreviewRows.size();
+            if (Character *character = controlledCharacter())
+                character->playPreviewAction(kPosePreviewRows.at(m_posePreviewRowIndex));
+        }
     }
 
     m_scriptEngine.onTick(dt);

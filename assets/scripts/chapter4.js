@@ -354,11 +354,11 @@ function buildJunctionGauntlet() {
     const spots = sampleCells(cells, 67, 41002);
     if (!api.getVar("gauntlet_hostiles_spawned", false)) {
         api.setVar("gauntlet_hostiles_spawned", true);
-        // Exactly the original mix (mech_spider x2, mech_scorpion x2,
+        // Exactly the original mix (mech_spider x2, mech_crimson_warbot x2,
         // cyber_trooper x1, mech_stealth_fighter x1), repeated 8x (double
         // the original 4x) - "for every maze creature, four times more,
         // twice over."
-        const oneShare = ["mech_spider", "mech_scorpion", "cyber_trooper", "mech_stealth_fighter", "mech_spider", "mech_scorpion"];
+        const oneShare = ["mech_spider", "mech_crimson_warbot", "cyber_trooper", "mech_stealth_fighter", "mech_spider", "mech_crimson_warbot"];
         const hostileTypes = [].concat(oneShare, oneShare, oneShare, oneShare, oneShare, oneShare, oneShare, oneShare);
         hostileTypes.forEach((type, i) => api.spawnEnemy(type, spots[i].col, spots[i].row, 40));
     }
@@ -414,7 +414,7 @@ function buildEndVault() {
         api.spawnEnemy("cyber_trooper", 173, 50, 40);
     }
     // The second half of the cyber-mystic's riddle, set up at the surface.
-    api.spawnNpc("cyber_assassin", 175, 75);
+    api.spawnNpc("cyber_swordfighter", 175, 75);
 
     if (api.getVar("vault_loot_spawned", false))
         return;
@@ -432,7 +432,7 @@ function* onTalkTo(name) {
         yield* activateTerminal(name);
     } else if (name === "merchant") {
         yield* rescueHostage();
-    } else if (name === "cyber_mystic" || name === "cyber_assassin") {
+    } else if (name === "cyber_mystic" || name === "cyber_swordfighter") {
         yield* talkToSignalKeeper(name);
     }
 }
@@ -499,8 +499,8 @@ function* activateTerminal(name) {
 // order-of-three - the mystic at the surface, the assassin only found deep
 // in the End Vault.
 function* talkToSignalKeeper(name) {
-    const order = ["cyber_mystic", "cyber_assassin"];
-    const displayName = { cyber_mystic: "the Mystic Fragment", cyber_assassin: "the Assassin Fragment" }[name];
+    const order = ["cyber_mystic", "cyber_swordfighter"];
+    const displayName = { cyber_mystic: "the Mystic Fragment", cyber_swordfighter: "the Assassin Fragment" }[name];
     const step = api.getVar("signalRiddle_step", 0);
     api.playSound("select");
 
@@ -550,7 +550,7 @@ function* onEnemyDefeated(name) {
     if (Math.random() > 0.1)
         return;
 
-    if (name === "mech_spider" || name === "mech_scorpion") {
+    if (name === "mech_spider" || name === "mech_crimson_warbot") {
         yield api.wait(0.3);
         yield api.say("Vex", "Autonomous scrap. Whatever it was guarding, it forgot the reason around the same time it forgot to shut down.");
     } else if (name === "cyber_trooper") {

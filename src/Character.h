@@ -98,6 +98,14 @@ public:
     // handles the animation/lockout, not the actual projectile or damage.
     void triggerSkill();
 
+    // Dev/debug only (see GameScene::togglePosePreview()) - forces the
+    // named row to play immediately, unlike triggerAttack()/triggerSkill()
+    // this does NOT check isActing() first, since the preview loop calls it
+    // on its own timer to forcibly override whatever the previous previewed
+    // row left in progress. Does nothing but change what's displayed - no
+    // damage/lockout semantics, and never sets m_dead even for "die".
+    void playPreviewAction(const QString &row) { startAction(row); }
+
     // Reduces HP, clamped at 0, and plays "hit" or (on lethal damage) "die".
     // No-op once already dead. A Character that was never given HP via
     // setMaxHp() can't be damaged (maxHp() stays 0).

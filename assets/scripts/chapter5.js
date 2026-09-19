@@ -377,9 +377,9 @@ function buildMourningRowMaze() {
     api.spawnNpc("fire_spirit", spots[i].col, spots[i].row); i++;
     api.spawnNpc("farmer_reaper", spots[i].col, spots[i].row); i++;
 
-    // Order-of-three riddle: tribal_elder_man (mourns) -> moon_spirit
+    // Order-of-three riddle: tribal_elder_woman (mourns) -> moon_spirit
     // (watches) -> love_spirit (forgives).
-    api.spawnNpc("tribal_elder_man", spots[i].col, spots[i].row); i++;
+    api.spawnNpc("tribal_elder_woman", spots[i].col, spots[i].row); i++;
     api.spawnNpc("moon_spirit", spots[i].col, spots[i].row); i++;
     api.spawnNpc("love_spirit", spots[i].col, spots[i].row); i++;
 
@@ -413,7 +413,7 @@ function buildMourningRowMaze() {
 function* onTalkTo(name) {
     if (name === "cyber_medic") {
         yield* talkToNettle();
-    } else if (name === "tribal_elder_man" || name === "moon_spirit" || name === "love_spirit") {
+    } else if (name === "tribal_elder_woman" || name === "moon_spirit" || name === "love_spirit") {
         yield* talkToRiddleKeeper(name);
     } else if (name === "innkeeper") {
         yield* rescueHostage();
@@ -444,11 +444,11 @@ function* talkToNettle() {
     }
 }
 
-// Order-of-three riddle: tribal_elder_man (mourns) -> moon_spirit
+// Order-of-three riddle: tribal_elder_woman (mourns) -> moon_spirit
 // (watches) -> love_spirit (forgives).
 function* talkToRiddleKeeper(name) {
-    const order = ["tribal_elder_man", "moon_spirit", "love_spirit"];
-    const displayName = { tribal_elder_man: "Mourn", moon_spirit: "Watch", love_spirit: "Forgive" }[name];
+    const order = ["tribal_elder_woman", "moon_spirit", "love_spirit"];
+    const displayName = { tribal_elder_woman: "Mourn", moon_spirit: "Watch", love_spirit: "Forgive" }[name];
     const step = api.getVar("riddle_step", 0);
     api.playSound("select");
 

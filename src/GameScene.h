@@ -97,6 +97,19 @@ public:
     // MainWindow::keyPressEvent.
     void toggleHealthBarDisplay();
 
+    // Dev/debug shortcut (K in MainWindow) - toggles a slow forced loop
+    // through every animation row (idle/walk/run/defend/attack/skill/hit/
+    // die/dash/jump) on the controlled character, regardless of what would
+    // normally trigger each one - hit/die only ever fire from combat, and
+    // nothing in any chapter script triggers defend/dash/jump at all. This
+    // is the only way to see every pose rendered live through the real
+    // SpriteSheet/Character pipeline rather than as a static crop of the
+    // sheet file. Driven from onTick(); see isPosePreviewActive(), which
+    // MainWindow::refreshMoveIntent() checks to withhold movement input
+    // while a preview is running so held WASD keys don't fight it.
+    void togglePosePreview();
+    bool isPosePreviewActive() const { return m_posePreviewActive; }
+
     // True while a script's `say()` yield is on screen waiting for the
     // player to advance it - MainWindow checks this to route Enter to
     // advanceDialogue() and to withhold Ctrl's attack while it's up. Also
@@ -643,6 +656,12 @@ private:
     // dominant per-frame cost once map prop counts reached the thousands.
     BlockingGrid m_blockingAreas;
     QHash<QString, QRectF> m_namedBarriers; // see scriptSetBarrier() - lets a story-gate barrier be lifted later by id
+    // See togglePosePreview()/isPosePreviewActive(). m_posePreviewRowIndex
+    // indexes into the row list defined alongside togglePosePreview()'s
+    // implementation; -1 while inactive.
+    bool m_posePreviewActive = false;
+    int m_posePreviewRowIndex = -1;
+    qreal m_posePreviewElapsed = 0.0;
     int m_controlledIndex = 0;
     // -1 unless the current selection (see m_selectedItem) is a party
     // member - commandSelectedCharacter()'s own index into m_party.

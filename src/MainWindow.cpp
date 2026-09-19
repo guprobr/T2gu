@@ -799,6 +799,18 @@ void MainWindow::keyPressEvent(QKeyEvent *event)
         return;
     }
 
+    if (!event->isAutoRepeat() && event->key() == Qt::Key_K) {
+        // Dev/debug shortcut - loops the controlled character through every
+        // animation row (including hit/die/defend/dash/jump, which nothing
+        // in the real game ever triggers outside combat, or at all) so a
+        // new sprite batch can be checked live through the engine instead
+        // of just as a static crop of the sheet file. See
+        // GameScene::togglePosePreview().
+        m_scene->togglePosePreview();
+        refreshMoveIntent(); // freeze movement immediately if a preview just started
+        return;
+    }
+
     if (!event->isAutoRepeat() && event->key() == Qt::Key_N) {
         // Dev/debug shortcut - skip straight to the next chapter.
         jumpToNextLevel();
@@ -872,9 +884,10 @@ void MainWindow::refreshMoveIntent()
     if (!character)
         return; // no party loaded (e.g. assets/characters/ is empty) - nothing to drive
 
-    if (m_scene->isDialogueActive() || m_inventoryOpen || m_deathMenuOpen) {
+    if (m_scene->isDialogueActive() || m_inventoryOpen || m_deathMenuOpen || m_scene->isPosePreviewActive()) {
         // Held movement keys must not carry the player anywhere while a
-        // line of dialogue, the inventory menu, or the death menu is up.
+        // line of dialogue, the inventory menu, the death menu, or a K-key
+        // pose preview (see GameScene::togglePosePreview()) is up.
         // The dialogue case used to let someone wander into a story area
         // before finishing the conversation that was meant to gate it,
         // since that area's props/enemies only spawn once the conversation
