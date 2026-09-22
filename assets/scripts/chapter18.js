@@ -538,10 +538,10 @@ function* onLevelStart() {
     api.setVar("chapter18_intro_seen", true);
 
     yield api.wait(0.6);
-    yield api.say("Lara", "Cobbles, a gatehouse, a forge with its fire banked low. The bailey of a keep - and above us, the keep itself, with every window shuttered.");
-    yield* companionSays("vex_recruited", "Vex", "The locks here are mechanical, not magical. Pin tumblers. That is a comfort, in its way - a pin tumbler cannot resent you.");
-    yield* companionSays("vigil_recruited", "Vigil", "Someone locked these doors from the inside, and then left by another way. I know that kind of tiredness.");
-    yield api.say("Hint", "This level runs left to right. The town is behind you; the Undercroft is ahead, to the east, and it has doors.");
+    yield api.say("Lara", "Cobbles, a gatehouse, a forge with its fire banked low. The bailey of a keep - and looming above us, the keep itself, every single window shuttered tight.");
+    yield* companionSays("vex_recruited", "Vex", "The locks here are mechanical, not magical. Pin tumblers. That's a comfort, in its own way - a pin tumbler has never once resented anybody personally.");
+    yield* companionSays("vigil_recruited", "Vigil", "Someone locked these doors from the inside, then left by another way entirely. I recognize that particular flavor of tired.");
+    yield api.say("Hint", "This level runs left to right. The town is behind you; the Undercroft is ahead, to the east, and it has doors. Locked ones. Obviously.");
 }
 
 function buildTown() {
@@ -641,14 +641,14 @@ function* talkToCaptain() {
     api.setVar("captain_talks", n + 1);
     api.playSound("select");
     if (api.getVar("door_silver_open", false)) {
-        yield api.say("Captain Brann", "Both doors open. I have not seen the far end of the Undercroft in nineteen years. Go on - and shut nothing behind you.");
+        yield api.say("Captain Brann", "Both doors open. I haven't laid eyes on the far end of the Undercroft in nineteen years. Go on - and please, shut nothing behind you.");
     } else if (n === 0) {
-        yield api.say("Captain Brann", "The Keepwalk. Once the keep's bailey, now the town that grew in its lee. The Undercroft below is where the old garrison kept everything worth stealing - and where they locked everything they were afraid of.");
-        yield api.say("Captain Brann", "Two doors cross it. The bronze door about a third of the way in, the silver door two-thirds. Each has a Doorward who was told: open for the key, and for nothing else. They are very good at it.");
+        yield api.say("Captain Brann", "The Keepwalk. Once the keep's bailey, now the town that grew up comfortably in its shadow. The Undercroft below is where the old garrison kept everything worth stealing - and locked away everything they were afraid of.");
+        yield api.say("Captain Brann", "Two doors cross it. The bronze door about a third of the way in, the silver door two-thirds. Each has a Doorward under strict orders: open for the key, and for absolutely nothing else. They take that very, very seriously.");
         yield api.say("Lara", "And the keys?");
-        yield api.say("Captain Brann", "In the stretch before each door, guarded by whatever we left to guard them. The bronze key first, then the silver. You can't reach the silver key without the bronze door open - I have tried. Twice.");
+        yield api.say("Captain Brann", "In the stretch before each door, guarded by whatever we left to guard them. Bronze key first, then silver. You cannot reach the silver key without the bronze door open first - believe me, I've personally tried. Twice.");
     } else {
-        yield api.say("Captain Brann", "Bronze key opens the first door, silver key the second. Each key lies before its own door. Bring plenty of potions - the guards were told to be thorough.");
+        yield api.say("Captain Brann", "Bronze key opens the first door, silver key the second. Each key lies before its own door. Bring plenty of potions - the guards were told to be thorough, and thorough they remain.");
     }
 }
 
@@ -656,7 +656,7 @@ function* talkToDoorward(name) {
     const d = DOORS[name];
     api.playSound("select");
     if (api.getVar(d.id + "_open", false)) {
-        yield api.say(d.who, "Door's open. I'll keep the post anyway. Somebody should.");
+        yield api.say(d.who, "Door's open. I'll keep the post anyway. Somebody around here really should keep something.");
         return;
     }
     if (api.hasItem(d.key)) {
@@ -664,30 +664,30 @@ function* talkToDoorward(name) {
         api.setVar(d.id + "_open", true);
         api.setBarrier(d.id, 0, 0, 1, 1, false);
         api.giveExperience(80);
-        yield api.say(d.who, "*he turns the " + d.metal + " key in the air, looks at the stamp on it, and nods once* That's the one. Stand back.");
-        yield api.say(d.who, "*a long iron sound as the door swings inward along the whole width of the vault* Go on. " + d.next.charAt(0).toUpperCase() + d.next.slice(1) + " is yours.");
-        yield* companionSays("vex_recruited", "Vex", "Pin tumbler, seven pins, bronze. Elegant. I would like to meet whoever made it, and I suspect they are long gone.");
+        yield api.say(d.who, "*he turns the " + d.metal + " key in the air, inspects the stamp on it closely, and nods once, satisfied* That's the one. Stand back.");
+        yield api.say(d.who, "*a long iron groan as the door swings inward along the entire width of the vault* Go on. " + d.next.charAt(0).toUpperCase() + d.next.slice(1) + " is yours now.");
+        yield* companionSays("vex_recruited", "Vex", "Pin tumbler, seven pins, bronze. Genuinely elegant work. I'd love to meet whoever made it, and I strongly suspect they are extremely long gone.");
         return;
     }
     const n = api.getVar("ward_talks_" + name, 0);
     api.setVar("ward_talks_" + name, n + 1);
     if (n === 0) {
-        yield api.say(d.who, "This door opens for the " + d.metal + " key and for nothing else. Not a favour, not a fight. I was told that, and I was told that anyone who says otherwise is trying to get past me.");
-        yield api.say("Lara", "And where is the key?");
-        yield api.say(d.who, "Back the way you came, in the stretch before this door. Whatever was left to guard it will not be pleased to see you.");
+        yield api.say(d.who, "This door opens for the " + d.metal + " key and absolutely nothing else. Not a favor, not a fight, not a bribe, not a good story. I was told that, and told that anyone claiming otherwise is trying to get past me.");
+        yield api.say("Lara", "And where's the key, exactly?");
+        yield api.say(d.who, "Back the way you came, in the stretch before this door. Whatever was left there to guard it will not be pleased to see you.");
     } else {
-        yield api.say(d.who, "The " + d.metal + " key. Before this door, not after. Guarded.");
+        yield api.say(d.who, "The " + d.metal + " key. Before this door, not after. Guarded. I will say this as many times as required.");
     }
 }
 
 function* talkToTownsfolk(name) {
     const lines = {
-        blacksmith: ["I made half the locks in the Undercroft. Good locks. It's a strange thing, being proud of work whose entire purpose is to keep people out.",
-                     "The bronze key wears green at the edges. That's how you know it's the true one. The silver ones stay bright, which makes them easier to fake."],
-        innkeeper: ["The Undercroft draws a cold breath every evening. Warm soup, warm bed, warm words. That's the whole trade.",
-                    "Nobody comes back from the Undercroft in a hurry. They come back thoughtful, mostly."],
-        elder: ["A keep is a promise made of stone. This one was made in a hurry, by people who were sure of very little except that the dark was coming.",
-                "Frightened people build the strongest doors. It's the gentlest ones that need opening."],
+        blacksmith: ["I made half the locks in the Undercroft myself. Good locks. Strange thing, being proud of work whose entire purpose is keeping people firmly out.",
+                     "The bronze key wears green at the edges. That's how you tell it's the true one. Silver ones stay bright, which unfortunately makes them much easier to fake."],
+        innkeeper: ["The Undercroft draws a cold breath every single evening. Warm soup, warm bed, warm words. That is, in its entirety, the whole trade here.",
+                    "Nobody comes back from the Undercroft in a hurry. They come back thoughtful, mostly, and asking for a very large drink."],
+        elder: ["A keep is a promise made of stone. This one was built in a hurry, by people certain of very little except that the dark was, undeniably, coming.",
+                "Frightened people build the strongest doors you'll ever see. It's always the gentlest-looking ones that turn out to need opening most."],
     }[name];
     const displayName = { blacksmith: "Smith", innkeeper: "Landlord", elder: "Chaplain" }[name];
     const n = api.getVar("talk_" + name, 0);
@@ -701,10 +701,10 @@ function* onEnemyDefeated(name) {
         return;
     if (name === "skeleton_archer") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Still nocking an arrow at the door it was told to watch. The door is behind me now.");
+        yield api.say("Lara", "Still nocking an arrow at the exact door it was told to watch. The door, I should mention, is well behind me now.");
     } else if (name === "mummy") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Whoever was wrapped in these must have been very afraid of being found.");
+        yield api.say("Lara", "Whoever was wrapped up in all of this must have been genuinely terrified of being found.");
     }
 }
 
@@ -712,10 +712,10 @@ function* onItemCollected(itemId) {
     if (itemId !== "keepers_ring")
         return;
     yield api.wait(0.3);
-    yield api.say("Lara", "An iron ring, two keys' worth of wear on it, and room for a third. It sits on my finger like it has been waiting for one.");
-    yield api.say("???", "Second of nine. Keys are only trust, made small enough to carry. Whoever locked those doors was afraid, not cruel - remember that when you are the one holding the ring.");
-    yield api.say("Lara", "You keep saying that. Like you've held one yourself.");
-    yield api.say("???", "Once. It was heavier than I expected. Onward - a village of gold, now, that has forgotten what gold is for.");
+    yield api.say("Lara", "An iron ring, two keys' worth of wear already on it, and room left for a third. It sits on my finger like it's been waiting specifically for one.");
+    yield api.say("???", "Second of nine. Keys are only trust, made small enough to carry around in a pocket. Whoever locked those doors was afraid, not cruel - remember that, now that you're the one holding the ring.");
+    yield api.say("Lara", "You keep saying that. Like you've held one yourself, once.");
+    yield api.say("???", "Once. It was heavier than I expected it to be. Onward - a village of gold, now, that seems to have entirely forgotten what gold is actually for.");
     api.setGlobalVar("chapter", 19);
     api.playSound("select");
     yield api.wait(0.8);

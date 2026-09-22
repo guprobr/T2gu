@@ -527,10 +527,10 @@ function* onLevelStart() {
     api.setVar("chapter14_intro_seen", true);
 
     yield api.wait(0.6);
-    yield api.say("Lara", "A river so still it looks like a second sky. There's a village on this bank and another - the same one, upside down - underneath it.");
-    yield* companionSays("nettle_recruited", "Nettle", "Don't look down for too long. Something in there looks back a little late.");
-    yield* companionSays("vigil_recruited", "Vigil", "I do not care for water that does not move. It is always waiting on something.");
-    yield api.say("Hint", "This level runs left to right. The town is behind you; the Glass Maze lies beyond the river, to the east.");
+    yield api.say("Lara", "A river so still it looks like a second sky. There's a village on this bank, and another - the same one, upside down - directly underneath it, minding its own business.");
+    yield* companionSays("nettle_recruited", "Nettle", "Don't look down for too long. Something in there looks back a beat too late for comfort.");
+    yield* companionSays("vigil_recruited", "Vigil", "I do not care for water that refuses to move. Still water is always waiting on something, and I've never once liked what it turned out to be waiting for.");
+    yield api.say("Hint", "This level runs left to right. The town is behind you; the Glass Maze lies beyond the river, to the east. Don't make eye contact with the water.");
 }
 
 // The ford: a land gap through the river, rows MID-1..MID+2. The gate covers exactly the river's columns.
@@ -612,20 +612,20 @@ function* onTalkTo(name) {
 function* talkToFerrywoman() {
     api.playSound("select");
     if (api.getVar("toll_paid", false)) {
-        yield api.say("Ferrywoman", "It's kept its rent, so it's kept its word. Cross when you like. Try not to wave at your reflection - it gets ideas.");
+        yield api.say("Ferrywoman", "It's kept its rent, so it's kept its word. Cross when you like. Try not to wave at your own reflection - it gets ideas, and it never asks first.");
         return;
     }
     const held = valuablesHeld();
     const first = !api.getVar("ferry_met", false);
     api.setVar("ferry_met", true);
     if (first) {
-        yield api.say("Ferrywoman", "The ford's closed. It closes itself, the moment anyone gets near it with nothing to give. The river keeps a copy of everything that crosses, you see, and it's got a very good eye for what's worth copying.");
-        yield api.say("Ferrywoman", "The rent is three valuables. Anything with a shine and a story - coins, pearls, a ring. Leave them with me and I'll drop them in. The river takes them down to the other village, the reflected one, and the ford opens.");
+        yield api.say("Ferrywoman", "The ford's closed. It closes itself, the instant anyone gets near it with nothing to give. The river keeps a copy of everything that crosses, you see, and it has an excellent eye for what's worth copying.");
+        yield api.say("Ferrywoman", "The rent is three valuables. Anything with a shine and a story to it - coins, pearls, a ring. Leave them with me and I'll drop them in myself. The river carries them down to the reflected village, and the ford opens.");
         yield api.say("Lara", "That's what the toll is? A donation to a river?");
-        yield api.say("Ferrywoman", "It's rent, love. Everyone has one landlord or another.");
+        yield api.say("Ferrywoman", "It's rent, love. Everyone's got one landlord or another. Some of us just have wetter ones.");
     }
     if (held < TOLL) {
-        yield api.say("Ferrywoman", "You're carrying " + held + ". I need " + TOLL + ". Look about the village - folk lose things all the time, and the river isn't the only one that keeps them.");
+        yield api.say("Ferrywoman", "You're carrying " + held + ". I need " + TOLL + ". Look about the village - folk lose things constantly, and the river isn't the only thing around here that keeps them.");
         return;
     }
     let owed = TOLL;
@@ -639,22 +639,22 @@ function* talkToFerrywoman() {
     api.setVar("toll_paid", true);
     setFordGate(false);
     api.giveExperience(90);
-    yield api.say("Ferrywoman", "*she holds them out over the water, one at a time; each is gone before it lands* There. Paid in full. You can hear it, can't you? The river settling.");
+    yield api.say("Ferrywoman", "*she holds them out over the water, one at a time; each is gone before it even lands* There. Paid in full. You can hear it, can't you? The river settling its accounts.");
     yield api.say("Lara", "The ford's open?");
-    yield api.say("Ferrywoman", "It's open. What's on the far side is a matter between you and whatever you brought.");
-    yield* companionSays("cobb_recruited", "Cobb", "Paid rent to a river. I've been evicted for less.");
+    yield api.say("Ferrywoman", "It's open. What's waiting on the far side is entirely a matter between you and whatever you happened to bring with you.");
+    yield* companionSays("cobb_recruited", "Cobb", "Paid rent to a river. I've been evicted for considerably less than that.");
 }
 
 function* talkToTownsfolk(name) {
     const lines = {
-        herbalist: ["Reeds, cattails, a little marsh mint. The river gives more than it takes, mostly. It only takes when it's asked to.",
-                    "Some of the herbs I grow on this bank grow, in exact copy, in the reflected village. I've never checked which one is the real one."],
-        baker_2: ["Bread tastes better on this side of the ford. I don't know why. I've never eaten any on the other.",
-                  "The bakery in the reflected village has the exact same smell. Which is upsetting, because I haven't lit my oven today."],
-        farmhand_young: ["I dropped my grandmother's ring in the reflection once. Not the river - the reflection. Nothing splashed.",
-                         "The Ferrywoman says the river likes shiny things. I say it likes the *idea* of shiny things. Same result."],
-        fisherman: ["I don't fish the ford. Nobody does. The fish in it are the wrong way up.",
-                    "Cross at dawn if you can. At dawn the two villages agree with each other."],
+        herbalist: ["Reeds, cattails, a little marsh mint. The river gives more than it takes, mostly. It only takes when somebody's foolish enough to ask.",
+                    "Some of the herbs I grow on this bank grow, in exact copy, in the reflected village. I have deliberately never checked which one is supposedly the real one."],
+        baker_2: ["Bread tastes better on this side of the ford. I couldn't tell you why. I've never once eaten any on the other side.",
+                  "The bakery in the reflected village has the exact same smell drifting off it. Which is upsetting, seeing as I haven't lit my oven yet today."],
+        farmhand_young: ["I dropped my grandmother's ring in the reflection once. Not the river itself - the reflection. Nothing even splashed. I've had questions ever since.",
+                         "The Ferrywoman says the river likes shiny things. I say it likes the *idea* of shiny things. Either way, my ring's gone, so, same result for me."],
+        fisherman: ["I don't fish the ford. Nobody fishes the ford. The fish in it are the wrong way up, and frankly, unsettling to look at.",
+                    "Cross at dawn if you possibly can. At dawn the two villages are, for once, on speaking terms with each other."],
     }[name];
     const displayName = { herbalist: "Mossback", baker_2: "Baker", farmhand_young: "Reed", fisherman: "Fisher" }[name];
     const n = api.getVar("talk_" + name, 0);
@@ -668,10 +668,10 @@ function* onEnemyDefeated(name) {
         return;
     if (name === "water_spirit") {
         yield api.wait(0.3);
-        yield api.say("Lara", "It went back into the river the way a story goes back into a book.");
+        yield api.say("Lara", "It went back into the river the way a story quietly goes back into a book once nobody's reading it anymore.");
     } else if (name === "wraith") {
         yield api.wait(0.3);
-        yield api.say("Lara", "It had my face, for a second. I'd rather it hadn't.");
+        yield api.say("Lara", "It had my face, for a second. I would have strongly preferred that it hadn't.");
     }
 }
 
@@ -679,10 +679,10 @@ function* onItemCollected(itemId) {
     if (itemId !== "mirror_shard")
         return;
     yield api.wait(0.3);
-    yield api.say("Lara", "I held it up and saw myself... and someone a step behind me, who wasn't a reflection. Then just me again.");
-    yield api.say("???", "Eighth of ten. You saw it, then. Good. Most people keep their eyes on the glass and miss the one who's standing beside it.");
-    yield api.say("Lara", "Who was that?");
-    yield api.say("???", "The next place will ask you to keep a vigil, not walk one. Bring patience, and a great many lanterns.");
+    yield api.say("Lara", "I held it up and saw myself... and someone a step behind me who very much wasn't a reflection. Then, just as quickly, only me again.");
+    yield api.say("???", "Eighth of ten. You saw it, then. Good. Most people keep their eyes glued to the glass and completely miss the one standing right beside it.");
+    yield api.say("Lara", "Who, exactly, was that?");
+    yield api.say("???", "The next place will ask you to keep a vigil, not walk one. Bring patience, and a genuinely excessive number of lanterns.");
     api.setGlobalVar("chapter", 15);
     api.playSound("select");
     yield api.wait(0.8);

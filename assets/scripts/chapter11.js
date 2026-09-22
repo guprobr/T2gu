@@ -525,10 +525,10 @@ function* onLevelStart() {
     api.setVar("chapter11_intro_seen", true);
 
     yield api.wait(0.6);
-    yield api.say("Lara", "Noise. Wonderful, ordinary noise: haggling, hens, a cart with a bad wheel. After the last few places, I could cry.");
-    yield* companionSays("cobb_recruited", "Cobb", "A market this size means somebody's got real ore stashed under a cheese stall. Mark my words.");
-    yield* companionSays("vex_recruited", "Vex", "I've counted four separate currencies already. None of them the same denomination twice.");
-    yield api.say("Hint", "This level runs right to left. The town is behind you; the thorn maze is ahead, to the west.");
+    yield api.say("Lara", "Noise. Wonderful, blessedly ordinary noise: haggling, hens, a cart with a spectacularly bad wheel. After the last few places, I could genuinely cry.");
+    yield* companionSays("cobb_recruited", "Cobb", "A market this size means somebody's got real ore stashed under a cheese stall somewhere. Mark my words, and possibly the cheese stall.");
+    yield* companionSays("vex_recruited", "Vex", "I've counted four separate currencies already, and not one of them uses the same denomination twice. This economy is held together entirely by vibes.");
+    yield api.say("Hint", "This level runs right to left. The town is behind you; the thorn maze is ahead, to the west. Wear something you don't mind snagging.");
 }
 
 function buildTown() {
@@ -597,46 +597,46 @@ function* talkToHaggler() {
     api.setVar("haggler_talks", n + 1);
     api.playSound("select");
     if (n === 0) {
-        yield api.say("Haggler", "Everything here's for sale except the way west. That's grown over with bramble thick enough to turn a plough.");
-        yield api.say("Haggler", "Old Sorrel, at the far end, brews a thorn-cutter that opens it - but he's cranky, and he won't lift a spoon without ingredients. A herb bundle. A jar of honey. A withering petal. One of each, from out in the thorn rows.");
+        yield api.say("Haggler", "Everything here's for sale except the way west. That's grown over with bramble thick enough to turn a plough, or an argument.");
+        yield api.say("Haggler", "Old Sorrel, at the far end, brews a thorn-cutter that opens it right up - but he's cranky, and he won't so much as lift a spoon without ingredients. A herb bundle. A jar of honey. A withering petal. One of each, straight out of the thorn rows.");
         yield api.say("Lara", "Where in the maze?");
-        yield api.say("Haggler", "The herb grows near the town side, where it's still sunny. The honey's deep in the middle, in whatever the bees are guarding. The petal - the petal only ever blooms at the far end. That's all I know, and I'm exaggerating the last part.");
+        yield api.say("Haggler", "Herb grows near the town side, where it's still sunny. Honey's deep in the middle, guarded by whatever the bees have decided to guard it with today. The petal only ever blooms at the far end. That's everything I know, and I may be exaggerating the last part slightly.");
     } else {
         const have = INGREDIENTS.filter(([id]) => api.hasItem(id)).length;
-        yield api.say("Haggler", "Herb near the town, honey in the middle, petal near the far end. " + (have > 0 ? "You've got " + have + " of them already. Good." : "You've got none yet - start walking."));
+        yield api.say("Haggler", "Herb near the town, honey in the middle, petal near the far end. " + (have > 0 ? "You've got " + have + " of them already. Look at you, being competent." : "You've got none yet. Best get walking, then."));
     }
 }
 
 function* talkToSorrel() {
     api.playSound("select");
     if (api.getVar("crown_made", false)) {
-        yield api.say("Sorrel", "It's yours. Mind the points. It bites the ungrateful.");
+        yield api.say("Sorrel", "It's yours. Mind the points. It bites the ungrateful, and frankly, I trained it that way on purpose.");
         return;
     }
     const missing = INGREDIENTS.filter(([id]) => !api.hasItem(id));
     if (missing.length > 0) {
-        yield api.say("Sorrel", "*peers up from a mortar* Company. How tiresome. What have you brought?");
-        yield api.say("Sorrel", "I need a herb bundle, a jar of honey, and a withering petal. You're missing " + missing.map(m => "the " + m[1]).join(" and ") + ". Come back when you're not.");
+        yield api.say("Sorrel", "*peers up from a mortar* Company. How thoroughly tiresome. What have you brought me?");
+        yield api.say("Sorrel", "I need a herb bundle, a jar of honey, and a withering petal. You appear to be missing " + missing.map(m => "the " + m[1]).join(" and ") + ". Come back when you are not so tragically underprepared.");
         return;
     }
     INGREDIENTS.forEach(([id]) => api.removeItem(id, 1));
     api.setVar("crown_made", true);
     api.giveExperience(100);
-    yield api.say("Sorrel", "*peers at the three of them, then at you* ...Well. Somebody raised you properly.");
-    yield api.say("Sorrel", "Herb to soothe, honey to bind, petal to remember why it hurts. Stand back - it smokes. It smells of sage and, faintly, of regret.");
+    yield api.say("Sorrel", "*peers at the three of them, then at you* ...Well. Somebody, somewhere, raised you properly. Rare, these days.");
+    yield api.say("Sorrel", "Herb to soothe, honey to bind, petal to remember why it hurts in the first place. Stand back - it smokes. Smells of sage, and faintly, unmistakably, of regret.");
     yield api.say("Lara", "That's the crown? It's tiny.");
-    yield api.say("Sorrel", "It isn't a crown for wearing. It's a crown for *finishing* things. Here.");
+    yield api.say("Sorrel", "It isn't a crown for *wearing*. It's a crown for *finishing things*. There's a considerable difference. Here.");
     api.giveItem("bramble_crown", 1);
     yield* finishChapter();
 }
 
 function* finishChapter() {
     yield api.wait(0.3);
-    yield api.say("Lara", "Thorn and dried berry, woven small. It's warm - and it hums. A different note again.");
-    yield api.say("???", "Fifth of ten. You carried three small things a very long way for someone you'd never met. I keep noticing that you do that.");
-    yield api.say("Lara", "It's not a big secret. People ask, and then you just... go.");
-    yield api.say("???", "It's the biggest secret there is. Come on - the next one is somewhere hot, and loud, and full of people who make things out of fire.");
-    yield* companionSays("nettle_recruited", "Nettle", "She says that like it's nothing. It's the whole reason we're here, isn't it.");
+    yield api.say("Lara", "Thorn and dried berry, woven small. It's warm - and it hums. A different note again, right on schedule.");
+    yield api.say("???", "Fifth of ten. You carried three small, annoying things a very long way for someone you'd never once met. I keep noticing that you keep doing that.");
+    yield api.say("Lara", "It's not some big secret. People ask, and then you just... go. That's the whole trick.");
+    yield api.say("???", "It's the biggest secret there is, and you're saying it like it's a shrug. Come on - the next one's somewhere hot, loud, and absolutely full of people who make things out of fire for fun.");
+    yield* companionSays("nettle_recruited", "Nettle", "She says that like it's nothing. It's the entire reason we're all standing here, isn't it.");
     api.setGlobalVar("chapter", 12);
     api.playSound("select");
     yield api.wait(0.8);
@@ -645,12 +645,12 @@ function* finishChapter() {
 
 function* talkToTownsfolk(name) {
     const lines = {
-        farmgirl: ["Thorn rows grew up overnight, after the hum. Not a hedge - a *decision*.",
-                   "If Sorrel hands you a mug, don't drink it. Or do. Nobody's been able to tell me which."],
-        fisherman: ["I sell fish nobody asked for to people who didn't want them. It's a good living.",
-                    "Sorrel sent a message once by pigeon. The pigeon has not been seen since. Neither, honestly, has the message."],
-        baker: ["Best rolls in the Bazaar. Also the only rolls. Competition is a lovely rumour.",
-                "Take a berry pouch for the road. Thorn rows get hungry work out of anyone."],
+        farmgirl: ["Thorn rows grew up overnight, right after the hum started. Not a hedge - a *decision*, and a fairly hostile one.",
+                   "If Sorrel hands you a mug, don't drink it. Or do. Honestly, nobody's ever agreed on which is the safer option."],
+        fisherman: ["I sell fish nobody asked for to people who didn't want them. Somehow, it's a very good living.",
+                    "Sorrel sent a message once, by pigeon. The pigeon has not been seen since. Neither, come to think of it, has the message."],
+        baker: ["Best rolls in the Bazaar. Also, conveniently, the only rolls. Competition is a lovely rumor I keep hearing about.",
+                "Take a berry pouch for the road. Thorn rows get hungry work out of absolutely anyone who tries them."],
     }[name];
     const displayName = { farmgirl: "Farmgirl", fisherman: "Fisherman", baker: "Baker" }[name];
     const n = api.getVar("talk_" + name, 0);
@@ -664,9 +664,9 @@ function* onEnemyDefeated(name) {
         return;
     if (name === "boar") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Every hedge has one of these. This one just had a bad week.");
+        yield api.say("Lara", "Every hedge has one of these lurking in it. This one just happened to be having an especially bad week.");
     } else if (name === "imp") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Small, loud, and vanishes when you look at it directly. I've dated worse.");
+        yield api.say("Lara", "Small, loud, and vanishes the moment you look at it directly. Honestly? I've dated worse.");
     }
 }

@@ -371,9 +371,9 @@ function* onLevelStart() {
     api.setVar("chapter6_intro_seen", true);
 
     yield api.wait(0.5);
-    yield api.say("Nettle", "It's colder here than the season accounts for.");
-    yield api.say("Lara", "Everything's paler too. Like the color got asked to leave before we arrived.");
-    yield api.say("Hint", "Something waits at the far end of this place. Bring everyone.");
+    yield api.say("Nettle", "It's colder here than the season has any business accounting for.");
+    yield api.say("Lara", "Everything's paler too. Like the color got politely asked to leave before we showed up.");
+    yield api.say("Hint", "Something waits at the far end of this place. Bring everyone. Seriously, everyone - it counts heads.");
 }
 
 function buildApproach() {
@@ -514,7 +514,7 @@ function* faceTrial(name) {
     api.playSound("select");
 
     if (api.getVar("trial_passed", false)) {
-        yield api.say(displayName, "*already faced*");
+        yield api.say(displayName, "*already faced, no encores available*");
         return;
     }
 
@@ -522,18 +522,18 @@ function* faceTrial(name) {
         const newStep = step + 1;
         api.setVar("trial_step", newStep);
         if (newStep === 1)
-            yield api.say("Trial of Courage", "You didn't hesitate at the door. That's the whole test - not fearlessness, just not stopping.");
+            yield api.say("Trial of Courage", "You didn't hesitate at the door. That's the entire test, in fact - not fearlessness, just not stopping to think about it too hard.");
         else if (newStep === 2)
-            yield api.say("Trial of Kindness", "You could have walked past me. Most do. Go on - one trial left, and it's the hardest to fake.");
+            yield api.say("Trial of Kindness", "You could have walked past me. Most do. Go on - one trial left, and it's the hardest one to fake convincingly.");
         else {
-            yield api.say("Trial of Humility", "And you came anyway, knowing you might not be the one who finishes this. Courage, kindness, humility - in that order, always. Go.");
+            yield api.say("Trial of Humility", "And you came anyway, knowing full well you might not be the one who finishes this. Courage, kindness, humility - always in that order. Go on, then.");
             api.setVar("trial_passed", true);
             api.giveExperience(100);
             api.playSound("select");
         }
     } else {
         api.setVar("trial_step", 0);
-        yield api.say(displayName, "Not yet. Not in that order.");
+        yield api.say(displayName, "Wrong order. These trials have a syllabus and you have not done the reading.");
     }
 }
 
@@ -561,7 +561,7 @@ function* talkToElementKeeper(name) {
     api.playSound("select");
 
     if (api.getVar("elementRiddle_solved", false)) {
-        yield api.say(displayName, "*already answered, still watching*");
+        yield api.say(displayName, "*already answered, still watching, mildly bored*");
         return;
     }
 
@@ -569,21 +569,21 @@ function* talkToElementKeeper(name) {
         const newStep = step + 1;
         api.setVar("elementRiddle_step", newStep);
         if (newStep === 1)
-            yield api.say("Storm-Spirit", "*a low, distant rumble, almost words* What falls without ever landing?");
+            yield api.say("Storm-Spirit", "*a low, distant rumble, almost words* Riddle: what falls without ever actually landing?");
         else {
-            yield api.say("Water-Spirit", "*ripples, unbothered by the cold* Its own echo. Storm already knows. Storm likes to ask anyway.");
+            yield api.say("Water-Spirit", "*ripples, unbothered by the cold* Its own echo. Storm already knows the answer. Storm just likes making people work for it.");
             api.setVar("elementRiddle_solved", true);
             api.giveExperience(50);
             api.playSound("select");
         }
     } else {
-        yield api.say(displayName, "*waits, patiently* Not yet. Not without the other one first.");
+        yield api.say(displayName, "*waits, patiently, radiating 'ask the other one first' energy*");
     }
 }
 
 function* talkToWarden() {
     if (api.getVar("threshold_opened", false)) {
-        yield api.say("Warden", "*it is already open. There is nothing left to ask it.*");
+        yield api.say("Warden", "*it is already open. There is genuinely nothing left to ask it, so please stop asking.*");
         return;
     }
 
@@ -595,12 +595,12 @@ function* talkToWarden() {
     api.playSound("select");
 
     if (!(hasVigil && hasCobb && hasVex && hasNettle)) {
-        yield api.say("Warden", "You are not enough voices yet. Come back when you are not walking with only some of them.");
+        yield api.say("Warden", "You are not enough voices yet. Come back when you're not attempting to walk in here with only some of the party.");
         return;
     }
 
-    yield api.say("Warden", "Five who carry the same warmth in five different shapes. That is rarer than you understand.");
-    yield api.say("Warden", "I will open. But not for silence. Each of you - a piece of the same thought. Together, or not at all.");
+    yield api.say("Warden", "Five who carry the same warmth in five different shapes. That is rarer than you understand, and considerably harder to schedule.");
+    yield api.say("Warden", "I will open. But not for silence. Each of you - a piece of the same thought. Together, or not at all. No pressure.");
 
     yield api.wait(0.4);
     yield api.say("Lara", "The hum");
@@ -610,20 +610,20 @@ function* talkToWarden() {
     yield api.say("Nettle", "- it's ours now.");
 
     yield api.wait(0.5);
-    yield api.say("Warden", "\"The hum was never just one voice - it's ours now.\" ...I did not expect anyone to arrive at that on their own.");
-    yield api.say("Lara", "We didn't, really. Four other people got me here.");
-    yield api.say("Warden", "That is rather the point. Go on, then - all five of you.");
+    yield api.say("Warden", "\"The hum was never just one voice - it's ours now.\" ...I genuinely did not expect anyone to arrive at that on their own. Or, apparently, on purpose.");
+    yield api.say("Lara", "We didn't, really. Four other extremely opinionated people got me here.");
+    yield api.say("Warden", "That is rather the point. Go on, then - all five of you, and try not to trip on the threshold. It's rude to the threshold.");
 
     api.setVar("threshold_opened", true);
     api.playSound("select");
     yield api.wait(0.8);
 
-    yield api.say("Lara", "...Everyone seeing this?");
-    yield api.say("Vex", "I have no instrument that explains what I'm looking at. That has never happened to me before.");
-    yield api.say("Cobb", "Nor me, and I've seen the inside of a mountain.");
-    yield api.say("???", "It's both, actually - stone and signal and root and story, and it was always going to look like all of them at once from here.");
-    yield api.say("Lara", "You're closer now. I can hear it - you're not just a voice anymore, are you?");
-    yield api.say("???", "Closer than I've been in longer than any of you have been alive. Whatever's past this point, Lara, it was never going to be small - and I am glad, for once, that it isn't just me walking into it.");
+    yield api.say("Lara", "...Is everyone else also seeing this, or is it just me having the day I was clearly always going to have?");
+    yield api.say("Vex", "I have no instrument that explains what I'm looking at, and I own several instruments specifically built to explain things. That's new.");
+    yield api.say("Cobb", "Nor me, and I've personally seen the inside of a mountain. This beats the mountain.");
+    yield api.say("???", "It's both, actually - stone and signal and root and story, and it was always going to look like all of them at once from exactly here.");
+    yield api.say("Lara", "You're closer now. I can actually hear it - you're not just a voice anymore, are you?");
+    yield api.say("???", "Closer than I've been in longer than any of you have been alive. Whatever's past this point, Lara, it was never going to be small - and for once, I'm glad it isn't just me walking into it alone.");
 
     api.setGlobalVar("chapter", 7);
     api.playSound("select");
@@ -637,8 +637,8 @@ function* onEnemyDefeated(name) {
     // regular hostiles handled below, so it's exempt from their rarity gate.
     if (name === "lich_king") {
         yield api.wait(0.4);
-        yield api.say("Lara", "...That felt like it mattered more than the others. I don't know why yet.");
-        yield api.say("Nettle", "Some things are guardians right up until the last second, and something else underneath that.");
+        yield api.say("Lara", "...That one felt like it mattered more than the others. I couldn't tell you why yet.");
+        yield api.say("Nettle", "Some things are guardians right up until the very last second, and something else entirely underneath that. Rarely a pleasant surprise.");
         return;
     }
 
@@ -655,12 +655,12 @@ function* onEnemyDefeated(name) {
 
     if (name === "wraith") {
         yield api.wait(0.3);
-        yield api.say("Vigil", "It didn't scream. It just stopped holding its shape.");
+        yield api.say("Vigil", "It didn't scream. It just quietly stopped holding its shape, like a bad meeting finally ending.");
     } else if (name === "golem") {
         yield api.wait(0.3);
-        yield api.say("Cobb", "Whoever built that meant it to last forever. Forever ran out today.");
+        yield api.say("Cobb", "Whoever built that meant it to last forever. Forever, as it turns out, ran out today.");
     } else if (name === "lizardman") {
         yield api.wait(0.3);
-        yield api.say("Vex", "That one wasn't guarding anything. It was just angry, and this was as far as the anger got it.");
+        yield api.say("Vex", "That one wasn't guarding anything at all. It was just angry, and this was as far as the anger managed to get it.");
     }
 }

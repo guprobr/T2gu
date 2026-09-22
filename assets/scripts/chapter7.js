@@ -524,10 +524,10 @@ function* onLevelStart() {
     api.setVar("chapter7_intro_seen", true);
 
     yield api.wait(0.6);
-    yield api.say("Lara", "...That's a market. Stalls, smoke, someone arguing about the price of salt. Just past the edge of where the Threshold spat us out.");
-    yield* companionSays("vigil_recruited", "Vigil", "Dawn on frozen ground. Whoever keeps this place rises early, or never sleeps.");
-    yield* companionSays("cobb_recruited", "Cobb", "I can smell the ale from here. Warm ale. There is a God, and He runs a tavern.");
-    yield api.say("Hint", "This level runs right to left. The town is behind you; the maze is ahead, to the west.");
+    yield api.say("Lara", "...That's a market. Stalls, smoke, someone passionately arguing about the price of salt. Just past the edge of wherever the Threshold decided to spit us out.");
+    yield* companionSays("vigil_recruited", "Vigil", "Dawn on frozen ground. Whoever keeps this place either rises very early, or never actually sleeps. I respect both options.");
+    yield* companionSays("cobb_recruited", "Cobb", "I can smell the ale from here. Warm ale. There is a God, and He clearly runs a tavern.");
+    yield api.say("Hint", "This level runs right to left. The town is behind you; the maze is ahead, to the west. Try not to get those mixed up.");
 }
 
 // ============================================================================
@@ -614,15 +614,15 @@ function* talkToHerder() {
     api.setVar("herder_talks", n + 1);
     api.playSound("select");
     if (api.getVar("strays_home", false)) {
-        yield api.say("Herder", "All three home, and the gate just let go on its own. Go on through - you've earned the bell, and the bell's earned a rest.");
+        yield api.say("Herder", "All three home, and the gate just let go on its own like it was never that attached to being closed. Go on through - you've earned the bell, and the bell's earned a rest.");
     } else if (n === 0) {
-        yield api.say("Herder", "You're the ones who walked out of the east, aren't you. The market's been talking about nothing else.");
-        yield api.say("Herder", "I'll trade you a favour for it. Three of my draft horses bolted into the Whiteout Rows the night the hum started - bay, chestnut, and the dun. The pasture gate at the far end of the maze won't unlatch while a horse is out. Old rule. Older than the gate.");
+        yield api.say("Herder", "You're the ones who walked out of the east, aren't you. The market hasn't talked about anything else in hours. It's genuinely getting old.");
+        yield api.say("Herder", "Tell you what, I'll trade you a favor for it. Three of my draft horses bolted into the Whiteout Rows the night the hum started - bay, chestnut, and the dun. The pasture gate won't unlatch while a horse is still out. Old rule. Older than the gate, older than me, and yet somehow still my problem.");
         yield api.say("Lara", "So we find the horses, and the gate opens.");
-        yield api.say("Herder", "Find them, and talk them down - they'll come home on their own once they're calm. Any order. Mind the wolves. And the trolls. And, honestly, the weather.");
+        yield api.say("Herder", "Find them, talk them down, they'll wander home once they're calm. Any order's fine. Mind the wolves. And the trolls. And, honestly, the weather - it's been in a mood all week.");
     } else {
         const left = 3 - STRAYS.filter(s => api.getVar("stray_home_" + s, false)).length;
-        yield api.say("Herder", left === 3 ? "Three still out there. Bay, chestnut, dun. Any order." : "Just " + left + " to go. They won't have gone far - horses never go far from a wall.");
+        yield api.say("Herder", left === 3 ? "Three still out there. Bay, chestnut, dun. Any order, I'm not fussy." : "Just " + left + " to go. They won't have gone far - horses never go far from a wall, or common sense.");
     }
 }
 
@@ -636,14 +636,14 @@ function* calmStray(name) {
     api.giveExperience(30);
     const home = STRAYS.filter(s => api.getVar("stray_home_" + s, false)).length;
     if (home < 3) {
-        yield api.say(displayName, "*snorts, plants its hooves, and stops shaking - then sets off at a walk toward the market road, tail high*");
-        yield api.say("Lara", (3 - home) + " more to find.");
+        yield api.say(displayName, "*snorts, plants its hooves, stops shaking, and strolls off toward the market road with the tail-high swagger of a horse who was never actually lost*");
+        yield api.say("Lara", (3 - home) + " more to find. Delightful.");
     } else {
         api.setVar("strays_home", true);
         api.giveExperience(60);
-        yield api.say(displayName, "*leans into your hand for a moment, then trots off after the others*");
-        yield api.say("Lara", "That's all three. Listen - far behind us, that's the pasture gate. It sounds like somebody striking a bell.");
-        yield* companionSays("nettle_recruited", "Nettle", "Frost releasing its hold on iron. It does that, when it's been asked properly.");
+        yield api.say(displayName, "*leans into your hand for a moment, entirely too pleased with itself, then trots off after the others*");
+        yield api.say("Lara", "That's all three. Listen - far behind us, that's the pasture gate. It sounds exactly like somebody striking a bell, which, credit where due, it is.");
+        yield* companionSays("nettle_recruited", "Nettle", "Frost releasing its hold on iron. It does that, apparently, when it's been asked politely enough.");
         // The gate at the west end of the maze is now free.
         api.setBarrier("pasture_gate", 0, 0, 1, 1, false);   // lifts by id - the coordinates are ignored
     }
@@ -651,12 +651,12 @@ function* calmStray(name) {
 
 function* talkToTownsfolk(name) {
     const lines = {
-        merchant: ["Salt, iron, rope, and one lantern nobody has managed to blow out. None of it for sale to anyone who hums.",
-                   "Frostmarket runs at dawn because the frost keeps prices honest. Nothing rots. Nothing lies."],
-        innkeeper: ["Cold ale, colder soup. The soup's a compliment, in this weather.",
-                    "The herder hasn't sat down in three days. Tell him the stew's on me if he brings those horses home."],
-        baker_2: ["Rye, mostly. Snow doesn't rise, so neither do I, before dawn.",
-                  "If you go into the maze, go early. The snow drifts back over your own tracks by noon."],
+        merchant: ["Salt, iron, rope, and one lantern nobody's managed to blow out in years. None of it's for sale to anyone who hums. House policy.",
+                   "Frostmarket runs at dawn because the frost keeps prices honest. Nothing rots out here. Nothing lies, either, except possibly me about the lantern."],
+        innkeeper: ["Cold ale, colder soup. The soup being cold is, around here, a genuine compliment to the chef.",
+                    "The herder hasn't sat down in three days. Tell him the stew's on me if he finally brings those horses home. I'm begging."],
+        baker_2: ["Rye, mostly. Snow doesn't rise, so neither do I, before dawn. We have an arrangement.",
+                  "If you go into the maze, go early. The snow drifts back over your own tracks by noon, like it's actively trying to erase your progress."],
     }[name];
     const displayName = { merchant: "Merchant", innkeeper: "Innkeeper", baker_2: "Baker" }[name];
     const n = api.getVar("talk_" + name, 0);
@@ -670,10 +670,10 @@ function* onEnemyDefeated(name) {
         return;
     if (name === "troll") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Big things fall loudest. Somebody's going to hear that back in town.");
+        yield api.say("Lara", "Big things fall loudest. Somebody in town is definitely going to ask about that noise.");
     } else if (name === "slime_ice") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Snow that was never snow. The hum's doing something to the weather, too.");
+        yield api.say("Lara", "Snow that was never actually snow. The hum's apparently doing something to the weather now too. Overachiever.");
     }
 }
 
@@ -681,11 +681,11 @@ function* onItemCollected(itemId) {
     if (itemId !== "frostmarket_bell")
         return;
     yield api.wait(0.3);
-    yield api.say("Lara", "It rings the moment my fingers close on it - one clear note, and the frost on every roof in the market answers.");
-    yield api.say("???", "First of ten. I hid them where a kind person would eventually have to walk, so no single road could ever finish what I started.");
-    yield api.say("Lara", "Ten. You said ten.");
-    yield api.say("???", "Ten places, ten notes. Walk on. West is where the road bends back toward the sea.");
-    yield* companionSays("vex_recruited", "Vex", "Ten notes. That's a chord. Somebody built a chord out of geography.");
+    yield api.say("Lara", "It rings the moment my fingers close on it - one clear note, and the frost on every single roof in the market answers back. Show-off.");
+    yield api.say("???", "First of ten. I hid them where a kind person would eventually have to walk, so no single road could ever finish what I started all by itself.");
+    yield api.say("Lara", "Ten. You said ten. You're really committing to the bit here.");
+    yield api.say("???", "Ten places, ten notes. Walk on. West is where the road bends back toward the sea. Pack something warm. Pack something warmer than that.");
+    yield* companionSays("vex_recruited", "Vex", "Ten notes. That's a chord. Somebody built an entire chord out of geography, which is either brilliant or deeply unhinged.");
     api.setGlobalVar("chapter", 8);
     api.playSound("select");
     yield api.wait(0.8);

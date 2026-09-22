@@ -354,8 +354,8 @@ function* onLevelStart() {
     api.setVar("chapter2_intro_seen", true);
 
     yield api.wait(0.5);
-    yield api.say("Lara", "Ada Town. Or what's left wearing the name - I can smell the dirt roads under all that quiet.");
-    yield api.say("Hint", "Three fragments are hidden somewhere in the streets ahead - find all three to open whatever the town's been keeping shut.");
+    yield api.say("Lara", "Ada Town. Or what's left wearing the name tag. I can smell the dirt roads under all this suspicious quiet.");
+    yield api.say("Hint", "Three fragments are hidden somewhere in these streets. Find all three to open whatever the town's been keeping locked up and not talking about.");
 }
 
 // Ada Woods - a little forest at the entrance, no maze here, just the last
@@ -490,11 +490,11 @@ function* talkToVigil() {
     api.playSound("select");
 
     if (timesTalked === 0) {
-        yield api.say("Vigil", "Guardian. Awakened. State your need.");
-        yield api.say("Lara", "...You've been standing here the whole time we were solving the town's own front door.");
-        yield api.say("Vigil", "Longer than I've kept count of. The three answered for you. That is enough to open it - it was never enough to let me leave on my own.");
+        yield api.say("Vigil", "Guardian. Awakened. State your business, and make it quick - I've been standing at parade rest for several decades.");
+        yield api.say("Lara", "You've just been standing here this whole time, while we solved the town's own front door for you?");
+        yield api.say("Vigil", "Longer than I've bothered counting. The three answered for you - that's enough to open the gate. It was never quite enough to let me walk off the job myself.");
     } else {
-        yield api.say("Vigil", "The town is answered. My garrison is not coming back for me, and this vault was never really what I was guarding. I'll carry what's left of it, if you'll have the weight.");
+        yield api.say("Vigil", "The town's answered. My garrison isn't coming back, and this vault was never really the point of me standing here. I'll carry what's left of the job, if you'll have the extra weight in the party.");
         api.despawnNpc("dark_knight");
         api.spawnCharacter("dark_knight", 158, 45, 90);
         api.setGlobalVar("vigil_recruited", true);
@@ -511,27 +511,27 @@ function* talkToKeeper(name) {
     api.playSound("select");
 
     if (api.getVar("vault_gate_open", false)) {
-        yield api.say(displayName, "*the fragment is already given*");
+        yield api.say(displayName, "*the fragment's already handed over. Nothing left to negotiate.*");
         return;
     }
 
     if (already) {
-        yield api.say(displayName, "You already carry what I had to give.");
+        yield api.say(displayName, "You already carry what I had to give. Don't make this weird.");
         return;
     }
 
     api.setVar(`fragment_${name}`, true);
     if (name === "gnome_wizard")
-        yield api.say("the Wizard", "I warded this piece so well I forgot the warding was mine to lift. Here - it never liked me much anyway.");
+        yield api.say("the Wizard", "I warded this piece so thoroughly I actually forgot I was the one who could lift the warding. Here. It never much cared for me anyway.");
     else if (name === "harpy")
-        yield api.say("the Harpy", "*tilts her head* I only ever nested in what was already empty. Here. I never wanted it, just kept it safe.");
+        yield api.say("the Harpy", "*tilts her head* I only ever nest in things that are already empty. Here. Never wanted it, just seemed rude to let it rust.");
     else
-        yield api.say("the Scholar", "I came to study this town's old records and stayed to guard a grief instead. Take the last piece - someone should finally use it.");
+        yield api.say("the Scholar", "I came here to study the old records and somehow ended up guarding a grief instead. Occupational hazard. Take the last piece - somebody should actually use it for once.");
 
     const count = ["gnome_wizard", "harpy", "tribal_elder_woman"].filter(n => api.getVar(`fragment_${n}`, false)).length;
     if (count === 3) {
         yield api.wait(0.3);
-        yield api.say("Lara", "Three pieces, three keepers. That's the whole answer, isn't it.");
+        yield api.say("Lara", "Three pieces, three keepers. That's the entire riddle. Honestly? A little underwhelming for how much walking that took.");
         api.setBarrier("vault_gate", 152, 0, 1, 90, false);
         api.setVar("vault_gate_open", true);
         api.giveExperience(80);
@@ -541,14 +541,14 @@ function* talkToKeeper(name) {
 
 function* rescueHostage() {
     if (api.getVar("hostage_rescued", false)) {
-        yield api.say("Herbalist", "Still grateful, truly.");
+        yield api.say("Herbalist", "Still grateful. Truly. Ask me again in an hour, I'll still mean it.");
         return;
     }
     api.setVar("hostage_rescued", true);
     api.playSound("select");
-    yield api.say("Herbalist", "You found me. I came for the herbs still growing wild in the old garden plots - they hold medicine nothing else does - and lost the way out three days ago.");
-    yield api.say("Lara", "Three days?");
-    yield api.say("Herbalist", "Felt like three days. Might've been one. Either way - the way back is west of here, if the dead have moved on.");
+    yield api.say("Herbalist", "You found me! I came for the herbs still growing wild in the old garden plots - they hold medicine nothing else does - and then promptly lost the way out. Three days ago.");
+    yield api.say("Lara", "Three days? In a town full of skeletons?");
+    yield api.say("Herbalist", "Felt like three days. Could've been one. Time gets funny around this much undead foot traffic. Way back's west of here, assuming the dead have wandered off to bother someone else.");
     api.giveExperience(100);
 }
 
@@ -566,13 +566,13 @@ function* onEnemyDefeated(name) {
 
     if (name === "skeleton" || name === "skeleton_archer") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Whatever kept it standing this long, it isn't malice. Just habit, maybe - the same street, over and over.");
+        yield api.say("Lara", "Whatever's keeping these things upright, it isn't malice. Just habit. Same street, same shift, forever.");
     } else if (name === "ghoul") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Hungry, and past caring why. This town hasn't fed anything living in a long time.");
+        yield api.say("Lara", "Hungry, and long past asking why. This town hasn't fed anything with a pulse in ages.");
     } else if (name === "mummy") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Someone wrapped that with real care, once. Doesn't make it safe to leave walking the streets.");
+        yield api.say("Lara", "Somebody wrapped that with real care, once upon a time. Doesn't make it any safer to leave shuffling around the neighborhood.");
     }
 }
 
@@ -581,11 +581,11 @@ function* onItemCollected(itemId) {
         return;
 
     yield api.wait(0.3);
-    yield api.say("Lara", "This was never a lock. It's a promise someone sealed shut instead of keeping.");
-    yield api.say("Vigil", "A promise I was left to hold, whether or not anyone ever came back for it. You came back for it.");
-    yield api.say("???", "The seal was never yours to break, and yet - here we are. You're closer than the last one who tried this door.");
-    yield api.say("Lara", "There's always a last one who tried, with you. Who were they?");
-    yield api.say("???", "Someone who stopped at the door. This town's floor isn't the end of it - go find what it's standing on.");
+    yield api.say("Lara", "This was never really a lock. It's a promise somebody sealed shut instead of just, you know, keeping.");
+    yield api.say("Vigil", "A promise I was left holding, whether or not anyone ever came back for it. You came back for it. That's new.");
+    yield api.say("???", "That seal was never yours to break. And yet, here we are. You're already closer than the last poor soul who tried this particular door.");
+    yield api.say("Lara", "There's always a 'last one who tried,' with you. Do you keep a scoreboard? Who were they?");
+    yield api.say("???", "Someone who stopped at the door. Very sensible of them. This town's floor isn't the bottom of anything - go find out what it's standing on.");
 
     api.setGlobalVar("chapter", 3);
     api.playSound("select");

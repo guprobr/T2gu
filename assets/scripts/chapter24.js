@@ -543,10 +543,10 @@ function* onLevelStart() {
     api.setVar("chapter24_intro_seen", true);
 
     yield api.wait(0.6);
-    yield api.say("Lara", "A court in the open air, under torchlight, with a bench of gravestones. Everyone in the square is talking in the quiet, careful way people do when someone among them has done something they don't want to name.");
-    yield* companionSays("vigil_recruited", "Vigil", "A theft in a small place is worse than a murder in a large one. Everyone here is somebody's neighbour.");
-    yield* companionSays("cobb_recruited", "Cobb", "I'd say clap the lot of them in irons. Then I'd feel bad about it. Then I'd bring them cake.");
-    yield api.say("Hint", "This level runs left to right. The town is behind you; the Assize Yard is ahead, to the east.");
+    yield api.say("Lara", "A court in the open air, under torchlight, with a bench made of gravestones, which feels like a very specific choice. Everyone in the square is talking in the quiet, careful way people do when someone among them's done something nobody wants to name out loud.");
+    yield* companionSays("vigil_recruited", "Vigil", "A theft in a small place is somehow worse than a murder in a large one. Everyone here is somebody's neighbour, and nobody's enjoying that fact right now.");
+    yield* companionSays("cobb_recruited", "Cobb", "I'd say clap the lot of them in irons straightaway. Then I'd feel bad about it. Then, inevitably, I'd bring them cake.");
+    yield api.say("Hint", "This level runs left to right. The town is behind you; the Assize Yard is ahead, to the east. Bring your best detective face.");
 }
 
 function buildTown() {
@@ -617,18 +617,18 @@ function* onTalkTo(name) {
 function* talkToMagistrate() {
     api.playSound("select");
     if (api.getVar("thief_caught", false)) {
-        yield api.say("Magistrate Oona", "The court is adjourned and the bell will ring. I did not enjoy that. I was very good at it, and I did not enjoy it.");
+        yield api.say("Magistrate Oona", "The court is adjourned and the bell will ring. I did not enjoy any part of that. I was very good at it, mind you, and I still did not enjoy it one bit.");
         return;
     }
     if (!api.getVar("warrant_given", false)) {
         api.setVar("warrant_given", true);
         api.giveItem("magistrates_warrant", 1);
-        yield api.say("Magistrate Oona", "The clapper of the chapel bell was stolen three nights ago. Without it the bell will not ring at dawn, and a village that cannot ring its dawn is a village that begins to doubt it has one.");
-        yield api.say("Magistrate Oona", "Three people were in the yard that night: Maud the baker, Hale the Woodward, and Grimm the reaper. They are out in the Assize Yard, east of here, each in a different stretch of it. Each will make one statement.");
-        yield api.say("Magistrate Oona", "Here is the law of my court, and you will need it. Exactly ONE of the three is the thief. The thief ALWAYS lies. The innocent ALWAYS tell the truth. Hear all three, and only one answer will stand.");
-        yield api.say("Magistrate Oona", "Take this warrant. Give it to the thief by speaking to them while you hold it. Give it to anyone else, and they will take offence, as innocent people should. It will not be spent - but you will have a fight on your hands.");
+        yield api.say("Magistrate Oona", "The clapper of the chapel bell was stolen three nights ago. Without it, the bell will not ring at dawn, and a village that cannot ring its own dawn is a village that starts doubting it has one at all.");
+        yield api.say("Magistrate Oona", "Three people were in the yard that night: Maud the baker, Hale the Woodward, and Grimm the reaper. They're out in the Assize Yard, east of here, each in a different stretch of it. Each will make exactly one statement.");
+        yield api.say("Magistrate Oona", "Here is the law of my court, and you will need every word of it. Exactly ONE of the three is the thief. The thief ALWAYS lies. The innocent ALWAYS tell the truth. Hear all three, and only one answer will hold up.");
+        yield api.say("Magistrate Oona", "Take this warrant. Give it to the thief by speaking to them while you hold it. Give it to anyone else, and they will take deep offence, exactly as innocent people should. It won't be spent for a wrong guess - but you will absolutely have a fight on your hands.");
     } else {
-        yield api.say("Magistrate Oona", "Three suspects, three statements. The thief always lies, the innocent never do, and exactly one is the thief. Hear them all before you speak the warrant.");
+        yield api.say("Magistrate Oona", "Three suspects, three statements. The thief always lies, the innocent never do, and exactly one of them is the thief. Hear them all before you go waving that warrant around.");
     }
 }
 
@@ -640,7 +640,7 @@ function* talkToSuspect(name) {
         // An accusation - only once the suspect's own statement has been heard, and only on a confirming second talk.
         if (api.getVar("accuse_pending", "") !== name) {
             api.setVar("accuse_pending", name);
-            yield api.say(who, "*sees the warrant in your hand and goes still* ...You mean to name me. Speak to me again if you are sure. I have said what I said.");
+            yield api.say(who, "*sees the warrant in your hand and goes very still* ...You mean to name me. Speak to me again if you're genuinely sure. I have already said what I said, and I'm not in the habit of repeating myself twice.");
             return;
         }
         api.setVar("accuse_pending", "");
@@ -649,11 +649,11 @@ function* talkToSuspect(name) {
             api.setVar("thief_caught", true);
             api.setBarrier("court_gate", 0, 0, 1, 1, false);
             api.giveExperience(150);
-            yield api.say(who, "*a long, ugly silence, and then the reaper's shoulders drop* ...The Woodward. Yes. I said the Woodward, and I was looking at my own hands the whole time.");
-            yield api.say(who, "I couldn't stand the quiet. The bell used to ring the harvest in, and when the hum stopped I wanted it to ring for me, one more time. I took the clapper. It's in the chapel yard, beyond the far gate. I never meant to keep it.");
-            yield api.say("Lara", "You lied, and that's how I knew. The only person who could name the Woodward the thief and be lying was the thief.");
-            yield api.say(who, "Take me to the Magistrate, then. And the gate is open. I unlocked it myself the night I hid it. I'd have unlocked the bell, if I could.");
-            yield* companionSays("vigil_recruited", "Vigil", "There is no cruelty in this. Just a man who wanted to hear something ring. I would like to remember him that way.");
+            yield api.say(who, "*a long, ugly silence, and then the reaper's shoulders finally drop* ...The Woodward. Yes. I said the Woodward, and I was looking at my own hands the entire time I said it.");
+            yield api.say(who, "I couldn't stand the quiet anymore. The bell used to ring the harvest in, and when the hum stopped I wanted it to ring for me, just once more. I took the clapper. It's in the chapel yard, beyond the far gate. I never actually meant to keep it.");
+            yield api.say("Lara", "You lied, and that's precisely how I knew. The only person who could accuse the Woodward and be lying was the thief themselves.");
+            yield api.say(who, "Take me to the Magistrate, then. And the gate's open. I unlocked it myself the night I hid it away. I'd have unlocked the bell too, if I could have.");
+            yield* companionSays("vigil_recruited", "Vigil", "There's no real cruelty in this. Just a man who wanted to hear something ring one more time. I'd like to remember him that way, on balance.");
         } else {
             yield* wrongAccusation(name, who);
         }
@@ -669,7 +669,7 @@ function* talkToSuspect(name) {
     } else {
         yield api.say(who, statement);
         if (hasWarrant)
-            yield api.say(who, "You're holding that warrant like you have someone in mind. If it's me, be very sure. I've said what I said.");
+            yield api.say(who, "You're holding that warrant like you've already got someone in mind. If it's me, be very, very sure. I've said what I said and I stand by it.");
     }
 }
 
@@ -677,7 +677,7 @@ function* talkToSuspect(name) {
 function* wrongAccusation(name, who) {
     const cell = suspectSpots[name];
     api.despawnNpc(name);
-    yield api.say(who, "*goes very still* Me? After I told you the truth? That is a poor way to thank a person. You will take that back - and if you won't, I'll help you.");
+    yield api.say(who, "*goes very still* Me? After I told you the truth, plainly, to your face? That is a genuinely poor way to thank a person. You will take that back - and if you won't, I will help you take it back.");
     api.spawnEnemy(name, cell.col, cell.row, 40);
     api.setVar("wrongly_accused_" + name, true);
     api.setGlobalVar("inquest_wrong", api.getGlobalVar("inquest_wrong", 0) + 1);   // read back by chapter 25
@@ -685,12 +685,12 @@ function* wrongAccusation(name, who) {
 
 function* talkToTownsfolk(name) {
     const lines = {
-        innkeeper: ["I've poured for all three of them at one time or another. If you want my opinion - and nobody has asked - it is that the guilty one is the one who gets angriest when you look at them.",
-                    "Whoever did it, they left a clean cut on the bell rope. Not a struggle. It's the quietest theft I ever heard of."],
-        gnome_wizard: ["The Magistrate's rule is old and strange, but it works: the guilty lie, the innocent do not. You need only three statements and a little patience.",
-                       "I have recorded each of the three statements as they were given. I should not say what they were. It would spoil the arithmetic."],
-        angler: ["I was on the river that night and saw nothing, and I have decided that seeing nothing is a form of testimony.",
-                 "Grimm has never once looked me in the eye. I put it down to shyness. I am now rethinking the last ten years."],
+        innkeeper: ["I've poured drinks for all three of them, at one point or another. If you want my opinion - and nobody's asked - it's that the guilty one is whoever gets angriest the second you look at them.",
+                    "Whoever did it left a perfectly clean cut on the bell rope. No struggle at all. It's honestly the quietest theft I've ever personally heard of."],
+        gnome_wizard: ["The Magistrate's rule is old and strange, but it genuinely works: the guilty lie, the innocent don't. You only need three statements and a fair bit of patience.",
+                       "I've recorded each of the three statements exactly as they were given. I really shouldn't say what they were. It would spoil the entire arithmetic of it."],
+        angler: ["I was on the river that night and saw absolutely nothing, and I've since decided that seeing nothing is, in its own way, a form of testimony.",
+                 "Grimm has never once looked me in the eye, not once. I always put it down to shyness. I am now, rather urgently, rethinking the last ten years."],
     }[name];
     const displayName = { innkeeper: "Landlord", gnome_wizard: "Clerk", angler: "Netter" }[name];
     const n = api.getVar("talk_" + name, 0);
@@ -701,17 +701,17 @@ function* talkToTownsfolk(name) {
 function* onEnemyDefeated(name) {
     if (SUSPECTS[name] && api.getVar("wrongly_accused_" + name, false)) {
         yield api.wait(0.3);
-        yield api.say("Lara", "That was not the thief. I have made a bad mistake, and I will carry it up the hill with me. The next time I hold a warrant I will count to three first.");
+        yield api.say("Lara", "That was not the thief. I've made a genuinely bad mistake, and I'll be carrying it up the hill with me for a while. Next time I hold a warrant, I'm counting to three first. Slowly.");
         return;
     }
     if (Math.random() > 0.1)
         return;
     if (name === "wraith") {
         yield api.wait(0.3);
-        yield api.say("Lara", "The Assize Yard has its own witnesses. They don't testify. They just stand.");
+        yield api.say("Lara", "The Assize Yard has its own witnesses, apparently. They don't testify. They just stand there, judging silently.");
     } else if (name === "vampire") {
         yield api.wait(0.3);
-        yield api.say("Lara", "It was in the gallery, I think, taking notes. Bad ones.");
+        yield api.say("Lara", "It was up in the gallery, I think, taking notes. Bad notes, presumably, given how the evening's gone.");
     }
 }
 
@@ -719,10 +719,10 @@ function* onItemCollected(itemId) {
     if (itemId !== "chapel_clapper")
         return;
     yield api.wait(0.3);
-    yield api.say("Lara", "It's small and heavy and cold, and it rings at nothing, very softly, like a bell that remembers what it is for.");
-    yield api.say("???", "Eighth of nine. You found the thief by listening to what they said and to what they couldn't. It's the only trick, in the end. Most people forget that lying is louder than the truth.");
-    yield api.say("Lara", "The next one is the last, isn't it? The ninth.");
-    yield api.say("???", "The ninth. It's a door, Lara - the second one. And I'd very much like to be standing on the other side of it when you get there.");
+    yield api.say("Lara", "It's small and heavy and cold, and it rings very softly at nothing at all, like a bell that still remembers exactly what it's for.");
+    yield api.say("???", "Eighth of nine. You found the thief by listening to what they said, and to what they very carefully couldn't say. It's the only trick, in the end. Most people forget that lying is always louder than the truth.");
+    yield api.say("Lara", "The next one's the last, isn't it? The ninth.");
+    yield api.say("???", "The ninth. It's a door, Lara - the second one. And I would very, very much like to be standing on the other side of it by the time you get there.");
     api.setGlobalVar("chapter", 25);
     api.playSound("select");
     yield api.wait(0.8);

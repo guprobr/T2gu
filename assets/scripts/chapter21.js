@@ -529,10 +529,10 @@ function* onLevelStart() {
     api.setVar("chapter21_intro_seen", true);
 
     yield api.wait(0.6);
-    yield api.say("Lara", "A morning that looks like it has been washed. Two banners on the same street - a hammer on one side, a shuttle on the other - and not one person crossing between them.");
-    yield* companionSays("nettle_recruited", "Nettle", "Two halves of a town, and neither will admit they cannot do without the other. I have treated worse. Usually with tea.");
-    yield* companionSays("vigil_recruited", "Vigil", "A feud. I have kept the peace at a few. The trick is that both sides are usually correct about the same insult.");
-    yield api.say("Hint", "This level runs right to left. The town is behind you; the Stoneyards are ahead, to the west.");
+    yield api.say("Lara", "A morning that looks like it's been freshly washed. Two banners on the same street - a hammer on one side, a shuttle on the other - and not one single person crossing between them.");
+    yield* companionSays("nettle_recruited", "Nettle", "Two halves of a town, and neither will admit they can't actually do without the other. I've treated worse. Usually with tea, and a great deal of patience.");
+    yield* companionSays("vigil_recruited", "Vigil", "A feud. I've kept the peace at a few of these in my time. The trick is that both sides are usually, infuriatingly, correct about the same exact insult.");
+    yield api.say("Hint", "This level runs right to left. The town is behind you; the Stoneyards are ahead, to the west. Try not to take sides. Or do. Your funeral.");
 }
 
 function buildTown() {
@@ -605,8 +605,8 @@ function* talkToGuild(name) {
     api.playSound("select");
     if (api.getVar("served_" + name, false)) {
         yield api.say(g.who, servedBoth()
-            ? "We sat down with the " + g.rival + " last night. I said nothing about the seam, and they said nothing about the hammer. I have not slept so well in ten years."
-            : "You served the " + g.name + ". We remember that. As for the " + g.rival + " - well. They will have to find their own way to the table.");
+            ? "We sat down with the " + g.rival + " last night. I said nothing about the seam, and they said nothing about the hammer. I have not slept this well in ten entire years."
+            : "You served the " + g.name + ". We remember that, gratefully. As for the " + g.rival + " - well. They'll have to find their own way to the table, won't they.");
         return;
     }
     if (api.getItemCount(g.good) >= NEED) {
@@ -614,18 +614,18 @@ function* talkToGuild(name) {
         api.setVar("served_" + name, true);
         api.giveExperience(60);
         g.gift.forEach(item => api.giveItem(item, 1));
-        yield api.say(g.who, "*checks the stamp on each, and then both again* Two, and both true. The " + g.name + " thanks you. Take this - our maker's mark, and something for the road.");
+        yield api.say(g.who, "*checks the stamp on each, and then both again, just to be thorough* Two, and both genuinely true. The " + g.name + " thanks you. Take this - our maker's mark, and something for the road.");
         if (!api.getVar("quarter_open", false)) {
             api.setVar("quarter_open", true);
             api.setBarrier("quarter_gate", 0, 0, 1, 1, false);
-            yield api.say("Lara", "The gate at the far end of the Stoneyards just came unbolted. I can hear it from here.");
+            yield api.say("Lara", "The gate at the far end of the Stoneyards just came unbolted. I can hear it from all the way here.");
         }
         if (servedBoth()) {
             api.giveExperience(150);
-            yield api.say(g.who, "...And I hear the other guild has been served too. By the same hands. *a long pause* I suppose that means we will have to talk.");
-            yield* companionSays("nettle_recruited", "Nettle", "And there it is. Two sides, one kettle. I'll put it on.");
+            yield api.say(g.who, "...And I hear the other guild's been served too. By the very same hands. *a long, uncomfortable pause* I suppose that means we'll have to actually talk to them.");
+            yield* companionSays("nettle_recruited", "Nettle", "And there it is. Two sides, one kettle. I'll put it on immediately, before anyone changes their mind.");
         } else {
-            yield api.say(g.who, "Now, if you happen to pass the " + g.rival + "... no. Never mind. I have said too much already.");
+            yield api.say(g.who, "Now, if you happen to pass the " + g.rival + "... no. Never mind that. I've already said far too much.");
         }
         return;
     }
@@ -634,25 +634,25 @@ function* talkToGuild(name) {
     const have = api.getItemCount(g.good);
     if (n === 0) {
         if (name === "blacksmith") {
-            yield api.say(g.who, "The Smiths' Guild has been forging this quarter's ironwork since before there was a quarter. The Weavers' Circle across the way says the seam of a good cloak matters more than the edge of a good blade. They are wrong.");
-            yield api.say(g.who, "I need two lumps of stamped ore from the Stoneyards, west of here. Guild ore, with our hammer-mark. Bring me two and the Guild will owe you one.");
+            yield api.say(g.who, "The Smiths' Guild has been forging this quarter's ironwork since before there was a quarter to forge it for. The Weavers' Circle across the way insists the seam of a good cloak matters more than the edge of a good blade. They are, obviously, wrong.");
+            yield api.say(g.who, "I need two lumps of stamped ore from the Stoneyards, west of here. Guild ore, with our hammer-mark on it. Bring me two and the Guild will owe you one, in writing if you'd like.");
         } else {
-            yield api.say(g.who, "The Weavers' Circle has clothed this quarter longer than the Smiths have armed it. They say a blade is worth more than a cloak. They have never once been cold in a good cloak.");
-            yield api.say(g.who, "I need two bolts of stamped wool from the Stoneyards, west of here. Circle wool, with our shuttle-mark. Bring two and the Circle will owe you one.");
+            yield api.say(g.who, "The Weavers' Circle has clothed this quarter far longer than the Smiths have armed it. They say a blade's worth more than a cloak. They have never once, not one single time, been cold in a good cloak.");
+            yield api.say(g.who, "I need two bolts of stamped wool from the Stoneyards, west of here. Circle wool, with our shuttle-mark. Bring two and the Circle will owe you one, and we don't forget debts.");
         }
         yield api.say("Lara", "And the other guild?");
-        yield api.say(g.who, name === "blacksmith" ? "Don't get me started." : "Please don't.");
+        yield api.say(g.who, name === "blacksmith" ? "Don't get me started." : "Please, for both our sakes, don't.");
     } else {
-        yield api.say(g.who, "You have " + have + " of the " + NEED + " I need. The Stoneyards, west - three are lying about, and I only need two.");
+        yield api.say(g.who, "You have " + have + " of the " + NEED + " I need. The Stoneyards, west - three are lying about out there, and I only need two of them.");
     }
 }
 
 function* talkToNeutral(name) {
     const lines = {
-        innkeeper: ["I serve both guilds. They sit at opposite ends of my taproom and pretend not to hear each other's arguments. I keep the middle table free, just in case.",
-                    "A feud is like a stew - leave it long enough and it changes, but it never stops being the same pot."],
-        merchant: ["I broker between them. Ore for wool, wool for ore. They think I am paid by the other side. I am paid by both, which is the only way it works.",
-                   "Two of each is what they ask for. There are three of each out in the yards. Take the spare and you could serve both sides. I'm not suggesting anything. I'm just saying the arithmetic."],
+        innkeeper: ["I serve both guilds, every day. They sit at opposite ends of my taproom and pretend not to hear each other's arguments. I keep the middle table free, just in case history changes its mind.",
+                    "A feud is like a stew - leave it long enough and it changes, but it never once stops being the exact same pot."],
+        merchant: ["I broker between them. Ore for wool, wool for ore. Each side thinks I'm secretly paid by the other. I'm paid by both, which, frankly, is the only way any of this works.",
+                   "Two of each is what they ask for. There happen to be three of each out in the yards. Take the spare and you could technically serve both sides. I'm not suggesting anything. I'm simply stating the arithmetic out loud."],
     }[name];
     const displayName = { innkeeper: "Landlord", merchant: "Broker" }[name];
     const n = api.getVar("talk_" + name, 0);
@@ -666,10 +666,10 @@ function* onEnemyDefeated(name) {
         return;
     if (name === "troll") {
         yield api.wait(0.3);
-        yield api.say("Lara", "A quarryman's ghost, or near enough. It just wanted the stone back.");
+        yield api.say("Lara", "A quarryman's ghost, or near enough one. It just wanted its stone back, and I suppose I don't blame it.");
     } else if (name === "goblin") {
         yield api.wait(0.3);
-        yield api.say("Lara", "It had a scrap of both guilds' cloth tied round its arm. Even the vermin here can't pick a side.");
+        yield api.say("Lara", "It had a scrap of both guilds' cloth tied round its arm. Even the local vermin here can't bring themselves to pick a side.");
     }
 }
 
@@ -678,15 +678,15 @@ function* onItemCollected(itemId) {
         return;
     yield api.wait(0.3);
     if (servedBoth()) {
-        yield api.say("Lara", "Two colours in one cloth, and the seam is not quite straight. Somebody sewed it in a hurry and nobody has ever wanted to fix it.");
-        yield api.say("???", "Fifth of nine. And you served both. You could have stopped at one - most people do. I want you to know that I saw the second trip.");
-        yield api.say("Lara", "It was mostly Nettle's tea.");
-        yield api.say("???", "It usually is. Onward: a mile of market where nothing costs money and everything costs something.");
+        yield api.say("Lara", "Two colours in one cloth, and the seam isn't quite straight. Somebody clearly sewed this in a hurry, and nobody's ever wanted to be the one to fix it.");
+        yield api.say("???", "Fifth of nine. And you served both. You could have stopped at one - most people do, honestly. I want you to know that I saw the second trip.");
+        yield api.say("Lara", "It was mostly Nettle's tea, if we're being accurate about credit.");
+        yield api.say("???", "It usually is. Onward: a mile of market where nothing costs money and everything costs something, which is somehow worse.");
     } else {
-        yield api.say("Lara", "A banner in one guild's colour, with a plain grey stripe stitched down the side where the other should be. Someone left room.");
-        yield api.say("???", "Fifth of nine. You served one guild and the gate opened; nobody could fault you. But the grey stripe is still there. There is always room for the second colour, if you go back for it.");
+        yield api.say("Lara", "A banner in one guild's colour, with a plain grey stripe stitched down the side where the other color clearly should be. Someone left room, just in case.");
+        yield api.say("???", "Fifth of nine. You served one guild and the gate opened; nobody could rightfully fault you for that. But the grey stripe's still there, waiting. There's always room for the second colour, if you ever go back for it.");
         yield api.say("Lara", "And if I don't?");
-        yield api.say("???", "Then you don't. It is a road, Lara, not an examination. Onward: a mile of market where nothing costs money and everything costs something.");
+        yield api.say("???", "Then you don't. This is a road, Lara, not an examination with a grade attached. Onward: a mile of market where nothing costs money and everything costs something.");
     }
     api.setGlobalVar("chapter", 22);
     api.setGlobalVar("guilds_at_peace", servedBoth());

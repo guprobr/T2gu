@@ -521,10 +521,10 @@ function* onLevelStart() {
     api.setVar("chapter9_intro_seen", true);
 
     yield api.wait(0.6);
-    yield api.say("Lara", "A fort on a hill, sunset the colour of old copper. Somebody has been collecting tolls here for a very long time.");
-    yield* companionSays("vigil_recruited", "Vigil", "A proper gatehouse. Crenels, murder holes, a banner nobody has dared take down. I approve.");
-    yield* companionSays("cobb_recruited", "Cobb", "Good stonework. Dry-laid, no mortar. That wall'll outlive the hill.");
-    yield api.say("Hint", "This level runs right to left. The town is behind you; the fortress maze is ahead, to the west.");
+    yield api.say("Lara", "A fort on a hill, sunset the colour of old copper. Somebody has been collecting tolls here for a genuinely alarming length of time.");
+    yield* companionSays("vigil_recruited", "Vigil", "A proper gatehouse. Crenels, murder holes, a banner nobody's dared take down in decades. Frankly, I approve of all of it.");
+    yield* companionSays("cobb_recruited", "Cobb", "Good stonework. Dry-laid, no mortar. That wall's going to outlive the hill, the fort, and probably several empires.");
+    yield api.say("Hint", "This level runs right to left. The town is behind you; the fortress maze is ahead, to the west. Toll not included.");
 }
 
 function buildTown() {
@@ -592,34 +592,34 @@ function* talkToReeve() {
     api.playSound("select");
     const kills = api.getVar("troll_kills", 0);
     if (api.getVar("bounty_done", false)) {
-        yield api.say("Reeve", "Five trolls, and the toll-bar's up. I've never seen the road so quiet. Take the seal - the tollkeeper won't argue with it.");
+        yield api.say("Reeve", "Five trolls, and the toll-bar's up. I've never seen the road this quiet, and frankly it's a little eerie. Take the seal - the tollkeeper won't argue with it, mostly because it outranks him.");
     } else if (n === 0) {
-        yield api.say("Reeve", "Highgate keeps a toll. Always has. It buys the road its upkeep - and lately trolls have been keeping the road instead.");
-        yield api.say("Reeve", "The bounty's posted: five of them, from the Highgate maze to the west. The toll-bar there drops when the bounty's collected, not before. There are eight out there. You'll know them; they're the ones that don't step aside.");
+        yield api.say("Reeve", "Highgate keeps a toll. Always has. It buys the road its upkeep - and lately trolls have been keeping the road instead, which was not part of the original arrangement.");
+        yield api.say("Reeve", "The bounty's posted: five of them, from the Highgate maze to the west. The toll-bar drops the moment the bounty's collected, and not one troll before. There are eight out there. You'll know them; they're the ones that refuse to step aside for anybody.");
         yield api.say("Lara", "Five trolls. That's a lot of road.");
-        yield api.say("Reeve", "It's a lot of trolls.");
+        yield api.say("Reeve", "It's a lot of trolls. Same problem, viewed from two very different heights.");
     } else {
-        yield api.say("Reeve", kills === 0 ? "Five to collect. None yet. The maze is west, through the stone gate." : kills + " of " + BOUNTY + " collected. Keep on.");
+        yield api.say("Reeve", kills === 0 ? "Five to collect. None yet. The maze is west, through the stone gate. No pressure. Actually, some pressure." : kills + " of " + BOUNTY + " collected. Keep on - the road's counting on you, and so, frankly, am I.");
     }
 }
 
 function* talkToTollman() {
     api.playSound("select");
     if (api.getVar("bounty_done", false)) {
-        yield api.say("Tollman", "Bar's up. The seal's on the bench behind me. Don't let it go to your head.");
+        yield api.say("Tollman", "Bar's up. The seal's on the bench behind me. Try not to let it go to your head - I've seen what that seal does to people.");
     } else {
-        yield api.say("Tollman", "Toll-bar's down. Bounty's the price of a raise, and I'm told you're still short. I can wait. I'm very good at waiting.");
+        yield api.say("Tollman", "Toll-bar's down. The bounty's the price of my raise, and I'm reliably informed you're still short. I can wait. I am, professionally, extremely good at waiting.");
     }
 }
 
 function* talkToTownsfolk(name) {
     const lines = {
-        dwarf_warrior: ["Captain of the gate-guard, which is a grand way of saying I stand near the gate. The trolls don't care about the title.",
-                        "Don't take the walls head-on. Trolls hate a corner. So do I, but I hate it quietly."],
-        blacksmith: ["I sharpen. I don't fight. But I've never sharpened so many blades in one week.",
-                     "Whetstone's on the bench. Take it. Trolls chip a blade like it's a personal favour."],
-        merchant: ["Toll's the reason there's a road. Trolls are the reason there isn't. Somebody will have to decide which matters more.",
-                   "The sunset's free, at least. Best view in the county."],
+        dwarf_warrior: ["Captain of the gate-guard, which is a grand way of saying I stand very near the gate. The trolls remain deeply unimpressed by the title.",
+                        "Don't take the walls head-on. Trolls hate a corner. So do I, honestly, but I hate it a great deal more quietly."],
+        blacksmith: ["I sharpen. I don't fight. And yet I have never in my life sharpened so many blades in one single week.",
+                     "Whetstone's on the bench. Take it. Trolls chip a blade like it's doing them a personal favor."],
+        merchant: ["Toll's the reason there's a road at all. Trolls are the reason there currently isn't. Somebody, someday, is going to have to arbitrate that.",
+                   "The sunset's free, at least. Best view in the county, and the one thing around here nobody's figured out how to charge for yet."],
     }[name];
     const displayName = { dwarf_warrior: "Captain", blacksmith: "Smith", merchant: "Merchant" }[name];
     const n = api.getVar("talk_" + name, 0);
@@ -639,11 +639,11 @@ function* onEnemyDefeated(name) {
             api.setBarrier("toll_bar", 0, 0, 1, 1, false);
             api.giveExperience(120);
             yield api.wait(0.3);
-            yield api.say("Lara", "That's the fifth. Somewhere far west a chain rattles and a heavy bar swings up.");
-            yield* companionSays("vigil_recruited", "Vigil", "The bounty stands paid. It was an honour.");
+            yield api.say("Lara", "That's the fifth. Somewhere far to the west, a chain rattles and a very heavy bar swings up. I'm choosing to feel proud about that.");
+            yield* companionSays("vigil_recruited", "Vigil", "The bounty stands paid in full. It was, genuinely, an honor to help collect five trolls like invoices.");
         } else if (kills === 2 || kills === 4) {
             yield api.wait(0.3);
-            yield api.say("Lara", kills + " of " + BOUNTY + ".");
+            yield api.say("Lara", kills + " of " + BOUNTY + ". Only " + (BOUNTY - kills) + " more oversized men with clubs to go.");
         }
         return;
     }
@@ -651,10 +651,10 @@ function* onEnemyDefeated(name) {
         return;
     if (name === "orc") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Trained, at least. Somebody paid for that discipline.");
+        yield api.say("Lara", "Trained, at least. Somebody, somewhere, paid good money for that discipline.");
     } else if (name === "goblin") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Scouts for the trolls, I think. The trolls do like a warning.");
+        yield api.say("Lara", "Scouting for the trolls, I'd guess. Trolls do love an early warning system with legs.");
     }
 }
 
@@ -662,10 +662,10 @@ function* onItemCollected(itemId) {
     if (itemId !== "tollkeeper_seal")
         return;
     yield api.wait(0.3);
-    yield api.say("Lara", "It's heavier than it looks. Iron and wax, and somewhere inside, the smallest hum.");
-    yield api.say("???", "Third of ten. Tolls are only ever paid for one thing, Lara: passage. The whole road has been asking for it.");
-    yield api.say("Lara", "Then it can have it. Where next?");
-    yield api.say("???", "Toward the place where the dead hold a fair, and nobody's told them it ended.");
+    yield api.say("Lara", "It's heavier than it looks. Iron and wax, and somewhere inside, the smallest, smuggest little hum.");
+    yield api.say("???", "Third of ten. Tolls are only ever paid for one thing, Lara: passage. The whole road's been quietly asking for it this entire time.");
+    yield api.say("Lara", "Then it can have it. Where next, and please say somewhere warm.");
+    yield api.say("???", "Toward the place where the dead hold a fair, and nobody's had the heart to tell them it ended. Bring an appetite. Or don't. They're not picky.");
     api.setGlobalVar("chapter", 10);
     api.playSound("select");
     yield api.wait(0.8);

@@ -537,10 +537,10 @@ function* onLevelStart() {
     api.setVar("chapter20_intro_seen", true);
 
     yield api.wait(0.6);
-    yield api.say("Lara", "The river's come up over the ford and stayed. Not a flood, exactly - it has just decided this is where the bank is now.");
-    yield* companionSays("cobb_recruited", "Cobb", "Water that doesn't drain is water that's been told not to. Somewhere, a lock has forgotten its job.");
-    yield* companionSays("vex_recruited", "Vex", "There is a sluice on the far side of the village. My instruments show no pressure in it. Nobody has turned the wheel in some time.");
-    yield api.say("Hint", "This level runs left to right. The town is behind you; the river is ahead, and beyond it, to the east, the Millrace Meadow.");
+    yield api.say("Lara", "The river's come up over the ford and simply stayed there. Not a flood, exactly - more like it's unilaterally decided this is where the bank lives now.");
+    yield* companionSays("cobb_recruited", "Cobb", "Water that refuses to drain is water that's been firmly told not to. Somewhere, a lock has forgotten its entire job description.");
+    yield* companionSays("vex_recruited", "Vex", "There's a sluice on the far side of the village. My instruments show zero pressure in it. Nobody's turned that wheel in a very long time.");
+    yield api.say("Hint", "This level runs left to right. The town is behind you; the river is ahead, and beyond it, to the east, the Millrace Meadow. Waterproof boots recommended.");
 }
 
 function buildTown() {
@@ -614,43 +614,43 @@ function* onTalkTo(name) {
 function* talkToLockkeeper() {
     api.playSound("select");
     if (api.getVar("ford_drained", false)) {
-        yield api.say("Odo", "Hear that? That's a river going back where it lives. Thirty years I've kept that sluice, and I have never been so glad of a wet boot. Off you go.");
+        yield api.say("Odo", "Hear that? That's a river going back to exactly where it lives. Thirty years I've kept that sluice, and I have never once been so glad about a wet boot. Off you go.");
         return;
     }
     const held = partsHeld();
     if (held === PARTS.length) {
         PARTS.forEach(p => api.removeItem(p, 1));
         api.setVar("ford_drained", true);
-        yield api.say("Odo", "*he lays the crank, the chain and the gear on the sill, and his hands know what to do with them before he does* Crank... chain... and the gear with the missing tooth. Ha! The tooth was always the difficult bit.");
-        yield api.say("Odo", "*a long wooden groan from the lock, and then the sound of a great deal of water changing its mind* Stand well back.");
+        yield api.say("Odo", "*he lays the crank, the chain and the gear on the sill, and his hands know exactly what to do with them well before he does* Crank... chain... and the gear with the missing tooth. Ha! The tooth was always the difficult bit, every time.");
+        yield api.say("Odo", "*a long wooden groan from the lock, followed by the sound of a genuinely enormous amount of water changing its mind* Stand well back. I mean it.");
         drainFord();
         api.spawnProp("wooden_bridge", colAt(TOWN_U + 2), MID);
         api.giveExperience(120);
         yield api.wait(0.5);
-        yield api.say("Lara", "The water's going down. There's a crossing where the ford always was - the bank tiles even line up.");
-        yield* companionSays("cobb_recruited", "Cobb", "Three little bits of brass, and a whole river reconsiders. That's a proper dwarf lesson right there.");
+        yield api.say("Lara", "The water's going down. There's a crossing right where the ford always was - the bank tiles even line up perfectly.");
+        yield* companionSays("cobb_recruited", "Cobb", "Three little bits of brass, and an entire river reconsiders its life choices. That's a proper dwarf lesson right there, free of charge.");
         return;
     }
     const n = api.getVar("odo_talks", 0);
     api.setVar("odo_talks", n + 1);
     if (n === 0) {
-        yield api.say("Odo", "Odo. I keep the sluice, and the sluice keeps the ford. When the hum stopped the river came up all at once and took the wheel off its axle - crank, chain and gear, flung to the four winds. Well, three of them.");
-        yield api.say("Odo", "The crank went north-west, over by the fence. The chain went north, on the bank, among the reeds. The gear went south - down by the last lane, if the geese haven't had it.");
+        yield api.say("Odo", "Odo. I keep the sluice, and the sluice keeps the ford. When the hum stopped, the river came up all at once and yanked the wheel clean off its axle - crank, chain and gear, flung to all four winds. Well. Three of them.");
+        yield api.say("Odo", "The crank went north-west, over by the fence. The chain went north, along the bank, among the reeds. The gear went south, down by the last lane, assuming the geese haven't claimed it already.");
         yield api.say("Lara", "And with all three you can open the sluice?");
-        yield api.say("Odo", "With all three I can put a river back in its bed. Bring them here, to the bank. I can't leave my post - there'd be nobody to turn it.");
+        yield api.say("Odo", "With all three, I can put an entire river back in its proper bed. Bring them here, to the bank. I can't leave my post - there'd be nobody left standing here to turn the wheel.");
     } else {
-        yield api.say("Odo", "You hold " + held + " of the " + PARTS.length + ". Crank north-west, chain north on the bank, gear south by the last lane. Bring them all together and I will do the rest.");
+        yield api.say("Odo", "You hold " + held + " of the " + PARTS.length + ". Crank north-west, chain north on the bank, gear south by the last lane. Bring them all together and I'll handle the rest myself.");
     }
 }
 
 function* talkToTownsfolk(name) {
     const lines = {
-        angler: ["I fished this river for twenty years and it never once rose past my knees. Now it's up to my hat and it's clean as a whistle. I don't trust it.",
-                 "Something in the water is humming. Not the old hum. A new, small one, like it's practising."],
-        baker: ["Flour keeps in a wet cellar. Faith keeps in a wet heart. Both are very nearly true.",
-                "The mill wheel hasn't turned since the water rose. The bread's coarser. Don't tell anyone I said so."],
-        farmhand_young: ["I saw the crank go. It went past the pond like a fish, all shiny and quick, and I said 'Odo will want that.' And then I forgot to say it to Odo.",
-                         "If you find the gear, give it a good clean before you hand it over. The geese have opinions about it."],
+        angler: ["I've fished this river for twenty years and it never once rose past my knees. Now it's up past my hat, and it's clean as a whistle. I don't trust a single drop of it.",
+                 "Something in the water's humming. Not the old hum, mind you. A new, small one, like it's still just practicing."],
+        baker: ["Flour keeps in a wet cellar. Faith keeps in a wet heart. Both of those are very nearly, almost true.",
+                "The mill wheel hasn't turned since the water rose. Bread's coarser for it. Don't you dare tell anyone I admitted that."],
+        farmhand_young: ["I saw the crank go. Shot past the pond like a fish, all shiny and quick, and I said out loud, 'Odo will want that.' Then I completely forgot to actually tell Odo.",
+                         "If you find the gear, give it a good clean before you hand it over. The geese have developed very strong opinions about it."],
     }[name];
     const displayName = { angler: "Netter", baker: "Baker", farmhand_young: "Pip" }[name];
     const n = api.getVar("talk_" + name, 0);
@@ -664,10 +664,10 @@ function* onEnemyDefeated(name) {
         return;
     if (name === "crocodile") {
         yield api.wait(0.3);
-        yield api.say("Lara", "A river beast a long way from any river that wants it.");
+        yield api.say("Lara", "A river beast a very long way from any river that actually wants it around.");
     } else if (name === "water_spirit") {
         yield api.wait(0.3);
-        yield api.say("Lara", "It went back into the ground like rain, which I suppose it was.");
+        yield api.say("Lara", "It went back into the ground like rain, which, technically, I suppose it always was.");
     }
 }
 
@@ -675,10 +675,10 @@ function* onItemCollected(itemId) {
     if (itemId !== "sluice_wheel")
         return;
     yield api.wait(0.3);
-    yield api.say("Lara", "A small brass wheel, still wet. When I turn it a quarter, I can feel a river on the other side of the world lean toward me.");
-    yield api.say("???", "Fourth of nine. A river is only a promise the ground makes to the sea. You reminded it. That's most of what any of us ever do.");
-    yield api.say("Lara", "You always sound like you're standing at the edge of something.");
-    yield api.say("???", "Only lately. The next place is a quarter where two guilds have stopped speaking, and both of them are right.");
+    yield api.say("Lara", "A small brass wheel, still wet. When I turn it a quarter turn, I can genuinely feel a river on the other side of the world lean toward me a little.");
+    yield api.say("???", "Fourth of nine. A river is only ever a promise the ground makes to the sea. You just reminded it. That's most of what any of us ever really do, if you think about it.");
+    yield api.say("Lara", "You always sound like you're standing right at the edge of something.");
+    yield api.say("???", "Only lately, actually. The next place is a quarter where two guilds have stopped speaking entirely, and, infuriatingly, both of them happen to be right.");
     api.setGlobalVar("chapter", 21);
     api.playSound("select");
     yield api.wait(0.8);

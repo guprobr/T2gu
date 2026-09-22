@@ -522,10 +522,10 @@ function* onLevelStart() {
     api.setVar("chapter12_intro_seen", true);
 
     yield api.wait(0.6);
-    yield api.say("Lara", "Cinderport. You can feel the forges before you see them - the air itself is bruised orange.");
-    yield* companionSays("cobb_recruited", "Cobb", "Now THAT is a foundry. Do you smell the iron? The honest, stubborn iron?");
-    yield* companionSays("vigil_recruited", "Vigil", "Forge-glow makes for poor cover. Everyone will see us coming.");
-    yield api.say("Hint", "This level runs left to right. The town is behind you; the Slagworks are ahead, to the east.");
+    yield api.say("Lara", "Cinderport. You can feel the forges before you even see them - the air itself is bruised orange and taking it personally.");
+    yield* companionSays("cobb_recruited", "Cobb", "Now THAT is a foundry. Do you smell the iron? The honest, stubborn, thoroughly unreasonable iron?");
+    yield* companionSays("vigil_recruited", "Vigil", "Forge-glow makes for genuinely terrible cover. Everyone within a mile is going to see us coming, and probably judge our outfits too.");
+    yield api.say("Hint", "This level runs left to right. The town is behind you; the Slagworks are ahead, to the east. Bring oven mitts, metaphorically or otherwise.");
 }
 
 function buildTown() {
@@ -594,25 +594,25 @@ function* talkToForgemaster() {
     api.setVar("forgemaster_talks", n + 1);
     api.playSound("select");
     if (api.getVar("warden_down", false)) {
-        yield api.say("Forgemaster", "It's down. Properly down. The crucible gate stood up and let go, like it had been waiting to be told it could. Go on through.");
+        yield api.say("Forgemaster", "It's down. Properly down. The crucible gate stood up and let go, like it had been waiting years for permission. Go on through.");
     } else if (n === 0) {
-        yield api.say("Forgemaster", "Cinderport's forges run on one rule: nothing burns that isn't meant to. The Slagwarden enforces it. Golem, iron-boned, older than the harbour.");
-        yield api.say("Forgemaster", "Three nights ago the hum got into it. Now it enforces the rule against *everything*. It's sitting on the crucible gate at the end of the Slagworks, and it won't let anyone or anything past.");
+        yield api.say("Forgemaster", "Cinderport's forges run on exactly one rule: nothing burns that isn't meant to. The Slagwarden enforces that rule. Golem, iron-boned, considerably older than the harbor itself.");
+        yield api.say("Forgemaster", "Three nights ago, the hum got into it. Now it enforces the rule against *everything*, including anyone just trying to walk past. It's sitting on the crucible gate at the end of the Slagworks, and it will not budge.");
         yield api.say("Lara", "So we take it down.");
-        yield api.say("Forgemaster", "You do. It's slow, it hits like a falling wall, and it takes a good deal of hitting. Don't fight it in the open - use the corners. The Slagworks have plenty. Bring potions.");
+        yield api.say("Forgemaster", "You do. It's slow, it hits like a falling wall with feelings, and it takes a genuinely unreasonable amount of hitting back. Don't fight it in the open - use the corners. The Slagworks have plenty. Bring potions. Bring all your potions.");
     } else {
-        yield api.say("Forgemaster", "Slagwarden. End of the Slagworks. Corners, patience, and potions - in that order.");
+        yield api.say("Forgemaster", "Slagwarden. End of the Slagworks. Corners, patience, potions - in that exact order, and don't skip the potions.");
     }
 }
 
 function* talkToTownsfolk(name) {
     const lines = {
-        dwarf_bomber: ["You want to take a golem down? Two words: shaped charges. Three, if you count 'please stand back'.",
-                       "I offered to blow a hole in the Slagwarden's shift roster. Forgemaster said that's not what a shift roster is."],
-        lumberjack: ["I haul coal. Was hauling coal. Now I mostly haul coal to a gate that doesn't open.",
-                     "A golem like that never sleeps. But it does stop to think, sometimes. That's when you swing."],
-        merchant: ["Iron's up. Everything else is down. That's the whole economy of a foundry town in one sentence.",
-                   "Wrap your hands. Slag burns worse than fire, and it has less pride about it."],
+        dwarf_bomber: ["You want to take a golem down? Two words: shaped charges. Three words, if you count 'please stand back'.",
+                       "I offered to blow a hole clean through the Slagwarden's shift roster. Forgemaster informed me that's not, in fact, what a shift roster is."],
+        lumberjack: ["I haul coal. Used to haul coal. Now I mostly haul coal directly to a gate that stubbornly refuses to open.",
+                     "A golem like that never sleeps. But it does stop to think, occasionally. That's precisely when you swing."],
+        merchant: ["Iron's up. Everything else is down. That's the entire economy of a foundry town, summarized in one sentence, free of charge.",
+                   "Wrap your hands before you go in. Slag burns worse than fire, and unlike fire, it has no pride whatsoever about doing it."],
     }[name];
     const displayName = { dwarf_bomber: "Blaster", lumberjack: "Stoker", merchant: "Merchant" }[name];
     const n = api.getVar("talk_" + name, 0);
@@ -629,19 +629,19 @@ function* onEnemyDefeated(name) {
         api.giveExperience(200);
         api.playSound("select");
         yield api.wait(0.5);
-        yield api.say("Lara", "It didn't fall so much as *let go*. Like it had been waiting for someone to tell it the shift was over.");
-        yield* companionSays("cobb_recruited", "Cobb", "Iron doesn't tire, lass. It just needs somebody to say it can stop.");
-        yield api.say("Lara", "The crucible gate's lifting. I can hear the chain from here.");
+        yield api.say("Lara", "It didn't fall so much as *let go*. Like it had spent decades waiting for someone to finally tell it the shift was over.");
+        yield* companionSays("cobb_recruited", "Cobb", "Iron doesn't tire, lass. It just, eventually, needs somebody to say it's allowed to stop. Bit like me, honestly.");
+        yield api.say("Lara", "The crucible gate's lifting. I can hear the chain from all the way over here.");
         return;
     }
     if (Math.random() > 0.1)
         return;
     if (name === "fire_spirit") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Warm, then gone. Even the fires here are exhausted.");
+        yield api.say("Lara", "Warm, then gone. Even the fires here seem exhausted. Understandable, given the coworkers.");
     } else if (name === "lizardman") {
         yield api.wait(0.3);
-        yield api.say("Lara", "It didn't want to be in the foundry either. Nobody here did.");
+        yield api.say("Lara", "It clearly didn't want to be in this foundry either. Frankly, nobody here did, alive or otherwise.");
     }
 }
 
@@ -649,10 +649,10 @@ function* onItemCollected(itemId) {
     if (itemId !== "cinder_compass")
         return;
     yield api.wait(0.3);
-    yield api.say("Lara", "The needle isn't pointing north. It's pointing... at the forge. At the coals, actually. At whatever's still burning.");
-    yield api.say("???", "Sixth of ten. Not everything that burns is destroyed, Lara. Some things only burn to be seen.");
-    yield api.say("Lara", "You say that like you're speaking from experience.");
-    yield api.say("???", "I said I hid them where a kind person would walk. I never said I stayed away myself. Onward. The next place is underground, and it's full of trains that never stopped running.");
+    yield api.say("Lara", "The needle isn't pointing north. It's pointing... at the forge. At the coals, specifically. At whatever, exactly, is still stubbornly burning in there.");
+    yield api.say("???", "Sixth of ten. Not everything that burns is destroyed, Lara. Some things only ever burn to be seen.");
+    yield api.say("Lara", "You say that like you're speaking from very personal experience.");
+    yield api.say("???", "I said I hid them where a kind person would eventually walk. I never once said I stayed away myself. Onward - the next place is underground, and it's absolutely full of trains that never got the memo to stop running.");
     api.setGlobalVar("chapter", 13);
     api.playSound("select");
     yield api.wait(0.8);

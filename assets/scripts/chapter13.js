@@ -530,10 +530,10 @@ function* onLevelStart() {
     api.setVar("chapter13_intro_seen", true);
 
     yield api.wait(0.6);
-    yield api.say("Lara", "Below the railway. Steel plate underfoot, torches on the walls, and a ceiling that glitters when you're not looking straight at it.");
-    yield* companionSays("cobb_recruited", "Cobb", "Now THIS is proper depth. Cool air, honest stone, and not a windmill in sight.");
-    yield* companionSays("nettle_recruited", "Nettle", "Everything down here is damp and glowing. Ask me about the mushrooms before somebody eats one.");
-    yield api.say("Hint", "This level runs right to left. The town is behind you; the Signal Tunnels are ahead, to the west.");
+    yield api.say("Lara", "Below the railway. Steel plate underfoot, torches on the walls, and a ceiling that glitters the instant you stop looking directly at it. Rude.");
+    yield* companionSays("cobb_recruited", "Cobb", "Now THIS is proper depth. Cool air, honest stone, and not a single windmill anywhere in sight. Finally, a place with standards.");
+    yield* companionSays("nettle_recruited", "Nettle", "Everything down here is damp and faintly glowing. Ask me about the mushrooms. Actually, please ask me before somebody just eats one.");
+    yield api.say("Hint", "This level runs right to left. The town is behind you; the Signal Tunnels are ahead, to the west. Mind the glowing fungi. Mind them a lot.");
 }
 
 function buildTown() {
@@ -613,14 +613,14 @@ function* talkToFuse() {
     api.setVar("fuse_talks", n + 1);
     api.playSound("select");
     if (api.getVar("line_live", false)) {
-        yield api.say("Fuse", "I can hear it! The whole line, end to end, humming in tune - with itself, this time. Take the fork. It's how the signals were originally kept honest.");
+        yield api.say("Fuse", "I can hear it! The whole line, end to end, humming in tune with itself, for once. Take the fork. It's how the signals were originally kept honest, back when anybody cared.");
     } else if (n === 0) {
-        yield api.say("Fuse", "Welcome to the Undertrack. We keep the old railway's signals alive. Three relays carry the line through the Signal Tunnels, west of here.");
-        yield api.say("Fuse", "Every relay listens to the one upstream of it. Wake the first and it wakes the second, wake the second and it wakes the third. Since the hum, none of them will start on their own.");
+        yield api.say("Fuse", "Welcome to the Undertrack. We keep the old railway's signals alive, mostly out of spite. Three relays carry the line through the Signal Tunnels, west of here.");
+        yield api.say("Fuse", "Every relay listens to the one upstream of it. Wake the first and it wakes the second, wake the second and it wakes the third. Since the hum started, not one of them will start on its own anymore. Lazy equipment.");
         yield api.say("Lara", "And the bulkhead at the end of the tunnels?");
-        yield api.say("Fuse", "It's on the same interlock. Live line, open door. Dead line, wall. Talk to the relays in order - each will tell you where the next one is.");
+        yield api.say("Fuse", "Same interlock. Live line, open door. Dead line, wall. Talk to the relays in order - each one will grudgingly tell you where the next is.");
     } else {
-        yield api.say("Fuse", "One, two, three. Downstream, in order. If one of them says it hears nothing, you skipped a link.");
+        yield api.say("Fuse", "One, two, three. Downstream, in that order. If one of them says it hears nothing, congratulations, you skipped a link.");
     }
 }
 
@@ -630,39 +630,39 @@ function* speakToRelay(name) {
     const idx = RELAYS.indexOf(name);
     api.playSound("select");
     if (idx < step) {
-        yield api.say(RELAY_NAME[name], "*a steady tone* Carrier live.");
+        yield api.say(RELAY_NAME[name], "*a steady tone* Carrier live. Already did my part, thanks.");
         return;
     }
     if (idx > step) {
-        yield api.say(RELAY_NAME[name], "*static* ...no carrier from upstream. Wake " + RELAY_NAME[RELAYS[step]] + " first.");
+        yield api.say(RELAY_NAME[name], "*static* ...no carrier from upstream. Wake " + RELAY_NAME[RELAYS[step]] + " first. I don't do favors out of order.");
         return;
     }
     api.setVar("relay_step", step + 1);
     api.giveExperience(30);
     if (step === 0) {
-        yield api.say("Relay One", "*a bulb flickers on, then holds* ...signal. Carrier live. Sending it down the line.");
+        yield api.say("Relay One", "*a bulb flickers on, then holds* ...signal. Carrier live. Sending it down the line, against my better judgment.");
         yield api.say("Relay One", "Next unit: " + relayHint(1));
     } else if (step === 1) {
-        yield api.say("Relay Two", "*two amber lights, then a low tone* Carrier live. Signal doubled. One more link.");
+        yield api.say("Relay Two", "*two amber lights, then a low tone* Carrier live. Signal doubled. One more link and I'm officially off the hook.");
         yield api.say("Relay Two", "Last unit: " + relayHint(2));
     } else {
-        yield api.say("Relay Three", "*a chime that goes on far too long* CARRIER LIVE. Interlock thrown.");
+        yield api.say("Relay Three", "*a chime that goes on far, far too long* CARRIER LIVE. INTERLOCK THROWN. Was that dramatic enough for everyone?");
         api.setVar("line_live", true);
         api.setBarrier("relay_gate", 0, 0, 1, 1, false);
         api.giveExperience(110);
-        yield api.say("Lara", "Somewhere down the tunnel, a bulkhead just let go of its frame.");
-        yield* companionSays("cobb_recruited", "Cobb", "Three little boxes, all listening to each other. That's a whole dwarf gathering right there.");
+        yield api.say("Lara", "Somewhere down the tunnel, a bulkhead just let go of its frame with an enormous, satisfied clang.");
+        yield* companionSays("cobb_recruited", "Cobb", "Three little boxes, all listening to each other in exact order. That's a better system than most dwarf gatherings I've sat through.");
     }
 }
 
 function* talkToTownsfolk(name) {
     const lines = {
-        miner: ["I dig. That's all I do. The tunnels west of here I didn't dig. Somebody with longer arms did.",
-                "Ceilings that sparkle mean crystal. Ceilings that drip mean water. Ceilings that do neither, you run."],
-        elder_2: ["The last train left eleven years ago. We keep the platform swept in case it comes back.",
-                  "The Stationmaster's rule: anyone who arrives gets a bench and a hot drink, and nobody asks where from."],
-        mushroom_gnome: ["Blue caps are for soup. Red caps are for arguments. Don't mix them. I've mixed them.",
-                         "Everything down here is quietly growing. It's the only place I've ever felt at home."],
+        miner: ["I dig. That's the whole job description. The tunnels west of here, I did not dig. Somebody with considerably longer arms did.",
+                "Ceilings that sparkle mean crystal. Ceilings that drip mean water. Ceilings that do neither, you run, and you don't stop to ask why."],
+        elder_2: ["The last train left eleven years ago. We keep the platform swept anyway, just in case it feels like a comeback.",
+                  "The Stationmaster's one rule: anyone who arrives gets a bench and a hot drink, and absolutely nobody asks where from. Good policy."],
+        mushroom_gnome: ["Blue caps are for soup. Red caps are for arguments. Don't mix them up. I have mixed them up. I do not recommend it.",
+                         "Everything down here is quietly, patiently growing. It's the only place I've ever actually felt at home in my life."],
     }[name];
     const displayName = { miner: "Digger", elder_2: "Stationmaster", mushroom_gnome: "Cap" }[name];
     const n = api.getVar("talk_" + name, 0);
@@ -676,10 +676,10 @@ function* onEnemyDefeated(name) {
         return;
     if (name === "mech_spider") {
         yield api.wait(0.3);
-        yield api.say("Lara", "A maintenance crawler still trying to maintain something. I'm sorry it had to be me.");
+        yield api.say("Lara", "A maintenance crawler still valiantly trying to maintain something. Sorry it had to be me who ended that particular career.");
     } else if (name === "slime_void") {
         yield api.wait(0.3);
-        yield api.say("Lara", "It left a darker patch on the plate where it stood. It fades slowly.");
+        yield api.say("Lara", "It left a darker patch on the plate where it stood. Fading slowly, which is somehow worse than if it just vanished outright.");
     }
 }
 
@@ -687,10 +687,10 @@ function* onItemCollected(itemId) {
     if (itemId !== "relay_tuning_fork")
         return;
     yield api.wait(0.3);
-    yield api.say("Lara", "It rang the moment I closed my hand on it. One clean note, and everything in the tunnel went quiet to listen.");
-    yield api.say("???", "Seventh of ten. A tuning fork doesn't make the note. It only reminds everything else what the note was.");
-    yield api.say("Lara", "That's what the hum is, isn't it. A note somebody forgot.");
-    yield api.say("???", "Closer than you know. Onward. There's a river ahead that keeps a copy of everything that crosses it - try not to argue with your reflection.");
+    yield api.say("Lara", "It rang the moment I closed my hand on it. One clean note, and every single thing in this tunnel went dead quiet to listen.");
+    yield api.say("???", "Seventh of ten. A tuning fork doesn't make the note, Lara. It only reminds everything else what the note used to be.");
+    yield api.say("Lara", "That's what the hum is, isn't it. A note somebody, somewhere, simply forgot.");
+    yield api.say("???", "Closer than you know. Onward. There's a river ahead that keeps a copy of absolutely everything that crosses it - try not to get into an argument with your own reflection. You will lose.");
     api.setGlobalVar("chapter", 14);
     api.playSound("select");
     yield api.wait(0.8);

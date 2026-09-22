@@ -538,11 +538,11 @@ function* onLevelStart() {
     api.setVar("chapter16_intro_seen", true);
 
     yield api.wait(0.6);
-    yield api.say("Lara", "Morning. A real one - the first sunrise since Fernhollow that isn't holding something back. And the whole village is whispering.");
-    yield* companionSays("vex_recruited", "Vex", "The hum has a floor here. It isn't rising any more - it's resting. Something is about to change key.");
-    yield* companionSays("nettle_recruited", "Nettle", "Nobody's sick. Nobody's talking either. They're just listening, all of them, the way you'd listen for a door.");
-    yield* companionSays("vigil_recruited", "Vigil", "Ten places. Nine relics. I have a suspicion about the tenth, and I find I would rather I were wrong.");
-    yield api.say("Hint", "This level runs left to right. The town is behind you; the Long Room is ahead, to the east.");
+    yield api.say("Lara", "Morning. A real one - the first sunrise since Fernhollow that isn't holding something back. And the whole village is whispering, which is somehow louder than shouting.");
+    yield* companionSays("vex_recruited", "Vex", "The hum has a floor here. It isn't rising anymore - it's resting. That is not a comforting sentence to say out loud, and yet, here we are.");
+    yield* companionSays("nettle_recruited", "Nettle", "Nobody's sick. Nobody's even talking. They're just listening, all of them, the exact way you'd listen for a door about to open.");
+    yield* companionSays("vigil_recruited", "Vigil", "Ten places. Nine relics collected so far. I have a suspicion about the tenth, and I would very much prefer to be wrong about it.");
+    yield api.say("Hint", "This level runs left to right. The town is behind you; the Long Room is ahead, to the east. Deep breath.");
 }
 
 function buildTown() {
@@ -621,7 +621,7 @@ function* openDoorIfReady() {
     api.setVar("door_open", true);
     api.setBarrier("long_room_door", 0, 0, 1, 1, false);
     yield api.wait(0.4);
-    yield api.say("Lara", "The Long Room door just let go of its frame. Somewhere far down the hall, a great bar slid back.");
+    yield api.say("Lara", "The Long Room door just let go of its frame entirely. Somewhere far down the hall, a great bar slid back with a sound I'd rather not hear twice.");
 }
 
 function* onTalkTo(name) {
@@ -639,15 +639,15 @@ function* talkToMatron() {
     api.setVar("matron_talks", n + 1);
     api.playSound("select");
     if (api.getVar("door_open", false)) {
-        yield api.say("Matron", "The door's open. I felt it in my teeth. Go through, child, and don't let anyone tell you that you should have waited.");
+        yield api.say("Matron", "The door's open. I felt it in my own teeth. Go through, child, and don't let anyone tell you that you should have waited around any longer.");
     } else if (n === 0) {
-        yield api.say("Matron", "You've come a very long way. I can tell from your boots, and from the way you're carrying that pack - like it's full of small bells.");
-        yield api.say("Matron", "The Long Room is a hall, at the end of the road, west to east. It has one door, and the door is tuned - it opens for a chord and for nothing else. Our Choirmaster went to sound it and never came back.");
-        yield api.say("Matron", "The Cantor keeps the door now. It used to lead the choir. Something changed it. It doesn't sing any more - it only holds the note.");
+        yield api.say("Matron", "You've come a very long way. I can tell from your boots, and from the way you're carrying that pack, like it's full of small, expensive bells.");
+        yield api.say("Matron", "The Long Room is a hall, at the end of the road, west to east. It has one door, and the door is tuned - it opens for a chord and absolutely nothing else. Our Choirmaster went to sound it and never came back. Bad sign, that.");
+        yield api.say("Matron", "The Cantor keeps the door now. It used to lead the choir, if you can believe it. Something changed it. It doesn't sing anymore - it only holds the note, forever, whether anyone's listening or not.");
         yield api.say("Lara", "So: free the Choirmaster, and put down the Cantor.");
-        yield api.say("Matron", "Free him, and he will listen to what you carry and tell you whether it's enough. Put the Cantor down, and the door has nobody left to argue with. Do both, and it opens.");
+        yield api.say("Matron", "Free him, and he'll listen to what you carry and tell you whether it's enough. Put the Cantor down, and the door has nobody left standing there to argue with it. Do both, and it opens. Simple, really. In theory.");
     } else {
-        yield api.say("Matron", "Free the Choirmaster. Put the Cantor down. Then the door. In that order, or the other - so long as it's all three.");
+        yield api.say("Matron", "Free the Choirmaster. Put the Cantor down. Then the door. Either order you like, so long as all three happen eventually.");
     }
 }
 
@@ -656,48 +656,48 @@ function* talkToChoirmaster() {
     if (!api.getVar("choir_freed", false)) {
         api.setVar("choir_freed", true);
         api.giveExperience(100);
-        yield api.say("Choirmaster", "You- you're not one of the Cantor's. Oh, bless every cracked bell in this hall.");
+        yield api.say("Choirmaster", "You- you're not one of the Cantor's! Oh, bless every cracked, out-of-tune bell in this entire hall.");
         yield api.say("Lara", "You're the Choirmaster? The Matron sent me.");
-        yield api.say("Choirmaster", "She would. She never once let me finish a rehearsal. Listen. Do you hear that? *he tilts his head at her pack, and his face changes*");
+        yield api.say("Choirmaster", "She would. That woman never once let me finish a single rehearsal in my life. Listen. Do you hear that? *he tilts his head at her pack, and his face changes completely*");
     }
     if (!api.getVar("chord_done", false)) {
         const n = relicCount();
         api.setVar("chord_done", true);
         api.setGlobalVar("chord_notes", n);
-        yield api.say("Choirmaster", "One note each, and every one of them true. Let me hear you out loud...");
+        yield api.say("Choirmaster", "One note each, and every single one of them true. Let me hear you out loud...");
         if (n >= RELICS.length) {
             api.giveExperience(200);
-            yield api.say("Choirmaster", "Nine of nine. The bell, the lantern-core, the seal, the wake-lantern, the crown, the compass, the fork, the shard, the vigil light. That's a full chord, and I have not heard one in forty years.");
-            yield api.say("Choirmaster", "The door will open for you without a word of complaint. I'd say it will open *gladly*, if a door could.");
-            yield* companionSays("cobb_recruited", "Cobb", "A full chord. From a dwarf's point of view: that's what a proper hall sounds like.");
+            yield api.say("Choirmaster", "Nine of nine. The bell, the lantern-core, the seal, the wake-lantern, the crown, the compass, the fork, the shard, the vigil light. That's a full chord, and I have not heard a full chord in forty years. Not once.");
+            yield api.say("Choirmaster", "The door will open for you without a single word of complaint. I'd go so far as to say it'll open *gladly*, if a door were capable of gladness. This one might actually be.");
+            yield* companionSays("cobb_recruited", "Cobb", "A full chord. From one dwarf's professional opinion: that's precisely what a proper hall is supposed to sound like.");
         } else if (n >= 5) {
             api.giveExperience(20 * n);
-            yield api.say("Choirmaster", n + " of nine. A chord with a few gaps in it - but a chord all the same. The door will open. It may grumble.");
-            yield api.say("Lara", "I didn't know I was supposed to be keeping count.");
-            yield api.say("Choirmaster", "Nobody does, child. That's rather the point of a gift.");
+            yield api.say("Choirmaster", n + " of nine. A chord with a few gaps in it, admittedly - but a chord all the same. The door will open. It might grumble about it a little.");
+            yield api.say("Lara", "I didn't realize I was supposed to be keeping count this whole time.");
+            yield api.say("Choirmaster", "Nobody ever does, child. That's rather the whole point of a gift.");
         } else {
             api.giveExperience(20 * n);
-            yield api.say("Choirmaster", "Only " + n + ". A few lonely notes, and a great many silences between them. The door will open for you - it takes anything true - but it will not be gentle about it.");
+            yield api.say("Choirmaster", "Only " + n + ". A handful of lonely notes, and a great many silences squeezed in between. The door will still open for you - it takes anything true - but it will not be gentle about the experience.");
             yield api.say("Lara", "I'll manage.");
-            yield api.say("Choirmaster", "I never doubted it. It's the door I have doubts about.");
+            yield api.say("Choirmaster", "I never doubted you for a second. It's the door I have my doubts about.");
         }
-        yield api.say("Choirmaster", "Now. The Cantor holds the note at the far end of the hall. Put it down, and go through.");
+        yield api.say("Choirmaster", "Now. The Cantor holds the note at the far end of the hall. Put it down, and go on through.");
         yield* openDoorIfReady();
         return;
     }
     yield api.say("Choirmaster", api.getVar("cantor_down", false)
-        ? "The Cantor's quiet, and the door is yours. Go on. I'll keep the hall warm."
-        : "The Cantor's at the far end of the hall. Put it down, and the door has nobody left to argue with.");
+        ? "The Cantor's quiet, and the door is entirely yours now. Go on. I'll keep the hall warm and try not to sing too loudly out of relief."
+        : "The Cantor's at the far end of the hall. Put it down, and the door will have nobody left standing there to argue with it.");
 }
 
 function* talkToTownsfolk(name) {
     const lines = {
-        baker: ["I bake in the mornings, and I whisper to the dough. It rises better. I have no idea why.",
-                "Everyone here talks in a low voice now. It's not fear. It's more like we're all in a church that hasn't been consecrated yet."],
-        farmhand_pitchfork: ["I cut the hay in the Long Room's yard. Never once went inside. The hall's been humming since before I was born.",
-                             "The Cantor used to lead the harvest hymns. I miss those. It sang a bit flat, but it *meant* it."],
-        herbalist: ["Every herb I dry hangs facing east. Toward the hall. I never chose it. They just lean.",
-                    "If you find the Choirmaster, tell him I said his cough syrup's ready. He'll know what I mean. It's a code, for the herbs."],
+        baker: ["I bake in the mornings, and I whisper to the dough while I do. It rises better. I have absolutely no idea why, and I've stopped asking.",
+                "Everyone here talks in a low voice now. It's not fear, exactly. It's more like we're all standing in a church that hasn't been consecrated yet and don't want to jinx it."],
+        farmhand_pitchfork: ["I cut the hay in the Long Room's yard. Never once set foot inside. The hall's been humming since before I was even born, and it's not stopped for my convenience.",
+                             "The Cantor used to lead the harvest hymns, if you can picture that. I miss those. Sang a bit flat, honestly, but it *meant* every note."],
+        herbalist: ["Every herb I dry hangs facing east. Toward the hall. I never chose that. They just... lean that way on their own.",
+                    "If you find the Choirmaster, tell him I said his cough syrup's ready. He'll know exactly what I mean. It's a code. For the herbs. Mostly."],
     }[name];
     const displayName = { baker: "Baker", farmhand_pitchfork: "Hollis", herbalist: "Herbalist" }[name];
     const n = api.getVar("talk_" + name, 0);
@@ -712,12 +712,12 @@ function* onEnemyDefeated(name) {
         api.giveExperience(300);
         api.playSound("select");
         yield api.wait(0.5);
-        yield api.say("Lara", "It didn't scream. It let out the note it had been holding all this time - long, steady, and finally finished.");
-        yield* companionSays("vigil_recruited", "Vigil", "It kept a vigil too. Longer than mine. I think I understand it a little better than I would like.");
+        yield api.say("Lara", "It didn't scream. It just let out the note it had been holding this entire time - long, steady, and, at long last, finished with it.");
+        yield* companionSays("vigil_recruited", "Vigil", "It kept a vigil too. Longer than mine, if I'm honest. I think I understand it a little better than I'd really like to.");
         if (api.getVar("chord_done", false)) {
             yield* openDoorIfReady();
         } else {
-            yield api.say("Lara", "The door is still humming, though. Out of tune. Something's missing - the Choirmaster, maybe. The Matron said he would know.");
+            yield api.say("Lara", "The door's still humming, though. Out of tune. Something's missing - the Choirmaster, probably. The Matron did say he'd know.");
         }
         return;
     }
@@ -725,10 +725,10 @@ function* onEnemyDefeated(name) {
         return;
     if (name === "mummy") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Wrapped and waiting since before the hall had a roof. I hope the next wait is shorter.");
+        yield api.say("Lara", "Wrapped and waiting since before this hall even had a roof. I sincerely hope the next wait is shorter than that one.");
     } else if (name === "vampire") {
         yield api.wait(0.3);
-        yield api.say("Lara", "It didn't want to be here either. That's what keeps surprising me about every one of them.");
+        yield api.say("Lara", "It didn't want to be here either, clearly. That's the part that keeps catching me off guard about every single one of them.");
     }
 }
 
@@ -736,15 +736,15 @@ function* onItemCollected(itemId) {
     if (itemId !== "hum_keystone")
         return;
     yield api.wait(0.3);
-    yield api.say("Lara", "It's warm. And it's quiet. The hum stopped the instant my hand closed on it - I hadn't realised how loud it had been until it wasn't.");
-    yield* companionSays("cobb_recruited", "Cobb", "Well. That's a sound I haven't heard since Fernhollow. Nothing at all.");
-    yield api.say("???", "Tenth of ten. Every note kept. Thank you, Lara - not for the stones. For walking. Nobody has walked this far in a very long time.");
+    yield api.say("Lara", "It's warm. And it's quiet. The hum stopped the instant my hand closed on it - I hadn't even realized how loud it had gotten until suddenly it wasn't.");
+    yield* companionSays("cobb_recruited", "Cobb", "Well. That's a sound I haven't heard since Fernhollow. Absolutely nothing at all. Unsettling, and also, frankly, wonderful.");
+    yield api.say("???", "Tenth of ten. Every note kept. Thank you, Lara - not for the stones. For walking. Nobody has walked this far in a very, very long time.");
     yield api.say("Lara", "You keep saying that. Who else was there? Who were they walking toward?");
-    yield api.say("???", "Toward me. All of them. I was never a voice in the wall. I was the one at the end of the road, waiting for somebody to bother.");
-    yield api.say("Lara", "Then where are you?");
-    yield api.say("???", "Look up. The sunrise behind the Long Room isn't a wall. It's a door - and it has been open since you picked up the bell. I only needed you to arrive.");
-    yield api.say("Lara", "The light past the last stone has turned a colour I don't have a name for. It's waiting. It feels like it has been for a very long time.");
-    yield* companionSays("nettle_recruited", "Nettle", "Lara. Whatever it is - we're right behind you.");
+    yield api.say("???", "Toward me. All of them. I was never just a voice in the wall. I was the one waiting at the end of the road, hoping somebody would finally bother.");
+    yield api.say("Lara", "Then where, exactly, are you?");
+    yield api.say("???", "Look up. The sunrise behind the Long Room isn't a wall. It's a door - and it has been open since the moment you picked up the very first bell. I only ever needed you to actually arrive.");
+    yield api.say("Lara", "The light past the last stone has turned a colour I don't have a name for. It's waiting. It feels like it's been waiting for a very, very long time.");
+    yield* companionSays("nettle_recruited", "Nettle", "Lara. Whatever's on the other side of that - we're right behind you. All of us. No arguments.");
     api.setGlobalVar("chapter", 17);
     api.setGlobalVar("first_arc_complete", true);
     api.playSound("select");

@@ -428,12 +428,12 @@ function* onLevelStart() {
     api.setVar("chapter1_intro_seen", true);
 
     yield api.wait(0.6);
-    yield api.say("Lara", "...Fernhollow. Same crooked fences, same well that never quite fills all the way.");
-    yield api.say("Hint", "Move with WASD or the Arrow keys.");
-    yield api.say("Hint", "Hold Shift while moving to run.");
-    yield api.say("Hint", "Press E near someone - or something - to talk, or take a closer look.");
-    yield api.say("Hint", "Press Ctrl to attack. Press I for your inventory, Tab to switch who you're playing as.");
-    yield api.say("Lara", "Wren said she'd be by the well this morning. Let's see if that's actually true for once.");
+    yield api.say("Lara", "Fernhollow. Same crooked fences, same well that's two-thirds full of ambition and one-third full of actual water.");
+    yield api.say("Hint", "WASD or the Arrow keys make Lara go. Gravity handles the rest, mostly downhill.");
+    yield api.say("Hint", "Hold Shift to run. Adventuring is ten percent bravery, ninety percent not being late.");
+    yield api.say("Hint", "Press E near someone, or something, to talk or take a closer look. Statues rarely mind. Guards mind a great deal.");
+    yield api.say("Hint", "Ctrl throws a punch. I opens the bag of stuff you're absolutely going to forget you're carrying. Tab swaps who's driving.");
+    yield api.say("Lara", "Wren said she'd be by the well this morning. Let's see if 'this morning' means the same thing to her as it does to the rest of the calendar.");
 }
 
 // ============================================================================
@@ -623,15 +623,15 @@ function* talkToWren() {
     api.playSound("select");
 
     if (timesTalked === 0) {
-        yield api.say("Wren", "There you are. I was starting to think you'd sleep through the whole hum.");
-        yield api.say("Lara", "The what?");
-        yield api.say("Wren", "Low, steady, coming from past the river, out in the old maze. Started three nights ago and hasn't stopped.");
-        yield api.say("Wren", "Before you cross - old Fernhollow riddle, for luck: \"I listen before I ever speak, I remember what the listening finds, and only then do I answer.\" Three folk out there live that riddle, in that order. Find them, if you want the luck.");
+        yield api.say("Wren", "There you are. Another five minutes and I was going to assume you'd slept through the actual apocalypse.");
+        yield api.say("Lara", "The what, exactly?");
+        yield api.say("Wren", "A low, steady hum, coming from past the river, out in the old maze. Started three nights ago and hasn't so much as paused for breath.");
+        yield api.say("Wren", "Before you go charging off - old Fernhollow riddle, for luck: \"I listen before I ever speak, I remember what the listening finds, and only then do I answer.\" Three folk out there live that riddle, in that exact order. Find them if you want the luck. Skip it if you enjoy learning things the hard way.");
     } else if (timesTalked === 1) {
-        yield api.say("Lara", "And you? Do you live it too?");
-        yield api.say("Wren", "I just grow things and hope they don't ask too many questions back. The footbridge is at the end of the market road. Mind the maze, and whatever's guarding past it.");
+        yield api.say("Lara", "And you? Do you live by that riddle too?");
+        yield api.say("Wren", "Me? I grow turnips and hope they don't ask too many questions back. The footbridge is at the end of the market road. Mind the maze - and whatever's out there humming with its mouth full.");
     } else {
-        yield api.say("Wren", "Go on, then. Over the bridge, through the Thicket, past the stones, through the bramble, toward whatever's humming.");
+        yield api.say("Wren", "Go on, then. Over the bridge, through the Thicket, past the stones, through the bramble, and straight at whatever's humming. Try not to hum back. It might take that as an invitation.");
         api.playSound("select");
     }
 }
@@ -640,14 +640,14 @@ function* talkToWren() {
 // feel lived in.
 function* talkToVillager(name) {
     const lines = {
-        baker: ["Bread's still warm. The hum hasn't spoiled the dough, at least.",
-                "Take a loaf with you. Nobody goes into that maze hungry and comes out cheerful."],
-        farmgirl: ["Three nights of that low note, and the hens have stopped laying out of spite.",
-                   "Wren says it's something buried. I say it's something bored."],
-        lumberjack: ["I cut the Thicket back every spring. Every spring it cuts me back a little harder.",
-                     "There's a fox in there that asks riddles. I didn't believe it either."],
-        fisherman: ["The river's gone glassy since the hum started. Fish still bite. They just apologise first.",
-                    "That footbridge is older than the village. Nobody remembers who built it. Nobody's ever fallen off, either."],
+        baker: ["Bread's still warm. Say what you like about the end of the world, it hasn't touched my dough.",
+                "Take a loaf. Nobody's ever gone into that maze hungry and come out in a good mood."],
+        farmgirl: ["Three nights of that low note and the hens have unionized. No eggs until the humming stops.",
+                   "Wren thinks it's something buried. I think it's something bored, cooped up, and looking for company."],
+        lumberjack: ["I cut the Thicket back every spring. Every spring it holds a grudge a little longer.",
+                     "There's a fox in there that asks riddles. Go on, laugh. I didn't believe it either, right up until it out-riddled me."],
+        fisherman: ["River's gone glassy since the humming started. Fish still bite, mind you. They just seem to apologize first.",
+                    "That footbridge is older than the village itself. Nobody remembers who built it, and nobody's ever fallen off - which, frankly, is the more suspicious fact."],
     }[name];
     const displayName = { baker: "Baker", farmgirl: "Farmgirl", lumberjack: "Lumberjack", fisherman: "Fisherman" }[name];
     const n = api.getVar("talk_" + name, 0);
@@ -667,7 +667,7 @@ function* talkToRiddleKeeper(name) {
     api.playSound("select");
 
     if (api.getVar("riddle_solved", false)) {
-        yield api.say(displayName, "*nods, already answered*");
+        yield api.say(displayName, "*nods, smug, already answered*");
         return;
     }
 
@@ -675,19 +675,19 @@ function* talkToRiddleKeeper(name) {
         const newStep = step + 1;
         api.setVar("riddle_step", newStep);
         if (newStep === 1)
-            yield api.say("Owl", "*blinks slowly, listening* ...Go on, then. Someone should remember this.");
+            yield api.say("Owl", "*blinks slowly, listening* Go on, then. I'm listening. It's sort of my whole thing.");
         else if (newStep === 2)
-            yield api.say("Elder", "I remember. I've remembered longer than anyone still living here. Now someone only has to answer.");
+            yield api.say("Elder", "I remember it all. I've been remembering things since before this village had a name it liked. Now someone just has to answer.");
         else {
-            yield api.say("Echo", "*a small crystalline chime* The answer was never a word. It was the order you found us in.");
-            yield api.say("Lara", "...Listen, remember, answer. That's it, isn't it.");
+            yield api.say("Echo", "*a small crystalline chime* Congratulations. The answer was never a word - it was you, wandering around in the correct order by pure luck.");
+            yield api.say("Lara", "Listen, remember, answer. That's the whole trick. I feel slightly cheated and mostly relieved.");
             api.setVar("riddle_solved", true);
             api.giveExperience(80);
             api.playSound("select");
         }
     } else {
         api.setVar("riddle_step", 0);
-        yield api.say(displayName, "*waits, patiently* Not yet. Not in that order.");
+        yield api.say(displayName, "*taps a claw, unimpressed* Wrong order. Try again, and maybe try listening first this time.");
     }
 }
 
@@ -701,7 +701,7 @@ function* talkToWildKeeper(name) {
     api.playSound("select");
 
     if (api.getVar("wildRiddle_solved", false)) {
-        yield api.say(displayName, "*watches you pass, unbothered*");
+        yield api.say(displayName, "*watches you pass, deeply unbothered*");
         return;
     }
 
@@ -709,29 +709,29 @@ function* talkToWildKeeper(name) {
         const newStep = step + 1;
         api.setVar("wildRiddle_step", newStep);
         if (newStep === 1)
-            yield api.say("Fox", "*tilts its head* What grows thicker for every bit that's cut away from it?");
+            yield api.say("Fox", "*tilts its head, insufferably pleased with itself* Riddle me this: what grows thicker every time you cut a bit away from it?");
         else {
-            yield api.say("Deer", "*doesn't flinch as you approach* A path, worn in by feet, not by any hand pruning it. Fox already knew. Fox likes to ask anyway.");
+            yield api.say("Deer", "*doesn't flinch* A path. Worn in by feet, not by anybody's pruning shears. Fox already knows this. Fox just enjoys watching people think.");
             api.setVar("wildRiddle_solved", true);
             api.giveExperience(50);
             api.playSound("select");
         }
     } else {
-        yield api.say(displayName, "*just watches, waiting for the other one first*");
+        yield api.say(displayName, "*just watches, clearly waiting for the other one to go first*");
     }
 }
 
 function* rescueHostage() {
     if (api.getVar("hostage_rescued", false)) {
-        yield api.say("Farmhand", "Thank you again, truly.");
+        yield api.say("Farmhand", "Thank you. Again. Truly. I mean it every single time, I promise.");
         return;
     }
     api.setVar("hostage_rescued", true);
     api.playSound("select");
-    yield api.say("Farmhand", "You- you're not one of them. Oh, thank every root in this wood.");
-    yield api.say("Lara", "Are you hurt?");
-    yield api.say("Farmhand", "Scared more than hurt. I wandered too far past the river chasing a lost goat. Please, just- get me back toward the village road.");
-    yield api.say("Lara", "The footbridge is back the way you came, then the market road. Go carefully.");
+    yield api.say("Farmhand", "You- you're not one of them! Oh, thank every root, twig, and mildly suspicious mushroom in this wood.");
+    yield api.say("Lara", "Are you hurt, or just extremely dramatic?");
+    yield api.say("Farmhand", "Scared more than hurt. I chased a goat too far past the river, and the goat, frankly, won. Please, just get me back toward the village road.");
+    yield api.say("Lara", "Footbridge's back the way you came, then the market road. Go carefully, and maybe let the goat win next time.");
     api.giveExperience(100);
 }
 
@@ -746,13 +746,13 @@ function* onEnemyDefeated(name) {
 
     if (name === "wolf") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Sorry, old thing. You were just in the way.");
+        yield api.say("Lara", "Sorry, old thing. Wrong place, wrong century, wrong hero.");
     } else if (name === "goblin") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Scavenger, not a soldier. There'll be easier ground for it somewhere else.");
+        yield api.say("Lara", "Scavenger, not a soldier. There's easier pickings somewhere that isn't currently full of me.");
     } else if (name === "slime_water") {
         yield api.wait(0.3);
-        yield api.say("Lara", "...That water didn't used to do that. Wren wasn't exaggerating.");
+        yield api.say("Lara", "That water did NOT used to do that. Wren undersold this. Considerably.");
     }
 }
 
@@ -762,14 +762,14 @@ function* onItemCollected(itemId) {
 
     yield api.wait(0.3);
     yield api.say("Lara", "...Huh.");
-    yield api.say("Lara", "It's warm. And it's humming - not an echo of whatever Wren heard. The note itself, right here in my hand.");
-    yield api.say("???", "Now you understand why nobody in Fernhollow will say it out loud.");
-    yield api.say("Lara", "Who's there?");
-    yield api.say("???", "Someone who found one of those a long time ago, and is still finding out what it means. Follow the hum, Lara. It gets louder from here, not quieter.");
+    yield api.say("Lara", "It's warm. And it's humming - not an echo of whatever Wren heard. The actual note, right here, sitting smugly in my hand.");
+    yield api.say("???", "Now you understand why nobody in Fernhollow says that word out loud. 'Just the wind' gets a lot less convincing once the wind starts talking back.");
+    yield api.say("Lara", "Okay. Who, exactly, is 'there'?");
+    yield api.say("???", "Someone who found one of those a long, long time ago, and is still working out what it actually means. Follow the hum, Lara. It only gets louder from here. Bring snacks.");
 
     api.setGlobalVar("chapter", 2);
     api.playSound("select");
     yield api.wait(0.8);
-    yield api.say("Lara", "East, then, past Fernhollow - toward wherever this thing actually came from.");
+    yield api.say("Lara", "East, then. Past Fernhollow, toward wherever this thing actually came from. Wonderful. Cannot wait.");
     api.loadLevel("chapter2.json");
 }

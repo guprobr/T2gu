@@ -526,10 +526,10 @@ function* onLevelStart() {
     api.setVar("chapter8_intro_seen", true);
 
     yield api.wait(0.6);
-    yield api.say("Lara", "Lanterns. Hundreds of them, strung between rooftops, every one lit, not a wick or a flame in sight.");
-    yield* companionSays("vex_recruited", "Vex", "Those aren't lanterns. That's a power line with opinions. Beautiful work, honestly.");
-    yield* companionSays("nettle_recruited", "Nettle", "The people here look tired in the way that means they've stopped noticing they're tired.");
-    yield api.say("Hint", "This level runs left to right. The town is behind you; the maze is ahead, to the east.");
+    yield api.say("Lara", "Lanterns. Hundreds of them, strung between rooftops, every single one lit, and not a wick or a flame anywhere in sight. Deeply unsettling. Very pretty.");
+    yield* companionSays("vex_recruited", "Vex", "Those aren't lanterns. That's a power line with strong personal opinions. Beautiful work, honestly, whoever's still alive to take credit for it.");
+    yield* companionSays("nettle_recruited", "Nettle", "The people here look tired in the specific way that means they've stopped noticing they're tired. I'd offer them a potion, but I don't carry 'existential.'");
+    yield api.say("Hint", "This level runs left to right. The town is behind you; the maze is ahead, to the east. Try not to walk backward into the plot.");
 }
 
 function buildTown() {
@@ -603,44 +603,44 @@ function* talkToLedger() {
     api.setVar("ledger_talks", n + 1);
     api.playSound("select");
     if (n === 0) {
-        yield api.say("Ledger", "Good. Someone with boots. The Stacks run east from here - a maze of everything this district ever threw away.");
-        yield api.say("Ledger", "At the far end there's a checkpoint. It wants three permit chips to open. Permit chips don't get sold; they get *found*. Four are lying out in the Stacks. Bring three to the warden.");
+        yield api.say("Ledger", "Good. Someone with boots. The Stacks run east from here - a maze made of every single thing this district ever decided it didn't need anymore.");
+        yield api.say("Ledger", "At the far end there's a checkpoint. It wants three permit chips to open. Permit chips don't get sold; they get *found*, which is bureaucracy's way of saying 'go dig through the trash.' Four are lying out in the Stacks. Bring three to the warden.");
         yield api.say("Lara", "And past the checkpoint?");
-        yield api.say("Ledger", "The lantern-core. Every light in Lanternside runs off a copy of it, and the original stopped answering its own name three nights ago. Same night as the hum.");
+        yield api.say("Ledger", "The lantern-core. Every light in Lanternside runs off a copy of it, and the original stopped answering its own name three nights ago. Same night as the hum. Funny how that keeps happening.");
     } else {
-        yield api.say("Ledger", "Chips first, warden second. He can count, and he doesn't take promises.");
+        yield api.say("Ledger", "Chips first, warden second. He can count, and unlike me, he doesn't take promises, IOUs, or your word as a professional adventurer.");
     }
 }
 
 function* talkToWarden() {
     api.playSound("select");
     if (api.getVar("checkpoint_open", false)) {
-        yield api.say("Warden", "Go on through. Mind the core. It's been in a mood.");
+        yield api.say("Warden", "Go on through. Mind the core. It's been in a mood, and frankly, so have I.");
         return;
     }
     const have = api.getItemCount("tech_chip");
     if (have < 3) {
-        yield api.say("Warden", "CHECKPOINT. Three permit chips, please. You have " + have + ".");
+        yield api.say("Warden", "CHECKPOINT. Three permit chips, please. You currently have " + have + ", which is, per my records, not three.");
         yield api.say("Lara", "There are four out in the Stacks, aren't there.");
-        yield api.say("Warden", "*static* ...I'm not permitted to confirm the number.");
+        yield api.say("Warden", "*static* ...I am not permitted to confirm the number. I am, however, permitted to imply it very loudly with static.");
         return;
     }
     api.removeItem("tech_chip", 3);
     api.setVar("checkpoint_open", true);
     api.setBarrier("checkpoint_gate", 0, 0, 1, 1, false);
     api.giveExperience(100);
-    yield api.say("Warden", "One. Two. Three. VALID. *a heavy clunk from the gate behind him* ...Honestly? I was hoping someone would finally use those.");
-    yield* companionSays("cobb_recruited", "Cobb", "Bribing a wall with paperwork. I've seen dwarves do worse with less.");
+    yield api.say("Warden", "One. Two. Three. VALID. *a heavy clunk from the gate behind him* ...Honestly? I've been standing here for years hoping someone would finally use those.");
+    yield* companionSays("cobb_recruited", "Cobb", "Bribing a wall with paperwork. I've seen dwarves try worse, with considerably less paperwork.");
 }
 
 function* talkToTownsfolk(name) {
     const lines = {
-        gnome_inventor: ["I built the first lantern here. Well, I plugged in the first lantern. Somebody else built it. I forget who. Probably me.",
-                         "If the Stacks buzz at you, that's not a threat. That's a bad ground wire."],
-        cyber_rogue: ["Runners go in for scrap and come out for air. I've done both. Prefer neither.",
-                      "Four chips out there, warden takes three. You can keep the extra. Or sell it. Whichever hurts less."],
-        merchant: ["Everything's for sale except the lanterns. Those aren't ours to sell.",
-                   "Prices are up. Not because of the hum. I just like the sound of saying it."],
+        gnome_inventor: ["I built the first lantern here. Well - I plugged in the first lantern. Somebody else built it. I forget who. Probably me, honestly.",
+                         "If the Stacks buzz at you, that's not a threat. That's just a bad ground wire being dramatic about it."],
+        cyber_rogue: ["Runners go in for scrap and come out for air. I've done both. Prefer neither, if I'm being honest with myself.",
+                      "Four chips out there, warden takes three. You can keep the extra, or sell it. Whichever hurts your conscience less."],
+        merchant: ["Everything's for sale except the lanterns. Those aren't ours to sell, mostly because we're a little afraid of them.",
+                   "Prices are up. Not because of the hum. I just enjoy saying 'prices are up' out loud. It's a whole mood."],
     }[name];
     const displayName = { gnome_inventor: "Tinker", cyber_rogue: "Runner", merchant: "Merchant" }[name];
     const n = api.getVar("talk_" + name, 0);
@@ -654,10 +654,10 @@ function* onEnemyDefeated(name) {
         return;
     if (name === "mech_spider") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Wired for a job somebody cancelled. It kept going anyway.");
+        yield api.say("Lara", "Wired for a job somebody cancelled ages ago. Kept going anyway. There's a metaphor in there I'm choosing not to examine.");
     } else if (name === "cyber_brawler") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Hired muscle. Nobody's paying the muscle any more.");
+        yield api.say("Lara", "Hired muscle. Nobody's been paying the muscle in quite some time, and the muscle has *opinions* about that.");
     }
 }
 
@@ -665,10 +665,10 @@ function* onItemCollected(itemId) {
     if (itemId !== "lantern_core")
         return;
     yield api.wait(0.3);
-    yield api.say("Lara", "It's warm, and it's *steady* - the first thing I've touched in three days that isn't flickering.");
-    yield api.say("???", "Second of ten. Do you hear it yet? Not the hum. The thing under the hum, that the hum is trying to say.");
-    yield api.say("Lara", "Every time I think I have it, it's the next word that matters.");
-    yield api.say("???", "Then walk to the next word. East gives way to hills, and hills to a road with a price on it.");
+    yield api.say("Lara", "It's warm, and it's *steady* - the first thing I've touched in three days that isn't flickering like it's having second thoughts.");
+    yield api.say("???", "Second of ten. Do you hear it yet? Not the hum itself. The thing underneath the hum, that the hum's been badly trying to say this whole time.");
+    yield api.say("Lara", "Every time I think I've got it, it turns out it's the next word that actually matters. This is a terrible way to have a conversation.");
+    yield api.say("???", "Then walk to the next word. East gives way to hills, and hills give way to a road with a price tag on it. Bring coin. Bring patience. Bring both, honestly.");
     api.setGlobalVar("chapter", 9);
     api.playSound("select");
     yield api.wait(0.8);

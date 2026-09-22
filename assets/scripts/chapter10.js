@@ -525,10 +525,10 @@ function* onLevelStart() {
     api.setVar("chapter10_intro_seen", true);
 
     yield api.wait(0.6);
-    yield api.say("Lara", "Bunting. Stalls. A carousel with no horses. It's a fair - and every single person here left decades ago.");
-    yield* companionSays("nettle_recruited", "Nettle", "Nobody's sick here. Nobody's anything. That's what's wrong with it.");
-    yield* companionSays("vigil_recruited", "Vigil", "The dead keep good order, when left to it. I would rather not be the one who disturbs it.");
-    yield api.say("Hint", "This level runs left to right. The town is behind you; the Hall of Hours is ahead, to the east.");
+    yield api.say("Lara", "Bunting. Stalls. A carousel with no horses. It's a fair - and every single person who ever ran it left decades ago and apparently didn't mention it to the fair.");
+    yield* companionSays("nettle_recruited", "Nettle", "Nobody's sick here. Nobody's anything, medically speaking. That is, professionally, the most alarming diagnosis I've ever given.");
+    yield* companionSays("vigil_recruited", "Vigil", "The dead keep remarkably good order, when left to it. I would genuinely rather not be the one who disturbs that arrangement.");
+    yield api.say("Hint", "This level runs left to right. The town is behind you; the Hall of Hours is ahead, to the east. No tickets required. No pulse either, apparently.");
 }
 
 function buildTown() {
@@ -599,15 +599,15 @@ function* talkToSexton() {
     api.setVar("sexton_talks", n + 1);
     api.playSound("select");
     if (api.getVar("rite_done", false)) {
-        yield api.say("Sexton", "The Hall keeps its hours again. Take the lantern - it was always meant for someone who could carry a sorrow without spilling it.");
+        yield api.say("Sexton", "The Hall keeps its hours again. Take the lantern - it was always meant for someone who could carry a sorrow without spilling it everywhere.");
     } else if (n === 0) {
-        yield api.say("Sexton", "You've come to the Fair. Nobody comes to the Fair. They come *through* it, and quickly.");
-        yield api.say("Sexton", "The Hall of Hours past the gate keeps the dead's calendar. To pass it, you say goodnight to each of the hour-keepers in turn. I'll give you the order, and I'll give it the way my mother gave it to me: as a riddle.");
-        yield api.say("Sexton", "\"Night keeps the watch. Day gives the warmth. And last, the storm that breaks it.\" Three keepers. In that order. Say it wrong and they'll only ask you to start over.");
-        yield api.say("Lara", "Night, day, storm. That's the moon, the sun, and - the storm itself?");
-        yield api.say("Sexton", "You'll know them when you meet them. They're not shy. They're only very, very patient.");
+        yield api.say("Sexton", "You've come to the Fair. Nobody *comes to* the Fair. They come *through* it, quickly, and usually without stopping for the sausage rolls.");
+        yield api.say("Sexton", "The Hall of Hours past the gate keeps the dead's calendar. To pass it, you say goodnight to each of the hour-keepers in turn. I'll give you the order the way my own mother gave it to me: as an infuriating riddle.");
+        yield api.say("Sexton", "\"Night keeps the watch. Day gives the warmth. And last, the storm that breaks it.\" Three keepers. That exact order. Get it wrong and they'll politely, patiently, make you start over from scratch.");
+        yield api.say("Lara", "Night, day, storm. That's the moon, the sun, and - the storm itself, presumably, being dramatic about it?");
+        yield api.say("Sexton", "You'll know them when you meet them. They're not remotely shy. They're just extraordinarily, supernaturally patient.");
     } else {
-        yield api.say("Sexton", "Night keeps the watch. Day gives the warmth. And last, the storm that breaks it. Go on.");
+        yield api.say("Sexton", "Night keeps the watch. Day gives the warmth. And last, the storm that breaks it. Go on, then, before I have to say it a third time.");
     }
 }
 
@@ -616,38 +616,38 @@ function* speakToSpirit(name) {
     const step = api.getVar("rite_step", 0);
     api.playSound("select");
     if (api.getVar("rite_done", false)) {
-        yield api.say(RITE_NAME[name], "*a slow, peaceful shimmer* The hour is kept.");
+        yield api.say(RITE_NAME[name], "*a slow, peaceful shimmer* The hour is kept. No encores. This is a one-performance-only kind of afterlife.");
         return;
     }
     if (RITE[step] === name) {
         const next = step + 1;
         api.setVar("rite_step", next);
         if (next === 1) {
-            yield api.say("Moon", "*a pale, patient light* Goodnight, traveller. Night keeps the watch - and I have kept it very long. Who comes after me?");
+            yield api.say("Moon", "*a pale, patient light* Goodnight, traveller. Night keeps the watch, and I've kept it for a genuinely absurd length of time. Who comes after me?");
         } else if (next === 2) {
-            yield api.say("Sun", "*a warm gold glow, like a hand at the back of the neck* Goodnight. Day gives the warmth, and I gave what I had. There's one more.");
+            yield api.say("Sun", "*a warm gold glow, like a hand at the back of the neck* Goodnight. Day gives the warmth, and I gave what I had to give. There's one more hour left in this whole tired arrangement.");
         } else {
-            yield api.say("Storm", "*a low, rolling rumble, softer than it sounds* Goodnight. And last, the storm that breaks it - and, this once, only breaks the lock.");
-            yield api.say("Lara", "Night, day, storm. The Sexton's riddle in three goodnights.");
+            yield api.say("Storm", "*a low, rolling rumble, softer than it sounds* Goodnight. And last, the storm that breaks it - and, this one time only, only breaks the lock, and not, say, the entire hall.");
+            yield api.say("Lara", "Night, day, storm. The Sexton's riddle, solved, in exactly three goodnights.");
             api.setVar("rite_done", true);
             api.setBarrier("rite_gate", 0, 0, 1, 1, false);
             api.giveExperience(110);
-            yield* companionSays("cobb_recruited", "Cobb", "Never thought I'd see the day a lock got put to bed.");
+            yield* companionSays("cobb_recruited", "Cobb", "Never in my life thought I'd see the day a lock got tucked in and told goodnight.");
         }
     } else {
         api.setVar("rite_step", 0);
-        yield api.say(RITE_NAME[name], "*a soft, unhurried flicker* Not yet. The riddle has an order. Start again, from the first hour.");
+        yield api.say(RITE_NAME[name], "*a soft, unhurried flicker* Wrong order. The riddle has a very specific order, and you have just cut in line. Start again, from the first hour.");
     }
 }
 
 function* talkToTownsfolk(name) {
     const lines = {
-        farmgirl: ["I came back to lay a wreath and forgot to leave. There's a lot of that, here.",
-                   "The carousel turns once a night. Never on the same night twice."],
-        tribal_gatherer_girl: ["Flowers keep. Grief doesn't. I bring both.",
-                                "The Sexton talks in riddles because the truth is too plain to say out loud."],
-        innkeeper: ["Step right up! Free admission, on account of nobody to charge. Mind the ones who aren't there.",
-                    "Tickets are just the memory of tickets. But the sausage rolls, oddly enough, are real."],
+        farmgirl: ["I came back to lay a wreath and simply forgot to leave. There's a lot of that going around, here.",
+                   "The carousel turns once a night. Never the same night twice, and never with any horses. Nobody's fixed that in decades."],
+        tribal_gatherer_girl: ["Flowers keep. Grief doesn't. So I bring both, and let them argue about which one's more useful.",
+                                "The Sexton talks entirely in riddles because the plain truth is apparently too blunt to say out loud around here."],
+        innkeeper: ["Step right up! Free admission, on account of there being nobody left to charge admission. Mind the ones who aren't technically there.",
+                    "Tickets are just the memory of tickets at this point. But the sausage rolls, and I cannot explain this, are somehow still completely real."],
     }[name];
     const displayName = { farmgirl: "Mourner", tribal_gatherer_girl: "Gatherer", innkeeper: "Barker" }[name];
     const n = api.getVar("talk_" + name, 0);
@@ -661,10 +661,10 @@ function* onEnemyDefeated(name) {
         return;
     if (name === "wraith") {
         yield api.wait(0.3);
-        yield api.say("Lara", "It didn't fight so much as forget to keep being here.");
+        yield api.say("Lara", "It didn't so much fight as simply forget to keep existing. Efficient, in its own way.");
     } else if (name === "zombie_peasant") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Rest, then. Somebody should.");
+        yield api.say("Lara", "Rest, then, at long last. Somebody around here really should.");
     }
 }
 
@@ -672,10 +672,10 @@ function* onItemCollected(itemId) {
     if (itemId !== "wake_lantern")
         return;
     yield api.wait(0.3);
-    yield api.say("Lara", "It lit the instant I touched it. Warm. Sad, in a way that's easy to live with.");
-    yield api.say("???", "Fourth of ten. You did that gently. They'll remember it, in whatever way the dead remember.");
-    yield api.say("Lara", "Do you? Remember, I mean. Every one of these places.");
-    yield api.say("???", "Every one. Somewhere below all the others there's a market that never stops arguing about prices. That's next.");
+    yield api.say("Lara", "It lit the instant I touched it. Warm. Sad, in a way that's surprisingly easy to sit with, all things considered.");
+    yield api.say("???", "Fourth of ten. You handled that gently. They'll remember it, in whatever way the dead remember anything at all.");
+    yield api.say("Lara", "Do you? Remember, I mean. Every single one of these places.");
+    yield api.say("???", "Every one. Somewhere below all the others there's a market that has never once stopped arguing about prices. That's next. Bring your patience, and possibly a coin purse.");
     api.setGlobalVar("chapter", 11);
     api.playSound("select");
     yield api.wait(0.8);

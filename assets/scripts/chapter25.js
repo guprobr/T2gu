@@ -540,12 +540,12 @@ function* onLevelStart() {
     api.setVar("chapter25_intro_seen", true);
 
     yield api.wait(0.6);
-    yield api.say("Lara", "The last village on the road. I knew it the moment I saw it - everyone here is facing the same direction, the way people do in a station, or a church.");
-    yield* companionSays("vigil_recruited", "Vigil", "I have kept every watch I was given. I would like to keep this one well.");
-    yield* companionSays("cobb_recruited", "Cobb", "Whatever's behind that door - I'm a dwarf and a stubborn one. It'll have to go through me first.");
-    yield* companionSays("vex_recruited", "Vex", "Nine places, nine keepsakes. I have a hypothesis about the pattern. I would prefer to be wrong.");
-    yield* companionSays("nettle_recruited", "Nettle", "Eat something first. All of you. A door is easier on a full stomach.");
-    yield api.say("Hint", "This level runs right to left. The town is behind you; the Approach is ahead, to the west, and the Second Door is at the far end of it.");
+    yield api.say("Lara", "The last village on the road. I knew it the moment I saw it - everyone here's facing the same direction, the exact way people do in a station, or a church, or right before very bad news.");
+    yield* companionSays("vigil_recruited", "Vigil", "I have kept every watch I was ever given. I would very much like to keep this one well.");
+    yield* companionSays("cobb_recruited", "Cobb", "Whatever's behind that door - I'm a dwarf, and a stubborn one at that. It'll have to go through me first, and I do not go easily.");
+    yield* companionSays("vex_recruited", "Vex", "Nine places, nine keepsakes. I have a working hypothesis about the pattern. I would sincerely prefer to be wrong about it, for once.");
+    yield* companionSays("nettle_recruited", "Nettle", "Eat something first. All of you, no exceptions. A door like that is considerably easier to face on a full stomach.");
+    yield api.say("Hint", "This level runs right to left. The town is behind you; the Approach is ahead, to the west, and the Second Door is at the far end of it. Deep breaths.");
 }
 
 function buildTown() {
@@ -600,14 +600,14 @@ function buildPocket() {
 
 function* onTalkTo(name) {
     const lines = {
-        elf_archer: ["I have watched that door from this rooftop for six years. It has never once opened. It has never once been closed, either. It is only ever waiting.",
-                     "Whatever holds it does not fight like the others. It changes. When you think you've beaten it, it isn't done. Be ready for a second wind - and a third."],
-        herbalist: ["Eat. Drink. Rest in the shade. I say that to everyone who comes through and I've never once been thanked. I say it anyway.",
-                    "The Approach has a hundred hiding places for a bad night. Don't sit in any of them. Keep going west."],
-        dwarf_warrior: ["A door that asks and doesn't open is the worst kind. I've stood at three of them. None was worth the shield it cost me.",
-                        "The forms it takes - engine, voice, memory - it takes each in turn. Don't go in half-healed. It won't wait for you to catch your breath."],
-        gnome_wizard: ["I've catalogued nine keepsakes on the road. I've a page for each. If you've been carrying them, you'll know what they weigh.",
-                       "The key at the end has no teeth. It isn't for the door. The door was made to ask for it. That is my whole theory and I've never dared say it aloud."],
+        elf_archer: ["I have watched that door from this rooftop for six years running. It has never once opened. Never once closed, either. It is only ever, patiently, waiting.",
+                     "Whatever holds it does not fight like the others do. It changes. Just when you're sure you've beaten it, it isn't done at all. Be ready for a second wind - and, frankly, a third."],
+        herbalist: ["Eat. Drink. Rest in the shade. I say that to absolutely everyone who comes through and I have never once been thanked for it. I say it anyway, every time.",
+                    "The Approach has a hundred hiding places for a bad night. Don't you dare sit in any of them. Keep going west, no matter what."],
+        dwarf_warrior: ["A door that asks and doesn't open is the worst kind there is. I've stood at three of them in my life. Not one was worth the shield it cost me.",
+                        "The forms it takes - engine, voice, memory - it cycles through each one in turn. Don't go in half-healed. It will not wait politely for you to catch your breath."],
+        gnome_wizard: ["I've catalogued all nine keepsakes on the road. I've a dedicated page for each. If you've been carrying them, you already know exactly what they weigh.",
+                       "The key at the end has no teeth. It isn't for the door, not really. The door was built to ask for it. That's my entire theory, and I've genuinely never dared say it out loud before now."],
     }[name];
     if (!lines)
         return;
@@ -636,39 +636,39 @@ function* onEnemyDefeated(name) {
         if (phase === 0) {
             nextForm(1);
             yield api.wait(0.5);
-            yield api.say("Lara", "The engine came apart like a clock. And out of the wreck, something stepped that had never been made of metal at all.");
+            yield api.say("Lara", "The engine came apart like a clock, piece by piece. And out of the wreck, something stepped that had never once been made of metal at all.");
             yield api.say("Doorkeeper", "*a voice like a very old hymn, sung quietly* That was only what I wear. This is what I say.");
             const held = keepsakesHeld();
-            yield api.say("Doorkeeper", "You carry " + held + " of the eight keepsakes the road has given you. " + (held >= 8 ? "All of them. Even the coin that was never spent." : "Not all - but a road is not an examination."));
+            yield api.say("Doorkeeper", "You carry " + held + " of the eight keepsakes the road has given you. " + (held >= 8 ? "All of them. Even the coin that was never spent." : "Not all of them - but a road, thankfully, is not an examination."));
             const notes = api.getGlobalVar("chord_notes", -1);
             if (notes >= 9)
-                yield api.say("Doorkeeper", "And in the Long Room you sounded nine notes, a full chord, and the door there opened for you gladly. I remember it. It was the first sound I had heard in years.");
+                yield api.say("Doorkeeper", "And in the Long Room you sounded nine notes, a full chord, and the door there opened for you gladly. I remember it well. It was the first sound I had heard in years.");
             else if (notes >= 0)
-                yield api.say("Doorkeeper", "And in the Long Room you sounded " + notes + " notes of nine. A chord with gaps. I remember it. I have been humming the gaps ever since.");
-            yield* companionSays("vex_recruited", "Vex", "It has read our whole journey off us. That is not an attack, it is a citation.");
+                yield api.say("Doorkeeper", "And in the Long Room you sounded " + notes + " notes of nine. A chord with a few gaps in it. I remember it. I have been quietly humming the gaps ever since.");
+            yield* companionSays("vex_recruited", "Vex", "It's read our entire journey off us like an open book. That's not an attack, that's a citation.");
         } else if (phase === 1) {
             nextForm(2);
             yield api.wait(0.5);
-            yield api.say("Lara", "The voice went quiet, and the air behind it took a shape I know. Not a monster. A light with a face in it.");
+            yield api.say("Lara", "The voice went quiet, and the air behind it took on a shape I recognize. Not a monster. A light, with a face somewhere inside it.");
             yield api.say("Doorkeeper", "*gentle, and slower now* And this is what I remember. Would you like to hear it?");
             if (api.getGlobalVar("guilds_at_peace", false))
-                yield api.say("Doorkeeper", "I remember two guilds sitting down at one table, because a stranger went back for the second colour. I have kept that. I keep very few things.");
+                yield api.say("Doorkeeper", "I remember two guilds sitting down at one table together, because a stranger went back for the second colour. I've kept that memory close. I keep very few things.");
             else
-                yield api.say("Doorkeeper", "I remember two guilds and a grey stripe of cloth where the second colour should have been. I have kept that too. It is a good stripe.");
+                yield api.say("Doorkeeper", "I remember two guilds, and a grey stripe of cloth where the second colour should have been. I've kept that too, all this time. It's a good stripe.");
             const wrong = api.getGlobalVar("inquest_wrong", 0);
             if (wrong > 0)
-                yield api.say("Doorkeeper", "And a court where the wrong person was named " + (wrong === 1 ? "once" : wrong + " times") + ". You carried it up the hill and did not put it down. I remember that most of all.");
+                yield api.say("Doorkeeper", "And a court where the wrong person was named " + (wrong === 1 ? "once" : wrong + " times") + ". You carried that up the hill with you and never once set it down. I remember that most of all.");
             else
-                yield api.say("Doorkeeper", "And a court where the thief was found by listening. It is the only trick there is, and you knew it.");
+                yield api.say("Doorkeeper", "And a court where the thief was found simply by listening. It's the only trick there ever is, and you already knew it.");
         } else {
             api.setVar("door_open", true);
             api.setBarrier("second_door", 0, 0, 1, 1, false);
             api.giveExperience(200);
             yield api.wait(0.6);
-            yield api.say("Doorkeeper", "*the light thins to a thread and holds* ...That is all I was made to ask. Whoever I was keeping the door for - I think it is you.");
-            yield api.say("Lara", "The Second Door is unbarred. I can hear the last of the chain from here.");
-            yield* companionSays("vigil_recruited", "Vigil", "It kept its watch to the end. I would like to think I would have done as well.");
-            yield* companionSays("cobb_recruited", "Cobb", "A door with three faces and a kind heart. I'll not forget it, and I'll not say so twice.");
+            yield api.say("Doorkeeper", "*the light thins to a single thread and holds steady* ...That is all I was ever made to ask. Whoever I was keeping this door for - I believe it's you.");
+            yield api.say("Lara", "The Second Door is unbarred. I can hear the last of the chain falling away, all the way from here.");
+            yield* companionSays("vigil_recruited", "Vigil", "It kept its watch faithfully, to the very end. I'd like to think I'd have managed just as well.");
+            yield* companionSays("cobb_recruited", "Cobb", "A door with three faces and, somehow, a kind heart underneath all of them. I'll not forget it, and I'll not say so a second time.");
         }
         return;
     }
@@ -676,10 +676,10 @@ function* onEnemyDefeated(name) {
         return;
     if (name === "wraith") {
         yield api.wait(0.3);
-        yield api.say("Lara", "It didn't fight so much as recite. Every one of them out here has been saying the same thing for years.");
+        yield api.say("Lara", "It didn't fight so much as recite. Every single one of them out here has been saying the same thing for years, on loop.");
     } else if (name === "ghoul") {
         yield api.wait(0.3);
-        yield api.say("Lara", "It stopped at the end like it had finished a sentence.");
+        yield api.say("Lara", "It stopped, right at the end, like it had simply finished a sentence and had nothing left to add.");
     }
 }
 
@@ -687,13 +687,13 @@ function* onItemCollected(itemId) {
     if (itemId !== "second_door_key")
         return;
     yield api.wait(0.3);
-    yield api.say("Lara", "A key with no teeth. It is warm, and it hums - the first hum since the Long Room. Not the old one. This one is a note held on purpose.");
-    yield api.say("???", "Ninth of nine. It doesn't open the door, you know. The door was made to ask for it. It only wants to be handed the thing that proves someone came all this way.");
-    yield api.say("Lara", "You've been waiting a long time.");
-    yield api.say("???", "Longer than the road. But I will tell you a small thing, Lara, and you may keep it: I was not lonely. I was only early.");
-    yield api.say("Lara", "The Second Door is standing open. There is a light beyond it, and it is steady, and a shape in it is turning around.");
-    yield api.say("Lara", "I couldn't tell you afterwards what I saw. Only that I had expected them to look older - and that I knew them at once.");
-    yield* companionSays("nettle_recruited", "Nettle", "Lara. Whoever they are - we walked nine places to get here. Nobody is walking the last step alone.");
+    yield api.say("Lara", "A key with no teeth. It's warm, and it hums - the first hum since the Long Room. Not the old one, though. This one's a note held on purpose.");
+    yield api.say("???", "Ninth of nine. It doesn't actually open the door, you know. The door was built to ask for it. It only wants to be handed the one thing that proves somebody came all this way.");
+    yield api.say("Lara", "You've been waiting a very long time.");
+    yield api.say("???", "Longer than the road itself. But I'll tell you one small thing, Lara, and you may keep it: I was not lonely. I was only early.");
+    yield api.say("Lara", "The Second Door is standing open. There's a light beyond it, steady and calm, and a shape inside it is slowly turning around.");
+    yield api.say("Lara", "I couldn't tell you afterward what I actually saw. Only that I'd somehow expected them to look older - and that I knew them at once, without a shadow of doubt.");
+    yield* companionSays("nettle_recruited", "Nettle", "Lara. Whoever they are - we walked nine places together to get here. Nobody's taking the last step alone.");
     api.setGlobalVar("chapter", 26);
     api.setGlobalVar("second_arc_complete", true);
     api.playSound("select");

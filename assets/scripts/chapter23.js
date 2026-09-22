@@ -533,10 +533,10 @@ function* onLevelStart() {
     api.setVar("chapter23_intro_seen", true);
 
     yield api.wait(0.6);
-    yield api.say("Lara", "Plain daylight, no glow, no torches, no weather doing anything clever. After the last few places it is almost rude. Surveyors' stakes everywhere, and little brass discs set into the paving.");
-    yield* companionSays("vex_recruited", "Vex", "Finally. A place that measures itself. I could stand in this square for a week and be content.");
-    yield* companionSays("nettle_recruited", "Nettle", "Everything here is numbered. Even the benches. I find that comforting and slightly threatening.");
-    yield api.say("Hint", "This level runs right to left. The town is behind you; the Survey is ahead, to the west.");
+    yield api.say("Lara", "Plain daylight, no glow, no torches, no weather doing anything clever whatsoever. After the last few places, that's almost offensive. Surveyors' stakes everywhere, and little brass discs set into the paving.");
+    yield* companionSays("vex_recruited", "Vex", "Finally. A place that measures itself properly. I could stand in this square for a week and be perfectly content.");
+    yield* companionSays("nettle_recruited", "Nettle", "Everything here is numbered. Even the benches have numbers. I find that both comforting and slightly threatening, somehow at the same time.");
+    yield api.say("Hint", "This level runs right to left. The town is behind you; the Survey is ahead, to the west. Bring a compass. They're about to hand you one anyway.");
 }
 
 function buildTown() {
@@ -602,20 +602,20 @@ function* talkToCartographer() {
     api.setVar("cartographer_talks", n + 1);
     api.playSound("select");
     if (api.getVar("survey_done", false)) {
-        yield api.say("Aldous", "Three benchmarks, one closed survey. It is the first time in forty years the whole valley has agreed with itself. Go on through - and take the star; it's yours by right of arithmetic.");
+        yield api.say("Aldous", "Three benchmarks, one closed survey. This is the first time in forty years the whole valley's agreed with itself about anything. Go on through - and take the star; it's yours, by right of arithmetic.");
         return;
     }
     if (!api.getVar("compass_given", false)) {
         api.setVar("compass_given", true);
         api.giveItem("broken_compass", 1);
         yield api.say("Aldous", "Cartographers' Rest. Every stone in this village is set to a benchmark, and every benchmark is on the grid. Out in the Survey, west of here, three of them have gone astray - three brass discs, buried in the snowfields.");
-        yield api.say("Aldous", "Three of my surveyors each know where one lies, to the tile. Talk to them; they'll read you the numbers. And take this compass. It is a poor one - it doesn't point anywhere - but it will tell you which tile you stand on.");
+        yield api.say("Aldous", "Three of my surveyors each know exactly where one lies, down to the tile. Talk to them; they'll read you the numbers. And take this compass. It's a poor one - doesn't point anywhere useful - but it'll tell you which tile you're standing on.");
         yield api.say("Hint", "Open your inventory with I, select the compass and press Enter: it tells you the tile (column, row) you are standing on. Walk until your numbers match a surveyor's.");
-        yield api.say("Aldous", "Find all three and the survey closes on its own; the exit at the far end of the Survey will unbar itself. You needn't come back to tell me.");
+        yield api.say("Aldous", "Find all three and the survey closes itself; the exit at the far end will unbar on its own. You needn't even come back to tell me. I'll know.");
     } else if (n === 1) {
-        yield api.say("Aldous", "Wynne, Dov and Fen. One benchmark each: first stretch, middle, last. The numbers are columns and rows, counted from the top-left corner of the whole map - so as you go west, the column falls.");
+        yield api.say("Aldous", "Wynne, Dov and Fen. One benchmark each: first stretch, middle, last. The numbers are columns and rows, counted from the top-left corner of the whole map - so as you go west, the column count falls.");
     } else {
-        yield api.say("Aldous", "Compass in your pack, coordinates from my three surveyors. The Survey is a grid. Walk it like one.");
+        yield api.say("Aldous", "Compass in your pack, coordinates from my three surveyors. The Survey is a grid. Walk it like one, and stop wandering diagonally.");
     }
 }
 
@@ -626,12 +626,12 @@ function* talkToSurveyor(name) {
     const n = api.getVar("surveyor_talks_" + name, 0);
     api.setVar("surveyor_talks_" + name, n + 1);
     if (n === 0) {
-        yield api.say(who, "You're the one going into the Survey? Then you'll want my number. I'm the one who set the " + stretch + " benchmark, before it went astray.");
+        yield api.say(who, "You're the one heading into the Survey? Then you'll want my number. I'm the one who set the " + stretch + " benchmark, before it wandered off.");
     }
-    yield api.say(who, "It lies at tile (" + spot.col + ", " + spot.row + "). Column " + spot.col + ", row " + spot.row + ". " + (n === 0 ? "Write that down. I've never known anyone to keep a coordinate in their head past the first snowdrift." : "Column " + spot.col + ", row " + spot.row + ". Yes, still."));
+    yield api.say(who, "It lies at tile (" + spot.col + ", " + spot.row + "). Column " + spot.col + ", row " + spot.row + ". " + (n === 0 ? "Write that down somewhere. I have never once known anyone to keep a coordinate in their head past the first snowdrift." : "Column " + spot.col + ", row " + spot.row + ". Yes, still. It hasn't moved since I last told you."));
     const found = api.getVar("markers_found", 0);
     if (found > 0)
-        yield api.say(who, "I hear you've already dug up " + found + " of the three. If that includes mine, you can ignore the numbers - but I'd check the compass before you decide it does.");
+        yield api.say(who, "I hear you've already dug up " + found + " of the three. If that happens to include mine, feel free to ignore the numbers - but I'd check the compass before deciding it does.");
 }
 
 function* onEnemyDefeated(name) {
@@ -639,10 +639,10 @@ function* onEnemyDefeated(name) {
         return;
     if (name === "bear") {
         yield api.wait(0.3);
-        yield api.say("Lara", "It had a surveyor's stake stuck in its fur. It must have been sitting on the benchmark for years.");
+        yield api.say("Lara", "It had a surveyor's stake stuck right in its fur. Must have been sitting on top of that benchmark for years, out of sheer stubbornness.");
     } else if (name === "fox") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Quick, quiet, and gone. Even the foxes out here move in straight lines.");
+        yield api.say("Lara", "Quick, quiet, and gone. Even the foxes out here appear to move in perfectly straight lines.");
     }
 }
 
@@ -655,20 +655,20 @@ function* onItemCollected(itemId) {
             api.setVar("survey_done", true);
             api.setBarrier("survey_gate", 0, 0, 1, 1, false);
             api.giveExperience(100);
-            yield api.say("Lara", "That's the third disc. The compass in my pack gave a small click, like a lid closing, and somewhere ahead a long iron bar slid back. The survey has closed itself.");
-            yield* companionSays("vex_recruited", "Vex", "Three points define a plane. That may be the most beautiful sentence in any language.");
+            yield api.say("Lara", "That's the third disc. The compass in my pack gave a small satisfied click, like a lid finally closing, and somewhere ahead a long iron bar slid back. The survey's closed itself.");
+            yield* companionSays("vex_recruited", "Vex", "Three points define a plane. That may honestly be the most beautiful sentence in any language ever spoken.");
         } else {
-            yield api.say("Lara", "A brass disc, stamped with a coordinate that has been rubbed out. " + found + " of 3.");
+            yield api.say("Lara", "A brass disc, stamped with a coordinate that's long since been rubbed out. " + found + " of 3.");
         }
         return;
     }
     if (itemId !== "surveyors_star")
         return;
     yield api.wait(0.3);
-    yield api.say("Lara", "A star of brass points. When I turn it, one point stays pointing at a spot I can't see, and it's not north.");
-    yield api.say("???", "Seventh of nine. A map is only a promise that a place will be where you left it. Sometimes you have to go and make the promise true.");
-    yield api.say("Lara", "You keep talking about promises. Who made you one?");
-    yield api.say("???", "Someone who thought better of it, and didn't say so. The next place has a court in session over a crime I would rather it hadn't happened. I'll be listening.");
+    yield api.say("Lara", "A star of brass points. When I turn it, one point stubbornly stays fixed on a spot I can't see, and it is most definitely not north.");
+    yield api.say("???", "Seventh of nine. A map is only ever a promise that a place will be where you left it. Sometimes you actually have to go make the promise true yourself.");
+    yield api.say("Lara", "You keep talking about promises. Who made you one, exactly?");
+    yield api.say("???", "Someone who thought better of it, and never said so out loud. The next place has a court in session over a crime I would very much rather hadn't happened. I'll be listening in.");
     api.setGlobalVar("chapter", 24);
     api.playSound("select");
     yield api.wait(0.8);

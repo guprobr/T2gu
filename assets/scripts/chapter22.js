@@ -528,10 +528,10 @@ function* onLevelStart() {
     api.setVar("chapter22_intro_seen", true);
 
     yield api.wait(0.6);
-    yield api.say("Lara", "A mile of plate-steel stalls with the shutters half up and the awnings the colour of the sky. No price tags. Not one. Just people holding things out.");
-    yield* companionSays("vex_recruited", "Vex", "A barter economy at this density is a distributed computation. Every swap is a comparison. I am delighted, and slightly afraid.");
-    yield* companionSays("cobb_recruited", "Cobb", "Nobody takes coin. Good. Coin never did have any manners.");
-    yield api.say("Hint", "This level runs left to right. The town is behind you; the Mile is ahead, to the east.");
+    yield api.say("Lara", "A mile of plate-steel stalls with the shutters half up and the awnings the colour of the sky. No price tags anywhere. Not one. Just people holding things out hopefully.");
+    yield* companionSays("vex_recruited", "Vex", "A barter economy at this density is basically a distributed computation. Every single swap is a comparison. I am both delighted and slightly afraid.");
+    yield* companionSays("cobb_recruited", "Cobb", "Nobody takes coin here. Good. Coin never did have any manners to begin with.");
+    yield api.say("Hint", "This level runs left to right. The town is behind you; the Mile is ahead, to the east. Bring literally anything you're willing to part with.");
 }
 
 function buildTown() {
@@ -602,7 +602,7 @@ function* onTalkTo(name) {
 function* talkToTinker() {
     api.playSound("select");
     if (api.getVar("swap1_done", false)) {
-        yield api.say("Tinker", "The gear I gave you? Take it to the Mystic in the Mile - she's the only one who'll know what it's for. Don't ask me. I only make them.");
+        yield api.say("Tinker", "The gear I gave you? Take it to the Mystic in the Mile - she's the only one who'll ever know what it's actually for. Don't ask me. I just make them.");
         return;
     }
     if (api.hasItem("copper_bundle")) {
@@ -610,18 +610,18 @@ function* talkToTinker() {
         api.giveItem("brass_gear", 1);
         api.setVar("swap1_done", true);
         api.giveExperience(40);
-        yield api.say("Tinker", "*unrolls a hand's length of the wire, sniffs it, nods* Copper. Proper copper, and not a scrap of solder in it. A fair swap, then - a brass gear for your bundle.");
-        yield api.say("Tinker", "The Mystic in the Mile has been asking after gears. Half-way along, you'll find her. She trades lenses for them, and I don't know why, and I've decided that's the right amount to know.");
+        yield api.say("Tinker", "*unrolls a hand's length of the wire, sniffs it thoughtfully, nods* Copper. Proper copper, not a scrap of solder in it. Fair swap, then - a brass gear for your bundle. Deal.");
+        yield api.say("Tinker", "The Mystic in the Mile's been asking after gears for weeks. Halfway along, you'll find her. She trades lenses for them, and I genuinely have no idea why, and I've decided that's exactly the right amount to know.");
         return;
     }
     const n = api.getVar("tinker_talks", 0);
     api.setVar("tinker_talks", n + 1);
     if (n === 0) {
-        yield api.say("Tinker", "Nothing costs money on the Mile. Everything costs something. I'll give you a brass gear - a good one - for a bundle of copper wire. I'm out. Somebody left one lying by the south alley, if you care to look.");
-        yield api.say("Lara", "A brass gear. What do I do with a gear?");
-        yield api.say("Tinker", "Nothing, by itself. That's how you know it's a swap and not a gift.");
+        yield api.say("Tinker", "Nothing costs money on the Mile. Everything costs *something*. I'll give you a brass gear - a good one, my best - for a bundle of copper wire. I'm currently out. Somebody left one lying by the south alley, if you care to look.");
+        yield api.say("Lara", "A brass gear. What exactly do I do with a gear?");
+        yield api.say("Tinker", "Nothing, by itself. Absolutely nothing. That's precisely how you know it's a swap and not a gift.");
     } else {
-        yield api.say("Tinker", "A bundle of copper wire, for a brass gear. It's lying about in the south alley - if the pigeons haven't had it.");
+        yield api.say("Tinker", "A bundle of copper wire, for a brass gear. It's lying about in the south alley - assuming the pigeons haven't gotten to it first.");
     }
 }
 
@@ -629,7 +629,7 @@ function* talkToTinker() {
 function* talkToMystic() {
     api.playSound("select");
     if (api.getVar("swap2_done", false)) {
-        yield api.say("Mystic", "The lens is the only one of its kind left. The Gate-drone at the far end has been waiting on it. Hold it up, and look through it, and it will let you by.");
+        yield api.say("Mystic", "The lens is the only one of its kind left in the world. The Gate-drone at the far end has been waiting on it for ages. Hold it up, look through it, and it'll let you by.");
         return;
     }
     if (api.hasItem("brass_gear")) {
@@ -637,18 +637,18 @@ function* talkToMystic() {
         api.giveItem("signal_lens", 1);
         api.setVar("swap2_done", true);
         api.giveExperience(40);
-        yield api.say("Mystic", "*she turns the gear against the light, and something inside it clicks into place* There. It always was missing exactly one tooth. Here - the lens. Fair is fair.");
-        yield api.say("Mystic", "The Gate-drone at the end of the Mile checks everyone who passes. It reads what it sees through this. Without it, it only reads static - and static, as far as it's concerned, is a threat.");
+        yield api.say("Mystic", "*she turns the gear against the light, and something inside it clicks satisfyingly into place* There. Always was missing exactly one tooth. Here - the lens. Fair is fair, and this was more than fair.");
+        yield api.say("Mystic", "The Gate-drone at the end of the Mile checks everyone who passes through this. Without a lens, it only ever reads static - and static, as far as it's concerned, is an active threat.");
         return;
     }
     const n = api.getVar("mystic_talks", 0);
     api.setVar("mystic_talks", n + 1);
     if (n === 0) {
-        yield api.say("Mystic", "I have a lens - a signal lens, the last clear one. I will trade it for a brass gear. Nothing else. I've tried everything else, and everything else is just noise.");
+        yield api.say("Mystic", "I have a lens - a signal lens, the last clear one left. I will trade it for a brass gear. Nothing else, and don't try offering anything else. I've tried everything else, and everything else is just noise.");
         yield api.say("Lara", "Where would I find a gear?");
-        yield api.say("Mystic", "The Tinker back in the town makes them. For copper wire, I am told. I am told a great many things; I try to keep only the useful ones.");
+        yield api.say("Mystic", "The Tinker back in town makes them. For copper wire, or so I'm told. I'm told a great many things; I try to hang onto only the useful ones.");
     } else {
-        yield api.say("Mystic", "A brass gear, and I will give you the lens. The Tinker in the town makes them. That is the whole of what I know.");
+        yield api.say("Mystic", "A brass gear, and I'll happily give you the lens. The Tinker in the town makes them. That is the entirety of what I know.");
     }
 }
 
@@ -656,7 +656,7 @@ function* talkToMystic() {
 function* talkToDrone() {
     api.playSound("select");
     if (api.getVar("mile_open", false)) {
-        yield api.say("Gate-drone", "*a soft, almost happy chirp* SCAN CLEAR. YOU MAY PASS. PLEASE MIND THE... sunset.");
+        yield api.say("Gate-drone", "*a soft, almost happy chirp* SCAN CLEAR. YOU MAY PASS. PLEASE MIND THE... sunset. THIS UNIT IS NOT PROGRAMMED FOR SUNSETS. PROCEED CAREFULLY.");
         return;
     }
     if (api.hasItem("signal_lens")) {
@@ -664,32 +664,32 @@ function* talkToDrone() {
         api.setVar("mile_open", true);
         api.setBarrier("mile_gate", 0, 0, 1, 1, false);
         api.giveExperience(100);
-        yield api.say("Gate-drone", "*a long, deliberate scan, which appears to be the first clear image it has seen in some time* ...SCAN CLEAR. PERSON: LARA. COMPANIONS: FOUR. THREAT LEVEL: ...LOW. HOW VERY ODD.");
-        yield api.say("Gate-drone", "GATE OPEN. THANK YOU FOR THE LENS. I HAD BEGUN TO THINK EVERYONE WAS STATIC.");
-        yield* companionSays("vex_recruited", "Vex", "It has spent years mistaking every traveller for interference. I find that intensely relatable.");
+        yield api.say("Gate-drone", "*a long, deliberate scan, apparently the first clear image it's had in quite some time* ...SCAN CLEAR. PERSON: LARA. COMPANIONS: FOUR. THREAT LEVEL: ...LOW. HOW VERY ODD. RECALCULATING. STILL LOW.");
+        yield api.say("Gate-drone", "GATE OPEN. THANK YOU FOR THE LENS. THIS UNIT HAD BEGUN TO SUSPECT EVERYONE, EVERYWHERE, WAS STATIC.");
+        yield* companionSays("vex_recruited", "Vex", "It's spent years mistaking every single traveller for interference. I find that deeply, personally relatable.");
         return;
     }
     const n = api.getVar("drone_talks", 0);
     api.setVar("drone_talks", n + 1);
     if (n === 0) {
-        yield api.say("Gate-drone", "SCAN FAILED. INPUT: STATIC. THIS UNIT REQUIRES A SIGNAL LENS TO READ TRAVELLERS. NO LENS, NO GATE.");
+        yield api.say("Gate-drone", "SCAN FAILED. INPUT: STATIC. THIS UNIT REQUIRES A SIGNAL LENS TO READ TRAVELLERS. NO LENS, NO GATE. THIS POLICY IS NOT NEGOTIABLE.");
         yield api.say("Lara", "Where do I get a lens?");
-        yield api.say("Gate-drone", "*a long, whirring pause* THIS UNIT DOES NOT KNOW. THIS UNIT HAS ONLY EVER BEEN ASKED FOR IT. THE MYSTIC, BACK ALONG THE MILE, MAY KNOW.");
+        yield api.say("Gate-drone", "*a long, whirring, faintly embarrassed pause* THIS UNIT DOES NOT KNOW. THIS UNIT HAS ONLY EVER BEEN ASKED FOR IT, NEVER TOLD WHERE IT COMES FROM. THE MYSTIC, BACK ALONG THE MILE, MAY KNOW.");
     } else {
-        yield api.say("Gate-drone", "NO LENS. STATIC. THE MYSTIC MAY KNOW.");
+        yield api.say("Gate-drone", "NO LENS. STILL STATIC. THE MYSTIC MAY STILL KNOW. THIS UNIT HAS NOT CHANGED ITS ANSWER.");
     }
 }
 
 function* talkToTownsfolk(name) {
     const lines = {
         merchant: [api.getGlobalVar("guilds_at_peace", false)
-                       ? "I heard the Smiths and the Weavers ate at one table, back down the road. Good for business. Terrible for the gossip trade."
-                       : "Everything on the Mile is a swap. If you have nothing to swap, you have something to earn.",
-                   "I have swapped a boot for a boat and a boat for a song. I have not once regretted the song."],
-        cyber_rogue: ["The Tinker only deals in gears. The Mystic only deals in lenses. The Gate-drone only deals in the lens. It's a chain. Miss a link, and it snaps at you.",
-                      "I tried to bribe the Gate-drone with a bag of scrap. It said 'STATIC' and started to cry. Or hum. It's hard to tell."],
-        android: ["Every trade I've ever recorded balances to zero. That has always seemed to me like a kind of grace.",
-                  "Do you know the oldest object on the Mile? A single coin that has never once been spent. It is out beyond the gate, somewhere, and nobody has had the heart to take it."],
+                       ? "I heard the Smiths and the Weavers actually ate at one table, back down the road. Great for business. Absolutely terrible for the gossip trade."
+                       : "Everything on the Mile is a swap. If you have nothing to swap, congratulations, you now have something to go earn.",
+                   "I have personally swapped a boot for a boat, and a boat for a song. I have not once, not for a single second, regretted the song."],
+        cyber_rogue: ["The Tinker only deals in gears. The Mystic only deals in lenses. The Gate-drone only deals in the lens. It's a chain. Miss one link, and the whole thing snaps right back at you.",
+                      "I once tried to bribe the Gate-drone with a bag of scrap. It said 'STATIC' and started to cry. Or hum. Genuinely hard to tell the difference with that thing."],
+        android: ["Every trade I've ever recorded balances out to zero, precisely. That has always struck me as a small kind of grace, honestly.",
+                  "Do you know the oldest object on the whole Mile? A single coin that has never once been spent. It's out beyond the gate somewhere, and nobody's ever had the heart to take it."],
     }[name];
     const displayName = { merchant: "Hawker", cyber_rogue: "Runner", android: "Ledger" }[name];
     const n = api.getVar("talk_" + name, 0);
@@ -703,10 +703,10 @@ function* onEnemyDefeated(name) {
         return;
     if (name === "imp") {
         yield api.wait(0.3);
-        yield api.say("Lara", "It was trying to swap me my own boot for my own boot. I'll give it points for consistency.");
+        yield api.say("Lara", "It was genuinely trying to swap me my own boot for my own boot. I'll give it points for sheer consistency, at least.");
     } else if (name === "mech_spider") {
         yield api.wait(0.3);
-        yield api.say("Lara", "A stall's worth of wiring, still running the last order it was given. Don't ask what.");
+        yield api.say("Lara", "A stall's worth of wiring, still faithfully running the last order it was ever given. Don't ask what the order was.");
     }
 }
 
@@ -714,10 +714,10 @@ function* onItemCollected(itemId) {
     if (itemId !== "first_coin")
         return;
     yield api.wait(0.3);
-    yield api.say("Lara", "It's blank. Not worn blank - blank, like it was never stamped at all. And it's warm, like someone's been holding it for me.");
-    yield api.say("???", "Sixth of nine. The first coin ever traded on the Mile, and it has never once been spent. Some things are more valuable for having been kept.");
-    yield api.say("Lara", "Was it you? Did you keep it?");
-    yield api.say("???", "I kept a great many things. Most of them were meant for you. The next place is where a map is drawn from the middle outward, and I'd like you to see how.");
+    yield api.say("Lara", "It's blank. Not worn blank - genuinely blank, like it was never stamped at all in the first place. And it's warm, like someone's been holding it for me this whole time.");
+    yield api.say("???", "Sixth of nine. The very first coin ever traded on the Mile, and it has never once been spent. Some things are simply more valuable for having been kept.");
+    yield api.say("Lara", "Was it you? Did you keep it, all this time?");
+    yield api.say("???", "I kept a great many things, Lara. Most of them were meant for you, eventually. The next place is where a map is drawn from the middle outward, and I'd genuinely like you to see how that's done.");
     api.setGlobalVar("chapter", 23);
     api.playSound("select");
     yield api.wait(0.8);

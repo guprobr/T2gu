@@ -530,10 +530,10 @@ function* onLevelStart() {
     api.setVar("chapter19_intro_seen", true);
 
     yield api.wait(0.6);
-    yield api.say("Lara", "Gildmere. Every gate-post has a gilt finial and every finial has been polished by somebody who has nothing else left to polish.");
-    yield* companionSays("nettle_recruited", "Nettle", "All this gold and nobody's eating properly. I could weep. I might. Later.");
-    yield* companionSays("cobb_recruited", "Cobb", "Gilt is not gold, lass. It's gold's shy cousin. Still - it takes a proper dwarf to know.");
-    yield api.say("Hint", "This level runs right to left. The town is behind you; the Gilded Meadow is ahead, to the west.");
+    yield api.say("Lara", "Gildmere. Every gate-post has a gilt finial, and every finial's been polished by somebody who clearly has nothing else left to polish.");
+    yield* companionSays("nettle_recruited", "Nettle", "All this gold and nobody's eating properly. I could weep. I genuinely might. I'll schedule it for later.");
+    yield* companionSays("cobb_recruited", "Cobb", "Gilt is not gold, lass. It's gold's shy, cash-strapped cousin. Still - takes a proper dwarf to spot the difference at a glance.");
+    yield api.say("Hint", "This level runs right to left. The town is behind you; the Gilded Meadow is ahead, to the west. Don't touch anything shiny without a plan.");
 }
 
 function buildTown() {
@@ -604,7 +604,7 @@ function* onTalkTo(name) {
 function* talkToReeve() {
     api.playSound("select");
     if (api.getVar("gilt_returned_all", false)) {
-        yield api.say("Reeve", "Every piece back in its place, and the ground has stopped humming at me. Take the ledger. It has a page left blank on purpose - I'd like you to have the choosing of what goes on it.");
+        yield api.say("Reeve", "Every piece back in its place, and the ground has finally stopped humming at me. Take the ledger. There's a page left blank on purpose - I'd like you to be the one who decides what goes on it.");
         return;
     }
     // Hand in whatever heirlooms are held (any number, any order).
@@ -616,38 +616,38 @@ function* talkToReeve() {
             api.giveExperience(30);
         }
         const total = returnedCount();
-        yield api.say("Reeve", "*he takes " + held.map(h => h[1]).join(" and ") + " in both hands, and his shoulders drop a little* Home. That's " + total + " of " + HEIRLOOMS.length + ".");
+        yield api.say("Reeve", "*he takes " + held.map(h => h[1]).join(" and ") + " in both hands, and his shoulders drop a little in visible relief* Home. That's " + total + " of " + HEIRLOOMS.length + ".");
         if (total >= HEIRLOOMS.length) {
             api.setVar("gilt_returned_all", true);
             api.setBarrier("gilt_gate", 0, 0, 1, 1, false);
             api.giveExperience(100);
-            yield api.say("Reeve", "That is all four. *he sets them on the old plinth, and the light in the room changes* The road will open now. It would not, before - a road cannot cross ground that is missing its treasure.");
-            yield* companionSays("nettle_recruited", "Nettle", "I thought the gold was the curse. It was never the gold. It was that it wasn't where it belonged.");
+            yield api.say("Reeve", "That's all four. *he sets them on the old plinth, and the light in the room genuinely changes* The road will open now. It wouldn't before - a road can't cross ground that's missing its own treasure. Apparently.");
+            yield* companionSays("nettle_recruited", "Nettle", "I thought the gold itself was the curse. It never was. It was just that none of it was where it belonged.");
         } else {
-            yield api.say("Reeve", "Bring the rest when you have them. They will not come quietly - none of them did.");
+            yield api.say("Reeve", "Bring me the rest when you have them. They will not come quietly - none of them did, not once, the whole way here.");
         }
         return;
     }
     const n = api.getVar("reeve_talks", 0);
     api.setVar("reeve_talks", n + 1);
     if (n === 0) {
-        yield api.say("Reeve", "Gildmere was the richest village on the road. Four heirlooms, kept on the plinth in the hall: a chalice, a signet, a censer and a crown. Gilt, not gold - but gilt that meant something.");
-        yield api.say("Reeve", "When the hum stopped, they walked out. I don't say that lightly. They were on the plinth at dusk and in the Gilded Meadow by dawn, west of here, and something has been watching over each of them since.");
-        yield api.say("Lara", "Watching how?");
-        yield api.say("Reeve", "Every one that's been touched has called something up to look after it. Bring them home anyway. The road out will not open while they're gone.");
+        yield api.say("Reeve", "Gildmere was the richest village on the whole road. Four heirlooms, kept on the plinth in the hall: a chalice, a signet, a censer, and a crown. Gilt, not gold - but gilt that actually meant something to us.");
+        yield api.say("Reeve", "When the hum stopped, they simply walked out. I don't say that lightly. On the plinth at dusk, out in the Gilded Meadow by dawn, west of here - and something's been watching over each of them ever since.");
+        yield api.say("Lara", "Watching how, exactly?");
+        yield api.say("Reeve", "Every single one that's been touched has called something up to look after it personally. Bring them home anyway. The road out will not open while they're still missing.");
     } else {
-        yield api.say("Reeve", "Chalice, signet, censer, crown. Four out in the meadow, and each one guarded when you lift it. I will hold the plinth for them.");
+        yield api.say("Reeve", "Chalice, signet, censer, crown. Four of them out in the meadow, each one guarded the moment you dare lift it. I'll hold the plinth ready for them.");
     }
 }
 
 function* talkToTownsfolk(name) {
     const lines = {
-        merchant: ["I priced everything in this village once. Then the hum stopped, and I found I couldn't remember what a price was for.",
-                   "Gilt over lead, gilt over wood - it's all the same underneath. It's what it did to the room that mattered."],
-        baker_2: ["Bread doesn't care what your walls are gilded with. It just needs flour and someone who's up early.",
-                  "The heirlooms sat in the hall for three hundred years, and we polished them every Sunday. Not once did anyone ask if they wanted to stay."],
-        farmhand_pitchfork: ["I watched the chalice walk out. Honest - it just went, like a cat leaving a room it had decided was too loud.",
-                             "Don't pick them up with your bare hand if you can help it. Well. You can't help it. Just - be ready to run."],
+        merchant: ["I priced everything in this village once, right down to the doorknobs. Then the hum stopped, and I found I couldn't remember what a price was even for.",
+                   "Gilt over lead, gilt over wood - all the same underneath, really. It's what it did to the room that mattered, not what it was made of."],
+        baker_2: ["Bread doesn't care one bit what your walls are gilded with. It just needs flour and somebody willing to get up early.",
+                  "The heirlooms sat in that hall for three hundred years, and we polished them faithfully every single Sunday. Not once did anyone think to ask if they wanted to stay."],
+        farmhand_pitchfork: ["I watched the chalice walk out with my own eyes. Honest - it just went, like a cat leaving a room it had personally decided was too loud.",
+                             "Don't pick them up with your bare hand if you can possibly avoid it. Well. You can't avoid it. Just - be ready to run, immediately."],
     }[name];
     const displayName = { merchant: "Goldsmith", baker_2: "Baker", farmhand_pitchfork: "Hob" }[name];
     const n = api.getVar("talk_" + name, 0);
@@ -679,10 +679,10 @@ function* onEnemyDefeated(name) {
         return;
     if (name === "slime_gold") {
         yield api.wait(0.3);
-        yield api.say("Lara", "It left a smear of gilt on the grass, and the grass took it back.");
+        yield api.say("Lara", "It left a smear of gilt on the grass, and the grass, remarkably, took it right back in.");
     } else if (name === "imp") {
         yield api.wait(0.3);
-        yield api.say("Lara", "It was only guarding what it thought was its own. So was everything else out here.");
+        yield api.say("Lara", "It was only ever guarding what it thought was rightfully its own. So, frankly, was everything else out here today.");
     }
 }
 
@@ -690,16 +690,16 @@ function* onItemCollected(itemId) {
     const index = HEIRLOOMS.findIndex(h => h[0] === itemId);
     if (index >= 0) {
         yield* springAmbush(index);
-        yield api.say("Lara", "The moment my fingers close on " + HEIRLOOMS[index][1] + " the ground around me stirs. Something has been waiting for exactly this.");
+        yield api.say("Lara", "The moment my fingers close on " + HEIRLOOMS[index][1] + " the ground around me visibly stirs. Something's been waiting a long time for exactly this moment.");
         return;
     }
     if (itemId !== "reeves_ledger")
         return;
     yield api.wait(0.3);
-    yield api.say("Lara", "A thin ledger, and I already know which page is the blank one. It's the last. Of course it is.");
-    yield api.say("???", "Third of nine. You gave every heirloom back, and asked for nothing. I'll tell you a secret about gold, Lara: it is only ever heavy to the person carrying it away.");
-    yield api.say("Lara", "That sounds like something someone once said to you.");
-    yield api.say("???", "Someone said it to me at a river, once. Speaking of which - the next place has a flood in it that somebody built a lock to hold back, and then lost the keys of.");
+    yield api.say("Lara", "A thin ledger, and I already know which page is the blank one. It's the last one. Of course it is.");
+    yield api.say("???", "Third of nine. You gave every heirloom back, and asked for absolutely nothing in return. I'll let you in on a secret about gold, Lara: it's only ever heavy to the person carrying it away.");
+    yield api.say("Lara", "That sounds suspiciously like something someone once said to you.");
+    yield api.say("???", "Someone said it to me at a river, once, a very long time ago. Speaking of which - the next place has a flood in it that somebody built a lock to hold back, and then promptly lost the keys to.");
     api.setGlobalVar("chapter", 20);
     api.playSound("select");
     yield api.wait(0.8);

@@ -1,704 +1,704 @@
 {
-    "_comment": "Catalog of standalone environment props. width (px) is a deliberate size calibration - the source art has no consistent scale relative to a character or to each other, since every prop was generated independently; height follows automatically, keeping the source aspect ratio. blocksMovement (default true if omitted) marks solid objects a character can't walk through - only low, flat, walk-over-able ground decoration is false. `name` (display title) and `description` (examine flavor text, added 2026-09-10) back GameScene::interactWithNearby()'s prop-examine path: pressing E near a spawned prop with no NPC closer shows `name`/`description` via showInfoMessage(), exactly like the built-in compass item, no scripting required. Every prop in this file has both - if a future prop is added without them, examine falls back to the catalog key itself rather than failing.",
+    "_comment": "Catalog of standalone environment props. width (px) is a deliberate size calibration - the source art has no consistent scale relative to a character or to each other, since every prop was generated independently; height follows automatically, keeping the source aspect ratio. blocksMovement (default true if omitted) marks solid objects a character can't walk through - only low, flat, walk-over-able ground decoration is false. `name` (display title) and `description` (examine flavor text, added 2026-09-10; rewritten in a broader comedic-adventure-game voice 2026-09-21) back GameScene::interactWithNearby()'s prop-examine path: pressing E near a spawned prop with no NPC closer shows `name`/`description` via showInfoMessage(), exactly like the built-in compass item, no scripting required. Every prop in this file has both - if a future prop is added without them, examine falls back to the catalog key itself rather than failing.",
     "props": {
         "cottage_a": {
             "width": 520,
             "name": "Snug Cottage",
-            "description": "Thatch on top, moss in the thatch, and somewhere under all that a family who insists the roof is 'basically fine.'"
+            "description": "Nice cottage. Thatched roof, crooked chimney, and a strong smell of somebody definitely being home and definitely not answering the door."
         },
         "cottage_b": {
             "width": 520,
             "name": "Weathered Cottage",
-            "description": "The kind of house that has settled a little more than its owners are willing to admit out loud."
+            "description": "This house has given up on standing up straight and honestly, fair enough."
         },
         "well": {
             "width": 320,
             "name": "Village Well",
-            "description": "Deep, cold, and - if you listen close - humming a note that has nothing to do with echo."
+            "description": "You could throw a coin in and make a wish. You could also just listen to it hum ominously, which is free and much more informative."
         },
         "fence_straight": {
             "width": 256,
             "name": "Wooden Fence",
-            "description": "Keeps the goats in and, on a good day, the goats' opinions to themselves."
+            "description": "A fence. It keeps goats in the same way a screen door keeps out determination."
         },
         "fence_corner": {
             "width": 256,
             "name": "Fence Corner",
-            "description": "Where two fences meet and neither one wants to admit the gate should really be here."
+            "description": "Two fences meet here and neither will admit whose job it was to build the gate."
         },
         "market_stall": {
             "width": 440,
             "name": "Market Stall",
-            "description": "Empty at this hour, but the smell of yesterday's bread hasn't gotten the memo."
+            "description": "Closed. The bread is long gone, but the smell filed for squatter's rights and won."
         },
         "haystack": {
             "width": 300,
             "name": "Haystack",
-            "description": "Somewhere in here is a pitchfork nobody's seen since spring. Dig at your own risk."
+            "description": "A perfectly good haystack, and also, statistically, a pitchfork's final resting place. You do not go looking."
         },
         "signpost": {
             "width": 180,
             "name": "Signpost",
-            "description": "One arm points to safety, the other to adventure. Both arms are lying a little."
+            "description": "One arm says ADVENTURE. The other says SAFETY. Neither one has ever been right about anything."
         },
         "cart": {
             "width": 340,
             "name": "Farm Cart",
-            "description": "One wheel squeaks in a key Lara's ear insists is almost musical."
+            "description": "Squeaks in what Lara insists is a musical key. It is not a musical key. Lara will not be told this."
         },
         "barrels_crates": {
             "width": 260,
             "name": "Barrels & Crates",
-            "description": "Stacked with the quiet confidence of something that has never once been organized on purpose."
+            "description": "A stack of barrels and crates, organized using the ancient technique of 'throw it near the other ones.'"
         },
         "chicken_coop": {
             "width": 400,
             "name": "Chicken Coop",
-            "description": "Currently unoccupied, which either means the chickens are elsewhere or extremely good at hiding."
+            "description": "Suspiciously chicken-free. Either they're on strike or they know something about today that Lara doesn't."
         },
         "windmill": {
             "width": 640,
             "name": "Windmill",
-            "description": "Turns lazily even when there's no wind, which the village has collectively agreed not to think too hard about."
+            "description": "Spinning steadily with no wind whatsoever. The village noticed this decades ago and unanimously voted to change the subject."
         },
         "blacksmith_forge": {
             "width": 560,
             "name": "Blacksmith's Forge",
-            "description": "Cold right now, but the anvil still rings faintly if you put an ear to it - old habit, apparently."
+            "description": "Cold and dark, and yet the anvil rings if you knock on it, like it's answering the door for someone who isn't home."
         },
         "chapel": {
             "width": 520,
             "name": "Chapel",
-            "description": "Small, plain, and somehow always exactly warm enough inside, regardless of the season."
+            "description": "Small, plain, suspiciously cozy year-round. Somebody, or something, keeps the thermostat set to 'divine.'"
         },
         "water_trough": {
             "width": 300,
             "name": "Water Trough",
-            "description": "Full, clean, and suspiciously free of algae for something that just sits outside all day."
+            "description": "Clean. Algae-free. Sitting outside catching bugs, dust, and the occasional bad decision, and yet - immaculate. Suspicious."
         },
         "wheelbarrow": {
             "width": 260,
             "name": "Wheelbarrow",
-            "description": "Tipped at an angle that suggests it was set down mid-argument and never picked back up."
+            "description": "Tipped over at the exact angle of a household argument nobody finished."
         },
         "vegetable_garden": {
             "width": 400,
             "name": "Vegetable Garden",
-            "description": "Neat rows of turnips growing with more enthusiasm than the soil around here really deserves."
+            "description": "Turnips growing with more enthusiasm than the actual soil quality legally allows."
         },
         "bench": {
             "width": 260,
             "name": "Wooden Bench",
-            "description": "Worn smooth in exactly one spot, by exactly one person, sitting exactly there for years."
+            "description": "One person sat here for so many years they wore a butt-shaped groove into destiny itself."
         },
         "dovecote": {
             "width": 220,
             "name": "Dovecote",
-            "description": "A small tower of pigeon apartments. Rent is free. Reviews are, presumably, mixed."
+            "description": "Pigeon condos. Rent's free, the neighbors are loud, and the reviews are, you guessed it, for the birds."
         },
         "notice_board": {
             "width": 280,
             "name": "Notice Board",
-            "description": "Mostly lost cats and one very old, very confident hand-drawn map to 'treasure, probably.'"
+            "description": "Six 'lost cat' flyers and one hand-drawn treasure map that is, quote, '100% real, ask for Gerald.'"
         },
         "pine_tree": {
             "width": 360,
             "name": "Pine Tree",
-            "description": "Tall, green, and entirely unbothered by whatever's humming underground nearby."
+            "description": "A tall, green, extremely chill tree, blissfully unaware there's something humming underneath its own roots."
         },
         "oak_tree": {
             "width": 400,
             "name": "Old Oak",
-            "description": "Been here longer than the village has, and looks like it plans to outlast the argument about who owns the land under it."
+            "description": "Older than the village, and clearly planning to outlive whoever's currently arguing about property lines under it."
         },
         "dead_tree": {
             "width": 340,
             "name": "Dead Tree",
-            "description": "Bare branches reaching for a sky that, honestly, isn't offering much back."
+            "description": "Bare branches reaching hopefully skyward. The sky has read the message and is choosing not to reply."
         },
         "burnt_stump": {
             "width": 220,
             "name": "Burnt Stump",
-            "description": "Scorched black and hollow inside - lightning, or something with worse manners."
+            "description": "Scorched black and hollow. Lightning, probably. Or something with a grudge and terrible aim."
         },
         "bush": {
             "width": 200,
             "name": "Bush",
-            "description": "Rustles slightly more than the breeze can account for. Probably fine."
+            "description": "A bush. It's rustling slightly more than the breeze can explain. This is either wildlife or a poorly hidden goblin. Statistically, it's the goblin."
         },
         "rocks_small": {
             "width": 220,
             "name": "Loose Rocks",
-            "description": "A small pile of rocks doing an admirable job of just being rocks."
+            "description": "A tidy little pile of rocks, doing the one job rocks are qualified for, and doing it beautifully."
         },
         "boulder_large": {
             "width": 300,
             "name": "Large Boulder",
-            "description": "Immovable, indifferent, and clearly winning whatever argument it's having with gravity."
+            "description": "This boulder is currently locked in a staring contest with gravity. Gravity blinked first roughly four hundred years ago."
         },
         "fallen_log": {
             "width": 320,
             "name": "Fallen Log",
-            "description": "Soft with moss and, if Lara's not mistaken, gently warmer than the air around it."
+            "description": "Soft, mossy, and inexplicably warm to the touch, which is either cozy fungus or a sleeping something. Do not sit on it to find out."
         },
         "reeds": {
             "width": 180,
             "blocksMovement": false,
             "name": "Reeds",
-            "description": "Whisper against each other in a rhythm that's almost - not quite - a language."
+            "description": "Whispering to each other in a rhythm that is almost a language, and definitely gossip about Lara specifically."
         },
         "wildflowers": {
             "width": 180,
             "blocksMovement": false,
             "name": "Wildflowers",
-            "description": "Small, bright, and blooming in colors that don't appear in any dye recipe Lara knows."
+            "description": "Pretty little flowers in colors that don't exist in any dye book, paint set, or reasonable explanation."
         },
         "cliff_face": {
             "width": 680,
             "name": "Cliff Face",
-            "description": "Sheer rock with a long way down and an even longer way to explain the fall afterward."
+            "description": "A tall drop with a long way down and an even longer, more awkward way to explain how you got there in the first place."
         },
         "waterfall": {
             "width": 520,
             "name": "Waterfall",
-            "description": "Loud, cold, and drowning out the hum underground for a merciful few seconds."
+            "description": "Loud, cold, and thankfully drowning out the hum for a few blessed seconds. Ten out of ten, would stand under again."
         },
         "wooden_bridge": {
             "width": 440,
             "blocksMovement": false,
             "name": "Wooden Bridge",
-            "description": "Creaks under every step, purely as a personality trait - it's structurally fine, probably."
+            "description": "Creaks like it's dying with every single step. This is, apparently, just a personality quirk and not a warning."
         },
         "tree_stump": {
             "width": 220,
             "name": "Tree Stump",
-            "description": "Flat enough to sit on, round enough to count the rings, if counting to 'a lot' interests you."
+            "description": "Perfectly good seating, and a free counting exercise if you're the sort of person who enjoys tallying up to 'unreasonable.'"
         },
         "berry_bush": {
             "width": 200,
             "name": "Berry Bush",
-            "description": "Heavy with fruit that's either delicious or extremely educational. Only one way to find out."
+            "description": "Heavy with berries that are either delicious or a valuable lesson about reading labels. Lara is out of labels."
         },
         "lily_pads": {
             "width": 220,
             "blocksMovement": false,
             "name": "Lily Pads",
-            "description": "Floating in a neat cluster, holding up absolutely nothing except a small, unbothered frog."
+            "description": "A neat little raft of lily pads supporting exactly one very smug, very unbothered frog."
         },
         "mushroom_cluster": {
             "width": 180,
             "blocksMovement": false,
             "name": "Mushroom Cluster",
-            "description": "Clustered close together and glowing very faintly, in a way that raises more questions than it answers."
+            "description": "Glowing softly for reasons that are, medically speaking, none of Lara's business."
         },
         "snowy_pine": {
             "width": 360,
             "name": "Snow-Dusted Pine",
-            "description": "Dressed in white and holding perfectly still, like it's hoping not to be asked to do anything."
+            "description": "Standing very, very still under all that snow, like it's hoping nobody will notice it and ask it to shovel anything."
         },
         "ivy_rock": {
             "width": 220,
             "name": "Ivy-Covered Rock",
-            "description": "More ivy than rock, at this point. The rock is basically a rumor underneath."
+            "description": "Technically a rock. Legally, at this point, mostly ivy with a rock-shaped opinion."
         },
         "anthill": {
             "width": 160,
             "blocksMovement": false,
             "name": "Anthill",
-            "description": "A small, extremely organized city that has never once had a zoning dispute."
+            "description": "A miniature city-state run with a level of bureaucratic efficiency the village well could learn from."
         },
         "data_pillar": {
             "width": 220,
             "name": "Data Pillar",
-            "description": "Hums with old current and older information, most of which nobody's bothered to read in decades."
+            "description": "Buzzing with old information nobody's read since it was new information. Extremely relatable."
         },
         "holo_terminal": {
             "width": 280,
             "name": "Holo-Terminal",
-            "description": "Flickers to life if you get close enough, then displays absolutely nothing useful. Very on-brand for terminals."
+            "description": "Flickers to life the moment you approach, then displays nothing useful whatsoever. A truly universal terminal experience."
         },
         "downed_drone": {
             "width": 280,
             "blocksMovement": false,
             "name": "Downed Drone",
-            "description": "Lying still, one rotor bent, clearly having a worse day than anyone else in the area."
+            "description": "One bent rotor, zero enthusiasm, having an objectively worse day than everyone else standing around it."
         },
         "conduit_coil": {
             "width": 300,
             "name": "Conduit Coil",
-            "description": "Warm to stand near, and humming that same note Lara can't quite place - or can't quite stop hearing."
+            "description": "Warm, humming, and playing that exact same note again. At this point it's basically the local radio station."
         },
         "overgrown_solar_array": {
             "width": 420,
             "name": "Overgrown Solar Array",
-            "description": "Half swallowed by vines that seem, weirdly, to be helping it along rather than choking it out."
+            "description": "Vines have taken it over completely and, weirdly, seem to be doing the maintenance better than the last owners did."
         },
         "dormant_sentry_turret": {
             "width": 260,
             "name": "Dormant Sentry Turret",
-            "description": "Powered down, thankfully, and pointed at absolutely nothing in particular."
+            "description": "Powered down and pointed at nothing. Please continue to be nothing in particular for a while longer."
         },
         "cyber_supply_crate": {
             "width": 250,
             "name": "Cyber Supply Crate",
-            "description": "Sealed, labeled in a script nobody local can read, and suspiciously heavier than it looks."
+            "description": "Sealed shut, labeled in a language nobody local speaks, and heavier than a crate has any business being. Great."
         },
         "signal_relay_mast": {
             "width": 180,
             "name": "Signal Relay Mast",
-            "description": "Still transmitting something, faintly, to an audience that stopped listening generations ago."
+            "description": "Still broadcasting faithfully to an audience that unsubscribed generations ago. Somebody get this mast an agent."
         },
         "salvage_pile": {
             "width": 340,
             "name": "Salvage Pile",
-            "description": "A junk heap of old parts, at least three of which are definitely still live. Poke carefully."
+            "description": "A heap of scrap, at least three pieces of which are absolutely, definitely still live. Poke carefully, or better, don't."
         },
         "vendor_kiosk": {
             "width": 260,
             "name": "Vendor Kiosk",
-            "description": "Long abandoned, its screen dark - though for one unsettling second, it looked like it flickered on for Lara specifically."
+            "description": "Dark, dead, abandoned - except for that one unsettling flicker that looked exactly like it recognized Lara personally."
         },
         "haunted_cottage": {
             "width": 520,
             "name": "Haunted Cottage",
-            "description": "The door is closed. It was open a second ago. Best not to dwell on it."
+            "description": "The door is closed now. It was wide open a second ago. Moving briskly on, thank you."
         },
         "withered_well": {
             "width": 320,
             "name": "Withered Well",
-            "description": "Dry as bone, and colder than a dry well has any right to be."
+            "description": "Bone dry and colder than an empty hole in the ground has any physical right to be."
         },
         "broken_fence": {
             "width": 256,
             "name": "Broken Fence",
-            "description": "Snapped clean in the middle, from the inside out, by the look of the splinters."
+            "description": "Snapped clean from the inside. Whatever came through here was not asking politely."
         },
         "gravestone_cluster": {
             "width": 260,
             "name": "Gravestone Cluster",
-            "description": "Names worn smooth by weather and time - illegible now, which feels less like an accident than a mercy."
+            "description": "Every name has worn away completely, which honestly might be a mercy for everyone involved, including the reader."
         },
         "dead_twisted_tree": {
             "width": 340,
             "name": "Twisted Dead Tree",
-            "description": "Grown into a shape no living tree ever bends into. Whatever grew it wasn't patient - or wasn't kind."
+            "description": "Bent into a shape no self-respecting tree would ever pick voluntarily. Whatever grew it had a very bad attitude."
         },
         "will_o_wisp": {
             "width": 140,
             "blocksMovement": false,
             "name": "Will-o'-the-Wisp",
-            "description": "A small, cold light that drifts just out of reach. Following it seems like a story that ends badly."
+            "description": "A cheerful little light that stays juuust out of reach. Every story about following one of these ends with someone in a bog."
         },
         "cobweb_cart": {
             "width": 340,
             "name": "Cobweb-Draped Cart",
-            "description": "Hasn't moved in years, and the spiders have very much taken that as an invitation."
+            "description": "Hasn't moved in years, and the local spiders have very much claimed squatter's rights on the whole thing."
         },
         "haunted_signpost": {
             "width": 180,
             "name": "Leaning Signpost",
-            "description": "Both arms point the same direction now. That direction is 'away.'"
+            "description": "Both arms now point the exact same direction: away. Somebody should really ask what from."
         },
         "rotted_haystack": {
             "width": 300,
             "name": "Rotted Haystack",
-            "description": "Black and slumping, held together mostly by mildew and bad memories."
+            "description": "Black, slumped, and held together purely by mildew and bad memories. It has seen things."
         },
         "ruined_chapel": {
             "width": 520,
             "name": "Ruined Chapel",
-            "description": "Roof caved in, pews overturned - whatever used to be prayed for here, it didn't work."
+            "description": "Roof caved in, pews on their sides. Whatever people prayed for here, the management regrets to inform you it did not go through."
         },
         "burnt_cottage_ruin": {
             "width": 520,
             "name": "Burnt Cottage Ruin",
-            "description": "Charred beams reaching up like the house is still trying to protect whoever was inside."
+            "description": "Charred beams still reaching up, like the house is protesting on principle even after losing the argument entirely."
         },
         "rubble_pile": {
             "width": 300,
             "blocksMovement": false,
             "name": "Rubble Pile",
-            "description": "A heap of broken stone, quietly and thoroughly done being a building."
+            "description": "A heap of broken stone that used to be a building and has fully, calmly accepted its new career as a heap."
         },
         "charred_tree": {
             "width": 340,
             "name": "Charred Tree",
-            "description": "Black from root to crown. Whatever burned it didn't come from anywhere near the sun."
+            "description": "Black from root to crown. Whatever burned this did not come from anywhere near the sun, and left no return address."
         },
         "wrecked_cart": {
             "width": 340,
             "name": "Wrecked Cart",
-            "description": "One wheel gone entirely, the other three politely pretending that's not a problem."
+            "description": "Missing a wheel entirely. The remaining three are maintaining a united front that this is somehow fine."
         },
         "scorched_fence_remains": {
             "width": 256,
             "name": "Scorched Fence Remains",
-            "description": "A few blackened posts, standing guard over nothing left worth guarding."
+            "description": "A handful of blackened posts, faithfully guarding a plot of land with absolutely nothing left worth guarding."
         },
         "impact_crater": {
             "width": 360,
             "blocksMovement": false,
             "name": "Impact Crater",
-            "description": "Scorched at the center, glassy at the edges. Something hit here, hard, and hasn't been explained since."
+            "description": "Scorched middle, glassy edges, zero explanation. Something landed here hard and nobody's filed the paperwork."
         },
         "collapsed_well": {
             "width": 320,
             "name": "Collapsed Well",
-            "description": "Caved in on itself. Whatever's down there now, it's staying down there."
+            "description": "Fell in on itself completely. Whatever's at the bottom now has excellent, permanent privacy."
         },
         "ash_covered_barrels": {
             "width": 260,
             "name": "Ash-Covered Barrels",
-            "description": "Gray with soot, stacked the way people stack things when they plan on leaving in a hurry."
+            "description": "Gray with soot and stacked hastily, the exact packing job of people who left in a screaming hurry."
         },
         "destroyed_market_stall": {
             "width": 440,
             "name": "Wrecked Market Stall",
-            "description": "Splintered boards and a torn awning - business, it seems, was not booming."
+            "description": "Splintered boards, a torn awning, and a business plan that did not survive contact with whatever happened here."
         },
         "fallen_watchtower": {
             "width": 560,
             "name": "Fallen Watchtower",
-            "description": "Toppled sideways, keeping watch now only over the ground it's lying on."
+            "description": "Toppled clean over. Still keeping watch, technically, just now exclusively over the dirt directly beneath it."
         },
         "leaning_tenement": {
             "width": 520,
             "name": "Leaning Tenement",
-            "description": "Held up by stubbornness and a neighboring wall it is definitely not supposed to be leaning on."
+            "description": "Standing purely out of spite and an unspoken agreement with the wall it is absolutely not supposed to be leaning on."
         },
         "laundry_line": {
             "width": 440,
             "name": "Laundry Line",
-            "description": "Strung between two buildings, still holding a shirt nobody's come back to claim."
+            "description": "Strung between two buildings, still holding one shirt whose owner is, at this point, presumed to not be coming back for it."
         },
         "poor_market_stall": {
             "width": 440,
             "name": "Modest Market Stall",
-            "description": "Threadbare canvas over a few honest goods - not much, but arranged with real care."
+            "description": "Threadbare canvas, a few honest goods, and more genuine pride in the arrangement than the fanciest stall in the capital."
         },
         "rain_barrel": {
             "width": 200,
             "name": "Rain Barrel",
-            "description": "Catches every drop that falls, which around here is either a blessing or the only water anyone trusts."
+            "description": "Catches every drop that falls from the sky, which is either thrifty or the only water anyone around here still trusts."
         },
         "crate_tarp_shanty": {
             "width": 400,
             "name": "Crate-and-Tarp Shanty",
-            "description": "Someone's whole home, built from other people's leftovers and held up by sheer will."
+            "description": "Somebody's entire home, built from other people's leftovers and held together by pure stubbornness. Respect."
         },
         "patched_pushcart": {
             "width": 340,
             "name": "Patched Pushcart",
-            "description": "Mended so many times it's less 'one cart' than 'a committee of repairs that agreed to travel together.'"
+            "description": "Repaired so many times it's less 'one cart' now and more 'a committee of spare parts that agreed to travel together.'"
         },
         "street_water_pump": {
             "width": 240,
             "name": "Street Water Pump",
-            "description": "Squeaks loudly on the up-stroke, quietly on the down - the whole street knows when someone's fetching water."
+            "description": "Squeaks loudly going up, quietly going down. The entire street knows exactly who's fetching water, and when."
         },
         "crate_stack_cat": {
             "width": 220,
             "name": "Crate Stack (Occupied)",
-            "description": "A tidy stack of crates with a cat on top, radiating the specific authority of something that pays no rent."
+            "description": "A tidy stack of crates, now the sovereign territory of a cat who owns them, the alley, and by extension, you."
         },
         "alley_lantern_post": {
             "width": 200,
             "name": "Alley Lantern Post",
-            "description": "Casts just enough light to see the alley and just little enough to wish it didn't."
+            "description": "Provides just enough light to see the alley, and just little enough to sincerely wish it hadn't."
         },
         "beggars_bedroll": {
             "width": 300,
             "blocksMovement": false,
             "name": "Bedroll",
-            "description": "Rolled out against a wall, careful and neat - the only possession here that's easy to pack fast."
+            "description": "Rolled out neat and careful against the wall - the one thing here designed to be grabbed and gone in five seconds flat."
         },
         "wooden_bed": {
             "width": 300,
             "name": "Wooden Bed",
-            "description": "Simple, sturdy, and considerably more comfortable than it has any visual right to look."
+            "description": "Simple, sturdy, and mysteriously far comfier than a plank with a blanket thrown over it has any right to be."
         },
         "dining_table_chairs": {
             "width": 440,
             "name": "Dining Table & Chairs",
-            "description": "Set for more people than currently live here - old habit, or quiet hope."
+            "description": "Set for far more people than currently live here. Old habit, quiet hope, or somebody's terrible at counting."
         },
         "stone_fireplace": {
             "width": 360,
             "name": "Stone Fireplace",
-            "description": "Cold now, but the stones still hold a little warmth, like they haven't quite given up on the idea of fire."
+            "description": "Cold and dark, but the stones still hold a bit of warmth, like they're keeping the seat warm for fire's eventual return."
         },
         "wooden_chest": {
             "width": 220,
             "name": "Wooden Chest",
-            "description": "Locked, heavy, and giving off the specific energy of something that has opinions about being opened."
+            "description": "Locked tight and radiating the very specific energy of an object with strong personal opinions about being opened."
         },
         "tavern_bar_counter": {
             "width": 480,
             "name": "Tavern Bar Counter",
-            "description": "Scarred with a hundred forgotten toasts and at least one axe mark nobody will explain."
+            "description": "Scarred with a hundred forgotten toasts and one axe mark that the bartender changes the subject about every single time."
         },
         "stacked_ale_barrels": {
             "width": 280,
             "name": "Stacked Ale Barrels",
-            "description": "Three barrels high and one bad decision away from becoming two barrels wide."
+            "description": "Three barrels high and precisely one bad decision away from becoming two barrels wide and one barrel very upset."
         },
         "bookshelf": {
             "width": 300,
             "name": "Bookshelf",
-            "description": "Crammed with books on subjects nobody in town claims to have ever needed. Someone clearly disagreed."
+            "description": "Packed with books on subjects nobody in this town admits to caring about. Somebody, clearly, cared a great deal."
         },
         "standing_torch_sconce": {
             "width": 160,
             "name": "Standing Torch Sconce",
-            "description": "Burns steady and bright, apparently unbothered by drafts that would snuff anything smaller."
+            "description": "Burns steady and bright in drafts strong enough to knock over lesser candles. Overachiever."
         },
         "barred_cell_section": {
             "width": 280,
             "name": "Barred Cell",
-            "description": "Empty, for now. The bars look sturdy. The optimism about staying out of them, less so."
+            "description": "Currently empty. The bars are sturdy. Lara's confidence about that staying true is, at best, a work in progress."
         },
         "throne": {
             "width": 260,
             "name": "Throne",
-            "description": "Ornate, uncomfortable-looking, and clearly built to be admired rather than actually sat in for long."
+            "description": "Extremely ornate, extremely uncomfortable, and built entirely to be looked at rather than, say, sat in during a long meeting."
         },
         "castle_wall_section": {
             "width": 600,
             "name": "Castle Wall",
-            "description": "Thick, gray stone that has shrugged off more history than most people ever learn."
+            "description": "Thick gray stone that has shrugged off more sieges, weather, and bad poetry than most people learn about in a lifetime."
         },
         "castle_gate_tower": {
             "width": 520,
             "name": "Gate Tower",
-            "description": "Tall enough to see trouble coming from a good distance - assuming anyone's actually up there looking."
+            "description": "Tall enough to spot trouble coming from a mile off, assuming the night guard hasn't wandered down for a snack again."
         },
         "drawbridge": {
             "width": 480,
             "blocksMovement": false,
             "name": "Drawbridge",
-            "description": "Down at the moment, which either means visitors are welcome or nobody remembered to raise it."
+            "description": "Down. This either means visitors are warmly welcomed, or nobody remembered how the crank works."
         },
         "portcullis": {
             "width": 400,
             "name": "Portcullis",
-            "description": "A wall of iron teeth, currently open, currently very interested in staying that way."
+            "description": "A wall of iron teeth, currently open wide and grinning about it in a way that feels deliberately unsettling."
         },
         "corner_turret": {
             "width": 400,
             "name": "Corner Turret",
-            "description": "A narrow tower with an excellent view and, presumably, a very cold night shift."
+            "description": "A narrow tower with a spectacular view and, judging by the abandoned mug up there, an extremely cold, extremely lonely night shift."
         },
         "castle_banner_wallmount": {
             "width": 260,
             "name": "Castle Banner",
-            "description": "Hangs heavy and still in air that, for some reason, refuses to move it."
+            "description": "Hangs heavy and dead still, in air that has apparently, unanimously, decided not to move it."
         },
         "siege_ballista": {
             "width": 440,
             "name": "Siege Ballista",
-            "description": "Aimed at the horizon and clearly built by someone who took the horizon personally."
+            "description": "Aimed squarely at the horizon by someone who clearly took the horizon's existence as a personal insult."
         },
         "courtyard_well": {
             "width": 340,
             "name": "Courtyard Well",
-            "description": "Deeper than the village well, and considerably better maintained - royalty does have its perks."
+            "description": "Deeper and considerably better maintained than the village well. Royalty, it turns out, extends even to plumbing."
         },
         "armory_rack": {
             "width": 320,
             "name": "Armory Rack",
-            "description": "Rows of polished weapons that have clearly been oiled more recently than they've been used."
+            "description": "Rows of gleaming, freshly oiled weapons that have clearly seen far more polishing than actual combat."
         },
         "castle_stairs": {
             "width": 420,
             "name": "Castle Stairs",
-            "description": "Worn into a gentle curve by centuries of people in a hurry to be somewhere more important."
+            "description": "Worn smooth into a gentle curve by centuries of important people in a hurry to be somewhere even more important."
         },
         "stalactite_cluster": {
             "width": 440,
             "name": "Stalactite Cluster",
-            "description": "Hanging in a neat row, dripping on a schedule that's had thousands of years to get precise."
+            "description": "Dripping on a schedule that has had several thousand years to get really, unnervingly precise about it."
         },
         "stalagmite_formation": {
             "width": 400,
             "name": "Stalagmite Formation",
-            "description": "Rising to meet its ceiling counterpart, one patient drop of mineral at a time."
+            "description": "Slowly, patiently rising to meet its ceiling counterpart, one drop of mineral at a time. Commitment."
         },
         "underground_pool": {
             "width": 440,
             "name": "Underground Pool",
-            "description": "Still, dark, and clear enough to see down much further than feels reassuring."
+            "description": "Still, dark, and clear enough to see uncomfortably far down. Nothing about that depth invites a closer look."
         },
         "cave_in_rubble": {
             "width": 400,
             "name": "Cave-In Rubble",
-            "description": "A wall of collapsed rock. Whatever tunnel this used to be, it isn't anymore."
+            "description": "A solid wall of collapsed rock where a tunnel used to be. It is now, structurally speaking, extremely done being a tunnel."
         },
         "glowing_crystal_cluster": {
             "width": 300,
             "name": "Glowing Crystal Cluster",
-            "description": "Pulses faintly with light that has no obvious source and no interest in explaining itself."
+            "description": "Pulsing with light from no visible source, and declining, politely but firmly, to explain itself further."
         },
         "mine_cart": {
             "width": 340,
             "name": "Mine Cart",
-            "description": "Rusted onto its rails, still loaded with ore nobody ever came back for."
+            "description": "Rusted solid to its rails, still loaded with ore nobody ever bothered to come back for. Somebody's getting docked pay."
         },
         "support_beam": {
             "width": 360,
             "name": "Support Beam",
-            "description": "Groans occasionally under the weight of the mountain above it - purely for effect, one hopes."
+            "description": "Groans occasionally under the weight of the whole mountain above it, purely, one hopes, for dramatic effect."
         },
         "underground_fungus_growth": {
             "width": 260,
             "blocksMovement": false,
             "name": "Underground Fungus Growth",
-            "description": "Pale, spongy, and thriving somewhere sunlight has never once bothered to visit."
+            "description": "Pale, spongy, and thriving somewhere sunlight has never once bothered to show up. Best of luck to it."
         },
         "cave_torch_sconce": {
             "width": 220,
             "name": "Cave Torch Sconce",
-            "description": "Lit and burning steadily, though nobody's admitted to lighting it."
+            "description": "Lit and burning steadily. Nobody down here has admitted to lighting it, and nobody's asking twice."
         },
         "bat_roost": {
             "width": 360,
             "blocksMovement": false,
             "name": "Bat Roost",
-            "description": "Quiet right now. Best to keep it that way and move along quickly."
+            "description": "Quiet for now. This is exactly the kind of quiet you should not interrupt with a loud noise, a torch, or a sneeze."
         },
         "runic_standing_stone": {
             "width": 260,
             "name": "Runic Standing Stone",
-            "description": "Carved with symbols that predate every language currently spoken here, and somehow still feel legible."
+            "description": "Carved with symbols older than every language spoken here today, and somehow, infuriatingly, still perfectly legible."
         },
         "broken_arcane_statue": {
             "width": 380,
             "name": "Broken Arcane Statue",
-            "description": "Missing an arm and most of its face, but the posture still reads as deeply unimpressed."
+            "description": "Missing an arm and most of its face, and still somehow radiating the exact posture of profound disappointment."
         },
         "ley_light_wisp_cluster": {
             "width": 320,
             "blocksMovement": false,
             "name": "Ley-Light Wisps",
-            "description": "Small lights drifting in slow loops, tracing a shape that might be a pattern or might just be showing off."
+            "description": "Little lights drifting in slow loops that might be an ancient pattern or might just be showing off for an audience of one."
         },
         "sunken_archway": {
             "width": 440,
             "name": "Sunken Archway",
-            "description": "Half-buried in earth, leading to a doorway that used to matter to somebody, once."
+            "description": "Half-buried in earth, still leading to a door that mattered enormously to somebody, once upon a very long time ago."
         },
         "rune_circle": {
             "width": 320,
             "blocksMovement": false,
             "name": "Rune Circle",
-            "description": "Etched into the ground in a perfect ring. Standing in the middle feels like a decision, not an accident."
+            "description": "Etched into the ground in a perfect ring. Stepping into the middle of it feels less like an accident and more like signing something."
         },
         "ancient_obelisk": {
             "width": 280,
             "name": "Ancient Obelisk",
-            "description": "Stands taller than it should be able to, given how little of it is actually touching the ground."
+            "description": "Stands taller than physics really allows, given how little of it is actually touching the ground. Best not to ask twice."
         },
         "shattered_mirror_shard": {
             "width": 300,
             "name": "Shattered Mirror Shard",
-            "description": "Reflects the sky correctly. Reflects Lara about half a second late."
+            "description": "Reflects the sky perfectly on time. Reflects Lara about half a second behind. That gap is doing a lot of unspoken work."
         },
         "moss_grown_altar": {
             "width": 340,
             "name": "Moss-Grown Altar",
-            "description": "Whatever used to be offered here, the moss has taken over the job with real enthusiasm."
+            "description": "Whatever used to be offered here, the moss has enthusiastically taken over the job with zero supervision required."
         },
         "buried_relic_case": {
             "width": 380,
             "name": "Buried Relic Case",
-            "description": "Sealed tight and half-sunk in dirt, holding something someone once thought was worth protecting forever."
+            "description": "Sealed tight and half-sunk in dirt, guarding something somebody once decided was worth protecting forever. Forever's still going."
         },
         "whispering_well": {
             "width": 340,
             "name": "Whispering Well",
-            "description": "Lean in and it whispers back - never quite words, but never quite nothing, either."
+            "description": "Lean in close and it whispers back. Never quite words. Never quite nothing. Extremely unhelpful, extremely committed to being spooky about it."
         },
         "distant_treeline": {
             "width": 1152,
             "blocksMovement": true,
             "name": "Distant Treeline",
-            "description": "Forest stretching to the horizon, hazy with distance and entirely, comfortably out of reach."
+            "description": "Forest stretching to the horizon, hazy with distance and thoroughly, comfortably somebody else's problem."
         },
         "misty_ridge": {
             "width": 1152,
             "blocksMovement": true,
             "name": "Misty Ridge",
-            "description": "A ridge of hills wrapped in fog that never seems to lift, burn off, or explain itself."
+            "description": "A ridge of hills wrapped permanently in fog that has never once lifted, burned off, or offered so much as a hint why."
         },
         "distant_hills": {
             "width": 1152,
             "blocksMovement": true,
             "name": "Distant Hills",
-            "description": "Rolling and blue-gray with distance - closer than they look, or maybe exactly as far as they look."
+            "description": "Rolling and blue-gray with distance, and either closer than they look or exactly as far as they look. Nobody's actually checked."
         },
         "dense_treeline": {
             "width": 1152,
             "blocksMovement": true,
             "name": "Dense Treeline",
-            "description": "A wall of dark forest at the edge of everything, thick enough to swallow sound as well as light."
+            "description": "A wall of dark forest at the edge of everything, thick enough to swallow both sound and any lingering sense of a good idea."
         },
         "misty_peaks": {
             "width": 1152,
             "blocksMovement": true,
             "name": "Misty Peaks",
-            "description": "Mountains fading into cloud at the top, like even they weren't sure how high to go."
+            "description": "Mountains fading into cloud at the top, as if even the mountains got nervous about committing to a final height."
         },
         "stone_wall_corner": {
             "width": 360,
             "name": "Stone Wall Corner",
-            "description": "Where two walls meet at a right angle, exactly as walls have agreed to do since walls were invented."
+            "description": "Two walls meeting at a crisp right angle, exactly as walls have unanimously agreed to behave since the invention of walls."
         },
         "stone_wall_corner_alt": {
             "width": 360,
             "name": "Stone Wall Corner",
-            "description": "The other kind of corner. Structurally identical to its cousin; aesthetically, very particular about the difference."
+            "description": "The other corner. Structurally identical to its twin. Aesthetically, it insists there is a difference, and refuses to elaborate."
         },
         "stone_archway": {
             "width": 360,
             "name": "Stone Archway",
-            "description": "A doorway with no door, which somehow feels more deliberate than an oversight."
+            "description": "A doorway with no door installed, which somehow reads less like an oversight and more like a very deliberate decision."
         },
         "stone_wall_window": {
             "width": 360,
             "name": "Stone Wall Window",
-            "description": "A narrow slit of a window, built for archers rather than anyone hoping for a nice view."
+            "description": "A narrow slit built for archers to shoot arrows through, not for anyone hoping to admire a view. Manage expectations."
         },
         "wall_torch_sconce": {
             "width": 360,
             "name": "Wall Torch Sconce",
-            "description": "Mounted at exactly the height to leave soot on the ceiling directly above it, forever."
+            "description": "Mounted at precisely the height needed to leave a permanent soot stain on the ceiling directly above it. Every single time."
         },
         "wall_tapestry": {
             "width": 360,
             "name": "Wall Tapestry",
-            "description": "Depicts a battle, a feast, or possibly both, depending on how long you squint at it."
+            "description": "Depicts a battle, or a feast, or possibly both simultaneously, depending entirely on how long and how hard you squint at it."
         },
         "stone_wall_skirting": {
             "width": 360,
             "name": "Stone Wall Skirting",
-            "description": "The unglamorous bit where wall meets floor. Somebody still carved it carefully."
+            "description": "The dull little strip where wall meets floor. Somebody, inexplicably, still carved it with real loving care."
         },
         "cracked_stone_floor": {
             "width": 300,
             "blocksMovement": false,
             "name": "Cracked Stone Floor",
-            "description": "Fractured in a pattern that looks less like wear and more like something once pushed up from underneath."
+            "description": "Cracked in a pattern that looks less like ordinary wear and more like something underneath tried to push its way up. Watch that."
         },
         "floor_rubble_patch": {
             "width": 300,
             "blocksMovement": false,
             "name": "Floor Rubble Patch",
-            "description": "A scatter of broken stone underfoot. Watch your step; it hasn't finished settling."
+            "description": "A scattering of broken stone underfoot that has, frankly, not finished settling and would appreciate you not testing that theory."
         },
         "worn_floor_rug": {
             "width": 340,
             "blocksMovement": false,
             "name": "Worn Floor Rug",
-            "description": "Threadbare in the middle, from what must have been a great deal of pacing."
+            "description": "Threadbare dead in the center from what must have been an absolutely heroic amount of nervous pacing."
         }
     }
 }

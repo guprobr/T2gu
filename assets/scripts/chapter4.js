@@ -361,8 +361,8 @@ function* onLevelStart() {
     api.setVar("chapter4_intro_seen", true);
 
     yield api.wait(0.5);
-    yield api.say("Cobb", "Nobody in my family ever mentioned a line running under the claim. That's either an oversight or a secret.");
-    yield api.say("Lara", "Let's find out which.");
+    yield api.say("Cobb", "Nobody in my family ever mentioned a line running under the claim. That's either a truly staggering oversight or a very well-kept secret.");
+    yield api.say("Lara", "Let's find out which, ideally before it finds out we're asking.");
 }
 
 function buildSurfaceEntry() {
@@ -504,14 +504,14 @@ function* talkToVex() {
     api.playSound("select");
 
     if (timesTalked === 0) {
-        yield api.say("Vex", "You three walked out of a cave holding a rock that glows and a root that's been carved. That's a very unusual afternoon.");
+        yield api.say("Vex", "You three walked out of a cave holding a rock that glows and a root that's been carved. That is, professionally speaking, a very unusual afternoon.");
         yield api.say("Lara", "You can tell what these are?");
-        yield api.say("Vex", "I can tell they're keeping time with each other. I've traced a line under here for a tenday - three relay minds along it, still answering if you ask them the right things in the right order. Solve that, and whatever's locked past them opens for real.");
+        yield api.say("Vex", "I can tell they're keeping time with each other, which is already more than either of them are legally supposed to do. I've traced a line under here for a tenday - three relay minds along it, still answering if you ask in the right order. Solve that, and whatever's locked past them opens for real.");
     } else if (timesTalked === 1) {
-        yield api.say("Cobb", "Sounds familiar. My vein did the same thing - always further, never an answer.");
-        yield api.say("Vex", "Then maybe the four of us finding the actual end of it is overdue.");
+        yield api.say("Cobb", "Sounds familiar. My vein did the same thing - always further, never an actual answer, like talking to a very smug tunnel.");
+        yield api.say("Vex", "Then maybe the four of us finally finding the end of it is overdue.");
     } else {
-        yield api.say("Vex", "All right. I'll patch us through anything live down there. Try not to touch the sparking parts.");
+        yield api.say("Vex", "All right. I'll patch us through anything live down there. Try not to touch the parts that spark. Or the parts that hum. Honestly, just don't touch things.");
         api.despawnNpc("cyber_engineer");
         api.spawnCharacter("cyber_engineer", 10, 47, 70);
         api.setGlobalVar("vex_recruited", true);
@@ -530,7 +530,7 @@ function* activateTerminal(name) {
     api.playSound("select");
 
     if (api.getVar("vault_gate_open", false)) {
-        yield api.say(displayName, "*already dark, its work done*");
+        yield api.say(displayName, "*already dark, its work done, quietly proud of itself*");
         return;
     }
 
@@ -538,11 +538,11 @@ function* activateTerminal(name) {
         const newStep = step + 1;
         api.setVar("terminal_step", newStep);
         if (newStep === 1)
-            yield api.say("Relay-1", "QUERY RECEIVED. Forwarding to the next node, as always. I only ever ask.");
+            yield api.say("Relay-1", "QUERY RECEIVED. Forwarding to the next node, as always. I only ever ask questions. Never answers. Union rules.");
         else if (newStep === 2)
-            yield api.say("Relay-2", "ROUTED. I don't ask, I don't answer - I just make sure the question actually arrives.");
+            yield api.say("Relay-2", "ROUTED. I don't ask, I don't answer, I just make sure the question actually shows up somewhere. Thankless work, but somebody's node has to do it.");
         else {
-            yield api.say("Relay-3", "CONFIRMED. Ask, route, confirm - that's the whole chain. Vault sealed no longer.");
+            yield api.say("Relay-3", "CONFIRMED. Ask, route, confirm - that's the entire chain of command down here. Vault sealed no longer. You're welcome.");
             api.setBarrier("vault_gate", 166, 0, 1, 96, false);
             api.setVar("vault_gate_open", true);
             api.giveExperience(80);
@@ -550,7 +550,7 @@ function* activateTerminal(name) {
         }
     } else {
         api.setVar("terminal_step", 0);
-        yield api.say(displayName, "SEQUENCE ERROR. Not yet. Not in that order.");
+        yield api.say(displayName, "SEQUENCE ERROR. Wrong order. Please try again, and this time actually listen to the other two relays.");
     }
 }
 
@@ -566,7 +566,7 @@ function* talkToSignalKeeper(name) {
     api.playSound("select");
 
     if (api.getVar("signalRiddle_solved", false)) {
-        yield api.say(displayName, "*already answered, still looping the same joke*");
+        yield api.say(displayName, "*already answered, still looping the same joke, forever, apparently*");
         return;
     }
 
@@ -574,28 +574,28 @@ function* talkToSignalKeeper(name) {
         const newStep = step + 1;
         api.setVar("signalRiddle_step", newStep);
         if (newStep === 1)
-            yield api.say("Mystic Fragment", "OLD RIDDLE, STILL CACHED: what signal travels fastest with nothing in the wire to carry it?");
+            yield api.say("Mystic Fragment", "OLD RIDDLE, STILL CACHED, STILL SMUG: what signal travels fastest with absolutely nothing in the wire to carry it?");
         else {
-            yield api.say("Assassin Fragment", "SILENCE. Everyone forgets that one's an answer and not a malfunction.");
+            yield api.say("Assassin Fragment", "SILENCE. Everyone forgets that one's the answer and not just a malfunction. Half my job is correcting that assumption.");
             api.setVar("signalRiddle_solved", true);
             api.giveExperience(50);
             api.playSound("select");
         }
     } else {
-        yield api.say(displayName, "QUERY INCOMPLETE. The other fragment answers first.");
+        yield api.say(displayName, "QUERY INCOMPLETE. The other fragment answers first. That's not a bug, that's the process.");
     }
 }
 
 function* rescueHostage() {
     if (api.getVar("hostage_rescued", false)) {
-        yield api.say("Merchant", "Still grateful, truly.");
+        yield api.say("Merchant", "Still grateful, truly, and still telling this story to anyone who'll stand still long enough.");
         return;
     }
     api.setVar("hostage_rescued", true);
     api.playSound("select");
-    yield api.say("Merchant", "Oh, thank every working circuit left down here. I took a wrong turn chasing a buyer's shortcut and never found my way back.");
+    yield api.say("Merchant", "Oh, thank every working circuit left down here. I took a 'shortcut' from a buyer who clearly hated me and never found my way back.");
     yield api.say("Lara", "Are you hurt?");
-    yield api.say("Merchant", "Rattled more than hurt. The way back is north of here, if those machines have moved on.");
+    yield api.say("Merchant", "Rattled more than hurt, and never trusting a shortcut again as long as I live. Way back's north of here, assuming those machines have wandered off.");
     api.giveExperience(100);
 }
 
@@ -613,13 +613,13 @@ function* onEnemyDefeated(name) {
 
     if (name === "mech_spider" || name === "mech_crimson_warbot") {
         yield api.wait(0.3);
-        yield api.say("Vex", "Autonomous scrap. Whatever it was guarding, it forgot the reason around the same time it forgot to shut down.");
+        yield api.say("Vex", "Autonomous scrap. Whatever it was guarding, it forgot the reason around the same time it forgot to shut itself off. Relatable, honestly.");
     } else if (name === "cyber_trooper") {
         yield api.wait(0.3);
-        yield api.say("Lara", "That one still had orders. Old ones, but real ones.");
+        yield api.say("Lara", "That one still had orders. Old ones, but real ones. Depressingly good work ethic for a pile of scrap.");
     } else if (name === "mech_stealth_fighter") {
         yield api.wait(0.3);
-        yield api.say("Vex", "Good reflexes on that one, for something that should've powered down decades ago.");
+        yield api.say("Vex", "Good reflexes on that one, for something that should've powered down decades before either of us was born.");
     }
 }
 
@@ -628,11 +628,11 @@ function* onItemCollected(itemId) {
         return;
 
     yield api.wait(0.3);
-    yield api.say("Lara", "Warm again. Same rhythm as the others - I don't even have to check anymore.");
-    yield api.say("Vex", "That's not possible. This is decades-old hardware. It should not be keeping time with a rock and a tree root.");
-    yield api.say("???", "Should not, and does, are doing a lot of work in that sentence. You're closer than you think, all four of you.");
+    yield api.say("Lara", "Warm again. Same rhythm as the others - I don't even have to check anymore, which is either progress or a worrying sign.");
+    yield api.say("Vex", "That's not possible. This is decades-old hardware. It should not be keeping time with a rock and a tree root. I'm the engineer here and I'm choosing not to think about it.");
+    yield api.say("???", "'Should not' and 'does' are doing a great deal of heavy lifting in that sentence. You're closer than you think. All four of you.");
     yield api.say("Cobb", "Four now, is it? You're keeping count.");
-    yield api.say("???", "I've had a long time to get good at counting. There's an ashfall to the east that hasn't stopped smelling like smoke in years. Go carefully.");
+    yield api.say("???", "I've had a very long time to get good at counting. There's an ashfall to the east that hasn't stopped smelling like smoke in years. Go carefully, and maybe pack a second pair of boots.");
 
     api.setGlobalVar("chapter", 5);
     api.playSound("select");

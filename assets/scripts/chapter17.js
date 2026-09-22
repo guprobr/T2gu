@@ -532,10 +532,10 @@ function* onLevelStart() {
     api.setVar("chapter17_intro_seen", true);
 
     yield api.wait(0.6);
-    yield api.say("Lara", "The door closed behind us without a sound. No hum. I keep waiting for it, the way you wait for a step that isn't there.");
-    yield* companionSays("vex_recruited", "Vex", "My instruments read zero. Not low - zero. I have never seen a place this quiet that was also inhabited.");
-    yield* companionSays("cobb_recruited", "Cobb", "Snow, torchlight, and folk who whisper. I like it already, and I do not trust that.");
-    yield api.say("Hint", "This level runs right to left. The town is behind you; the Snowlanes are ahead, to the west.");
+    yield api.say("Lara", "The door closed behind us without a sound at all. No hum. I keep waiting for it anyway, the way you keep reaching for a step that just isn't there.");
+    yield* companionSays("vex_recruited", "Vex", "My instruments read zero. Not low - actual, literal zero. I have never once seen a place this quiet that was also full of people.");
+    yield* companionSays("cobb_recruited", "Cobb", "Snow, torchlight, and folk who whisper for a living. I like it already, and I do not trust that reaction one bit.");
+    yield api.say("Hint", "This level runs right to left. The town is behind you; the Snowlanes are ahead, to the west. Use your indoor voice. Everyone else already is.");
 }
 
 function buildTown() {
@@ -607,21 +607,21 @@ function* talkToClerk() {
     api.playSound("select");
     const done = claimsReturned();
     if (api.getVar("claims_done", false)) {
-        yield api.say("Clerk", "All claims closed, ledger shut, road stamped. Do you know how long it has been since I could say that? Go on through. Quietly, please - it's a habit.");
+        yield api.say("Clerk", "All claims closed, ledger shut, road stamped. Do you have any idea how long it's been since I could say that sentence? Go on through. Quietly, please - it's a habit at this point.");
     } else if (done >= Object.keys(CLAIMS).length) {
         api.setVar("claims_done", true);
         api.setBarrier("claims_gate", 0, 0, 1, 1, false);
         api.giveExperience(100);
-        yield api.say("Clerk", "*he counts the returns on his fingers, twice* Three claims. Three closed. That is - that is the whole ledger.");
-        yield api.say("Clerk", "*a small wet thump as he brings the stamp down on the road-pass* There. The gate at the far end of the Snowlanes will let you out. It's the first stamp I've been able to give since the hum stopped.");
-        yield* companionSays("cobb_recruited", "Cobb", "A whole town held up by one man's ledger. I've seen sillier things hold up mountains.");
+        yield api.say("Clerk", "*he counts the returns on his fingers, twice, just to be sure* Three claims. Three closed. That is - that is genuinely the entire ledger.");
+        yield api.say("Clerk", "*a small wet thump as he brings the stamp down on the road-pass* There. The gate at the far end of the Snowlanes will let you out. First stamp I've been able to give since the hum stopped, and I've been rehearsing it in my head all week.");
+        yield* companionSays("cobb_recruited", "Cobb", "A whole town held up by one man's ledger. I've personally seen sillier things hold up mountains.");
     } else if (n === 0) {
-        yield api.say("Clerk", "Hushgate is where the road out of the Quiet is stamped. Nobody leaves without a stamp. It is the only rule we have left, so we keep it very carefully.");
-        yield api.say("Clerk", "But my ledger has three open claims - three people who lost something in the Snowlanes, west of here - and I do not stamp a road while a claim is open. It isn't cruelty. It's that a road stamped over an open claim goes crooked.");
+        yield api.say("Clerk", "Hushgate is where the road out of the Quiet gets stamped. Nobody leaves without a stamp. It's the only rule we have left, so we keep it very, very carefully.");
+        yield api.say("Clerk", "My ledger has three open claims - three people who lost something in the Snowlanes, west of here - and I refuse to stamp a road while a claim's still open. It isn't cruelty. It's that a road stamped over an open claim goes crooked, and I have seen that go badly.");
         yield api.say("Lara", "So I find their things and bring them home.");
-        yield api.say("Clerk", "Each to its owner, in whatever order you like. When all three are closed, come and see me.");
+        yield api.say("Clerk", "Each to its owner, in whatever order suits you. When all three are closed, come see me, and try not to lose anything of your own on the way.");
     } else {
-        yield api.say("Clerk", "Claims closed: " + done + " of " + Object.keys(CLAIMS).length + ". The three owners are in the village. They will tell you where they lost things.");
+        yield api.say("Clerk", "Claims closed: " + done + " of " + Object.keys(CLAIMS).length + ". The three owners are in the village somewhere. They'll tell you exactly where they lost things, at length.");
     }
 }
 
@@ -629,7 +629,7 @@ function* talkToClaimant(name) {
     const [itemId, who, where] = CLAIMS[name];
     api.playSound("select");
     if (api.getVar("returned_" + name, false)) {
-        yield api.say(who, "You found it. I keep touching it to make sure. Thank you.");
+        yield api.say(who, "You found it. I keep touching it just to make sure it's real. Thank you. Again. I mean it every time.");
         return;
     }
     if (api.hasItem(itemId)) {
@@ -637,28 +637,28 @@ function* talkToClaimant(name) {
         api.setVar("returned_" + name, true);
         api.giveExperience(40);
         const RETURN_LINES = {
-            farmhand_young: "*he winds the key, and the little box plays half a tune, and waits* ...It always waits. It's waiting for a second half nobody remembers. But it's mine again. Thank you!",
-            tribal_gatherer_girl: "*she closes her hand around the locket and doesn't open it* My grandmother's. I lost it the week the hum stopped, and I thought - I thought that was the same thing as losing her again.",
-            lumberjack_2: "*he turns the woven charm over, counting knots* Every winter, one knot. Forty-one. Ha! I thought the drifts had it for good.",
+            farmhand_young: "*he winds the key, and the little box plays half a tune, then waits, same as always* ...It always waits. Waiting for a second half nobody alive remembers writing. But it's mine again. Thank you!",
+            tribal_gatherer_girl: "*she closes her hand around the locket and doesn't open it* My grandmother's. I lost it the same week the hum stopped, and some small, unreasonable part of me thought that meant losing her all over again.",
+            lumberjack_2: "*he turns the woven charm over, counting knots with visible relief* Every winter, one knot. Forty-one of them. Ha! I genuinely thought the drifts had swallowed it for good.",
         };
         yield api.say(who, RETURN_LINES[name]);
         const left = Object.keys(CLAIMS).length - claimsReturned();
         if (left === 0)
-            yield api.say("Lara", "That's all three. The Clerk was waiting on exactly this.");
+            yield api.say("Lara", "That's all three, then. The Clerk was sitting on exactly this the whole time.");
         return;
     }
     const n = api.getVar("claim_talks_" + name, 0);
     api.setVar("claim_talks_" + name, n + 1);
     if (n === 0) {
         const OPENING = {
-            farmhand_young: "I lost my music box. It's not worth anything. It only plays half a tune. But it is the only thing my mother left me that still does anything.",
-            tribal_gatherer_girl: "I lost my grandmother's locket while gathering. It's silver, and warm, and I know that's an odd thing to say about metal.",
-            lumberjack_2: "My charm. Woven, a knot for every winter I've survived. Forty-one knots. A man my age doesn't get to replace those.",
+            farmhand_young: "I lost my music box. It's not worth much of anything. Only plays half a tune. But it's the one thing my mother left me that still, technically, does something.",
+            tribal_gatherer_girl: "I lost my grandmother's locket while out gathering. It's silver, and it's warm, and yes, I'm aware that's an odd thing to say about a piece of metal.",
+            lumberjack_2: "My charm. Woven, a knot for every winter I've personally survived. Forty-one knots. A man my age does not simply get to replace those.",
         };
         yield api.say(who, OPENING[name]);
-        yield api.say(who, "I lost it " + where + " of the Snowlanes - " + HEADING + " of here.");
+        yield api.say(who, "I lost it " + where + " of the Snowlanes - " + HEADING + " of here. Please be careful. And please find it.");
     } else {
-        yield api.say(who, "Still looking? " + where.charAt(0).toUpperCase() + where.slice(1) + ", I think. Thank you for going.");
+        yield api.say(who, "Still looking? " + where.charAt(0).toUpperCase() + where.slice(1) + ", I believe. Thank you for even trying.");
     }
 }
 
@@ -667,10 +667,10 @@ function* onEnemyDefeated(name) {
         return;
     if (name === "harpy") {
         yield api.wait(0.3);
-        yield api.say("Lara", "It didn't shriek. Even the birds out here are whispering.");
+        yield api.say("Lara", "It didn't even shriek. Apparently even the birds out here have adopted the whispering policy.");
     } else if (name === "skeleton_swordsman") {
         yield api.wait(0.3);
-        yield api.say("Lara", "A guard at a customs post that stopped existing. He kept the post anyway.");
+        yield api.say("Lara", "A guard, faithfully manning a customs post that stopped existing ages ago. He kept the post anyway. Dedication, of a sort.");
     }
 }
 
@@ -678,10 +678,10 @@ function* onItemCollected(itemId) {
     if (itemId !== "clerks_stamp")
         return;
     yield api.wait(0.3);
-    yield api.say("Lara", "It's warm from the pocket, like something that's been held for a long time by someone who never quite trusted it not to vanish.");
-    yield api.say("???", "First of nine. I can hear you now, Lara, without the hum in the way. It's a great deal, isn't it? Being heard.");
-    yield api.say("Lara", "You sound closer than you did at the Long Room. Where are you?");
-    yield api.say("???", "Further along the road. Nine places, nine keepsakes. This one taught you that a quiet place is not an empty one. The next is a keep whose doors were locked by somebody very frightened.");
+    yield api.say("Lara", "It's warm from the pocket, like something that's been carried a long time by someone who never quite trusted it not to vanish on them.");
+    yield api.say("???", "First of nine. I can hear you now, Lara, without the hum getting in the way. It's a great deal, isn't it? Actually being heard, clearly, for once.");
+    yield api.say("Lara", "You sound closer than you did at the Long Room. Where exactly are you?");
+    yield api.say("???", "Further along the road. Nine places, nine keepsakes. This one taught you that a quiet place isn't necessarily an empty one. The next is a keep whose doors were locked by somebody very, very frightened.");
     api.setGlobalVar("chapter", 18);
     api.playSound("select");
     yield api.wait(0.8);

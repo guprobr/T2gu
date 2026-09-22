@@ -361,8 +361,8 @@ function* onLevelStart() {
     api.setVar("chapter3_intro_seen", true);
 
     yield api.wait(0.5);
-    yield api.say("Vigil", "The court's floor stopped here too, once. Whatever's under it isn't mine to guard anymore - that duty's yours now.");
-    yield api.say("Lara", "Then let's find someone who can.");
+    yield api.say("Vigil", "The court's floor stopped here too, once. Whatever's under it isn't mine to guard anymore - congratulations, that's your problem now.");
+    yield api.say("Lara", "Wonderful. Let's go find someone who actually knows what they're doing.");
 }
 
 function buildEntryChamber() {
@@ -494,14 +494,14 @@ function* talkToCobb() {
     api.playSound("select");
 
     if (timesTalked === 0) {
-        yield api.say("Cobb", "Above ground trouble usually stays above ground. You two are the exception, then.");
+        yield api.say("Cobb", "Above-ground trouble usually has the decency to stay above ground. You two are apparently the exception.");
         yield api.say("Lara", "We're following something. A hum.");
         yield api.say("Cobb", "Everyone down here's heard it for weeks. There's an old hollow past my claim nobody's dug in decades - three keepers of an old riddle live along the way in, if you can find them in the right order.");
     } else if (timesTalked === 1) {
         yield api.say("Vigil", "Why hasn't anyone gone in, if it's that close?");
-        yield api.say("Cobb", "Because the ones who did came back saying it wasn't rock down there anymore. I'll take you as far as I know.");
+        yield api.say("Cobb", "Because the ones who did came back saying it wasn't rock down there anymore. Which is, and I cannot stress this enough, the worst possible thing rock can stop being. I'll take you as far as I know.");
     } else {
-        yield api.say("Cobb", "All right. Lamp's lit, boots are laced. Let's see what stopped being rock.");
+        yield api.say("Cobb", "All right. Lamp's lit, boots are laced, will's reluctantly in order. Let's see what stopped being rock.");
         api.despawnNpc("dwarf_miner");
         api.spawnCharacter("dwarf_miner", 10, 47, 75);
         api.setGlobalVar("cobb_recruited", true);
@@ -518,7 +518,7 @@ function* talkToRiddleKeeper(name) {
     api.playSound("select");
 
     if (api.getVar("riddle_solved", false)) {
-        yield api.say(displayName, "*nods, already answered*");
+        yield api.say(displayName, "*nods, smug, already answered*");
         return;
     }
 
@@ -526,18 +526,18 @@ function* talkToRiddleKeeper(name) {
         const newStep = step + 1;
         api.setVar("riddle_step", newStep);
         if (newStep === 1)
-            yield api.say("Mix", "Everything down here starts as something else, mixed together until it isn't anymore.");
+            yield api.say("Mix", "Everything down here starts as something else, mixed together until it forgets what it used to be. Very relatable, for rock.");
         else if (newStep === 2)
-            yield api.say("Settle", "And then it settles. Stone doesn't rush. Go on - someone still has to remember what it used to be.");
+            yield api.say("Settle", "And then it settles. Stone doesn't rush anything, ever. Go on - someone still has to remember what it used to be. Not it.");
         else {
-            yield api.say("Remember", "And I remember. Mixed, settled, remembered - that's how stone becomes a story instead of just a wall.");
+            yield api.say("Remember", "And I remember. Mixed, settled, remembered - that's the whole recipe for turning stone into a story instead of just a wall you walk past.");
             api.setVar("riddle_solved", true);
             api.giveExperience(80);
             api.playSound("select");
         }
     } else {
         api.setVar("riddle_step", 0);
-        yield api.say(displayName, "Not yet. Not in that order.");
+        yield api.say(displayName, "Wrong order, and back to square one. This is a riddle, not a suggestion box.");
     }
 }
 
@@ -552,7 +552,7 @@ function* talkToForgeKeeper(name) {
     api.playSound("select");
 
     if (api.getVar("forgeRiddle_solved", false)) {
-        yield api.say(displayName, "*already answered*");
+        yield api.say(displayName, "*already answered, and rather proud of it*");
         return;
     }
 
@@ -560,28 +560,28 @@ function* talkToForgeKeeper(name) {
         const newStep = step + 1;
         api.setVar("forgeRiddle_step", newStep);
         if (newStep === 1)
-            yield api.say("Bomber", "Miner's riddle, older than his claim: what's stronger after it's broken than it ever was whole?");
+            yield api.say("Bomber", "Miner's riddle, older than his claim, and I ask everyone who walks past: what's stronger after it's broken than it ever was whole?");
         else {
-            yield api.say("Blacksmith", "*doesn't look up from the forge* Anything I've welded back myself. Same answer every time you ask a smith that.");
+            yield api.say("Blacksmith", "*doesn't look up from the forge* Anything I've welded back myself. It's the same answer every single time you ask a smith that, and yet you all keep asking.");
             api.setVar("forgeRiddle_solved", true);
             api.giveExperience(50);
             api.playSound("select");
         }
     } else {
-        yield api.say(displayName, "Not yet. The other one goes first.");
+        yield api.say(displayName, "Not yet. The other one goes first. I don't make the rules, I just enforce them with great enthusiasm.");
     }
 }
 
 function* rescueHostage() {
     if (api.getVar("hostage_rescued", false)) {
-        yield api.say("Miner", "Still grateful, truly.");
+        yield api.say("Miner", "Still grateful, still trapped emotionally, if not physically. Thank you. Again.");
         return;
     }
     api.setVar("hostage_rescued", true);
     api.playSound("select");
-    yield api.say("Miner", "You cleared the guards? Bless you. I've been pinned in this stretch since yesterday.");
+    yield api.say("Miner", "You cleared the guards? Bless you, truly. I've been pinned in this exact stretch of tunnel since yesterday, composing increasingly dramatic last words.");
     yield api.say("Lara", "Are you hurt?");
-    yield api.say("Miner", "Winded, mostly. There's a way out south of here, if the tunnel's still clear.");
+    yield api.say("Miner", "Winded, mostly, and deeply embarrassed. There's a way out south of here, assuming the tunnel's still cooperating.");
     api.giveExperience(100);
 }
 
@@ -599,13 +599,13 @@ function* onEnemyDefeated(name) {
 
     if (name === "skeleton" || name === "skeleton_archer" || name === "skeleton_swordsman") {
         yield api.wait(0.3);
-        yield api.say("Cobb", "Old bones. This claim's older than I ever gave it credit for.");
+        yield api.say("Cobb", "Old bones. This claim's a lot older than I ever gave it credit for, and considerably more crowded.");
     } else if (name === "mummy") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Whatever kept that thing standing, it wasn't life. Something was just maintaining it.");
+        yield api.say("Lara", "Whatever kept that thing standing, it wasn't life. Something was just doing routine maintenance on it.");
     } else if (name === "troll" || name === "orc") {
         yield api.wait(0.3);
-        yield api.say("Cobb", "Not undead, that one - just mean, and lost, and a long way from wherever it came from.");
+        yield api.say("Cobb", "Not undead, that one - just mean, lost, and a very long way from wherever it's supposed to be complaining about its commute.");
     }
 }
 
@@ -614,11 +614,11 @@ function* onItemCollected(itemId) {
         return;
 
     yield api.wait(0.3);
-    yield api.say("Lara", "It's warm, like the acorn and the seal both. Same warmth, three different shapes.");
-    yield api.say("Cobb", "I've mined this whole hollow and never once found anything that glowed on its own. This isn't ore.");
-    yield api.say("???", "No. It's memory, the same as the others. Stone remembers slower than wood does, but it remembers.");
-    yield api.say("Vigil", "You could just answer her directly, you know.");
-    yield api.say("???", "I could. Keep going - there's a line of old wire running under this stone that wants finding too.");
+    yield api.say("Lara", "Warm. Like the acorn and the seal both. Same warmth, three different shapes, zero explanations volunteered so far.");
+    yield api.say("Cobb", "I've mined this whole hollow for years and never once found anything that glowed on its own. This is not ore. I'd know ore.");
+    yield api.say("???", "It's not. It's memory, same as the others. Stone remembers slower than wood does. Slower doesn't mean never.");
+    yield api.say("Vigil", "You could just answer her directly, for once, instead of doing the whole mysterious-echo routine.");
+    yield api.say("???", "I could. Where's the fun in that? Keep going - there's a line of old wire running under this stone that wants finding too.");
 
     api.setGlobalVar("chapter", 4);
     api.playSound("select");

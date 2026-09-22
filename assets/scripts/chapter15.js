@@ -537,10 +537,10 @@ function* onLevelStart() {
     api.setVar("chapter15_intro_seen", true);
 
     yield api.wait(0.6);
-    yield api.say("Lara", "Snow, and a sky the colour of embers. And lanterns - so many lanterns, strung along every fence and eave. It's like the whole village is holding its breath.");
-    yield* companionSays("vigil_recruited", "Vigil", "A vigil. My name, my duty, and I have never once been asked to keep one. I confess I am a little moved.");
-    yield* companionSays("cobb_recruited", "Cobb", "Lanterns, snow, and a village that clearly knows something's coming. I hate this. I love it. Both.");
-    yield api.say("Hint", "This level runs right to left. The town is behind you; the Lanternway lies ahead, to the west.");
+    yield api.say("Lara", "Snow, and a sky the colour of embers. And lanterns - so many lanterns, strung along every fence and eave, that it's basically day out here at midnight. The whole village is holding its breath.");
+    yield* companionSays("vigil_recruited", "Vigil", "A vigil. My own name, my own duty, and I have never once actually been asked to keep one. I confess I'm a little moved. Don't tell anyone.");
+    yield* companionSays("cobb_recruited", "Cobb", "Lanterns, snow, and a village that very clearly knows something's coming. I hate this. I also love it. Both, at once, entirely.");
+    yield api.say("Hint", "This level runs right to left. The town is behind you; the Lanternway lies ahead, to the west. Bring a coat. Bring three coats.");
 }
 
 function buildTown() {
@@ -611,14 +611,14 @@ function* talkToLamplighter() {
     api.setVar("lamplighter_talks", n + 1);
     api.playSound("select");
     if (api.getVar("vigil_held", false)) {
-        yield api.say("Lamplighter", "Every lantern in the village steadied at once. I was on a ladder. I nearly cried, and then I nearly fell off. Go on through. Take the lantern.");
+        yield api.say("Lamplighter", "Every lantern in the village steadied at once. I was on a ladder at the time. I nearly cried, then I very nearly fell off the ladder. Go on through. Take the lantern, please, before I get emotional again.");
     } else if (n === 0) {
-        yield api.say("Lamplighter", "A hundred lanterns, on the longest night, kept lit by hand. It's the oldest custom we have. The hum got into them this year - they gutter, and they call.");
-        yield api.say("Lamplighter", "Things come to a light that calls. Wolves, mostly. Worse, later in the night. They all go for the Vigil Light - the great one, at the far end of the Lanternway, west of here.");
+        yield api.say("Lamplighter", "A hundred lanterns, on the longest night, kept lit entirely by hand. Oldest custom we have. The hum got into them this year, and now they gutter, and they call.");
+        yield api.say("Lamplighter", "Things come to a light that calls. Wolves, mostly. Worse, later in the night. They all head straight for the Vigil Light - the great one, at the far end of the Lanternway, west of here.");
         yield api.say("Lara", "So somebody has to stand at it.");
-        yield api.say("Lamplighter", "Somebody has to stand at it. Three waves, they say. Hold all three and the light steadies - and every lantern in the village along with it. I'd go myself, but I'm eighty and I have a ladder.");
+        yield api.say("Lamplighter", "Somebody has to stand at it. Three waves, they say. Hold all three and the light steadies, along with every lantern in the village. I'd go myself, but I'm eighty and I currently have a ladder to deal with.");
     } else {
-        yield api.say("Lamplighter", "The Vigil Light, at the end of the Lanternway. Talk to it once and it'll tell you what's coming. Twice, and it begins. Bring healing. Plenty of it.");
+        yield api.say("Lamplighter", "The Vigil Light, at the end of the Lanternway. Talk to it once and it'll tell you what's coming. Twice, and it begins. Bring healing. A great deal of healing.");
     }
 }
 
@@ -626,22 +626,22 @@ function* talkToLamplighter() {
 function* talkToVigilLight() {
     api.playSound("select");
     if (api.getVar("vigil_held", false)) {
-        yield api.say("Vigil Light", "*a bright, steady glow* The night is kept. Thank you.");
+        yield api.say("Vigil Light", "*a bright, steady glow* The night is kept. Thank you. Genuinely, thank you - I was starting to run out of flame.");
         return;
     }
     if (api.getVar("vigil_active", false)) {
-        yield api.say("Vigil Light", "*the flame leans, straining* They're still coming. Keep them from me.");
+        yield api.say("Vigil Light", "*the flame leans, straining* They're still coming. Please, keep them from me. This is not a good time for small talk.");
         return;
     }
     if (!api.getVar("vigil_briefed", false)) {
         api.setVar("vigil_briefed", true);
-        yield api.say("Vigil Light", "*a warm, wavering glow, like a candle that's been running a long time* You've come to keep the watch. Three waves come for me, each worse than the last. They aren't cruel. They're only drawn.");
-        yield api.say("Vigil Light", "Stand near me. Heal when you need to. When you're ready, speak to me again and the first will come.");
+        yield api.say("Vigil Light", "*a warm, wavering glow, like a candle that's been running for far too long* You've come to keep the watch. Three waves come for me, each worse than the last. They aren't cruel. They're only drawn to the light, same as anything else.");
+        yield api.say("Vigil Light", "Stand near me. Heal when you need to. When you're ready, speak to me again and the first wave will arrive, whether either of us likes it.");
         return;
     }
     const wave = api.getVar("vigil_wave", 0);
     api.setVar("vigil_active", true);
-    yield api.say("Vigil Light", wave === 0 ? "*the flame flares* Here they come." : "*the flame flares once more* Here they come again.");
+    yield api.say("Vigil Light", wave === 0 ? "*the flame flares* Here they come." : "*the flame flares once more, with renewed dread* Here they come again. Wonderful.");
     spawnWave(wave);
 }
 
@@ -660,12 +660,12 @@ function spawnWave(k) {
 
 function* talkToTownsfolk(name) {
     const lines = {
-        lumberjack_2: ["I cut the poles the lanterns hang from. A hundred of them, every year. Never had one go crooked before the hum.",
-                       "Wolves don't scare me. It's the way they walk toward the light, without any hurry, that does."],
-        innkeeper: ["Hot soup, warm bed, and every window lit. That's the whole of the winter trade. Don't go out into the dark without the first two.",
-                    "The Lamplighter's not as frail as he lets on. He hauled a wolf off a fence-post last week by its tail."],
-        tribal_archer_girl: ["I keep watch from the ridge. Something's shifted in the hills. The wolves go quiet before they run.",
-                             "Every arrow I have has a lantern-oil rag on it. Don't laugh. It works, and it looks good."],
+        lumberjack_2: ["I cut the poles the lanterns hang from. A hundred of them, every single year. Never had one go crooked before the hum started.",
+                       "Wolves don't scare me. It's the way they walk toward the light lately, with absolutely no hurry at all, that does."],
+        innkeeper: ["Hot soup, warm bed, every window lit. That's the entire winter trade around here. Don't go out into the dark without at least the first two.",
+                    "The Lamplighter's nowhere near as frail as he lets on. Hauled a wolf clean off a fence-post last week by its tail, no ladder required."],
+        tribal_archer_girl: ["I keep watch from the ridge. Something's definitely shifted in the hills lately. The wolves go quiet right before they run.",
+                             "Every arrow I own has a lantern-oil rag tied to it. Don't laugh. It works, and frankly, it looks fantastic in flight."],
     }[name];
     const displayName = { lumberjack_2: "Woodcutter", innkeeper: "Innkeeper", tribal_archer_girl: "Watch" }[name];
     const n = api.getVar("talk_" + name, 0);
@@ -686,26 +686,26 @@ function* onEnemyDefeated(name) {
         api.giveExperience(40);
         if (done < WAVES.length) {
             yield api.wait(0.6);
-            yield api.say("Vigil Light", "*the flame steadies, just a little* That was the " + (done === 1 ? "first" : "second") + ". Catch your breath. Speak to me when you're ready for the next.");
+            yield api.say("Vigil Light", "*the flame steadies, just a little* That was the " + (done === 1 ? "first" : "second") + ". Catch your breath, and maybe a potion. Speak to me when you're ready for the next round.");
             return;
         }
         api.setVar("vigil_held", true);
         api.setBarrier("vigil_gate", 0, 0, 1, 1, false);
         api.giveExperience(120);
         yield api.wait(0.6);
-        yield api.say("Vigil Light", "*a long, golden, perfectly still light* ...That's all of them. The night is kept. Every lantern in the valley just steadied.");
-        yield* companionSays("vigil_recruited", "Vigil", "I have kept a vigil. My name means something now.");
-        yield api.say("Lara", "The gate's lifting. I can hear the chain from here.");
+        yield api.say("Vigil Light", "*a long, golden, perfectly still light* ...That's all of them. The night is kept. Every single lantern in the valley just steadied at once.");
+        yield* companionSays("vigil_recruited", "Vigil", "I have kept a vigil. My name officially means something now. I'm going to be insufferable about this for a while.");
+        yield api.say("Lara", "The gate's lifting. I can hear the chain all the way from here.");
         return;
     }
     if (Math.random() > 0.1)
         return;
     if (name === "skeleton_archer") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Still standing its post in the snow. It never got the order to stop.");
+        yield api.say("Lara", "Still standing its post in the snow. It never got the memo to stand down.");
     } else if (name === "ghoul") {
         yield api.wait(0.3);
-        yield api.say("Lara", "It didn't want the light. It wanted the warmth. There's a difference, and I'm sorry for it.");
+        yield api.say("Lara", "It didn't actually want the light. It wanted the warmth. There's a real difference, and I'm sorry there wasn't another way.");
     }
 }
 
@@ -713,10 +713,10 @@ function* onItemCollected(itemId) {
     if (itemId !== "vigil_lantern")
         return;
     yield api.wait(0.3);
-    yield api.say("Lara", "It's small, and it's lit, and it doesn't flicker at all. It feels like a hand held out.");
-    yield api.say("???", "Ninth of ten. You kept the watch, and you kept the light. Nobody will ever know how much depended on it.");
-    yield api.say("Lara", "I will. That's enough.");
-    yield api.say("???", "Then only one place remains - the Long Room. Everything you have walked has been leading you toward it. It's where the hum begins. It's where I've been waiting.");
+    yield api.say("Lara", "It's small, and it's lit, and it doesn't flicker at all, not even once. It feels less like a lantern and more like a hand held out.");
+    yield api.say("???", "Ninth of ten. You kept the watch, and you kept the light. Nobody will ever know quite how much depended on it. I will, though. That's the job.");
+    yield api.say("Lara", "I'll know too. That's enough for me.");
+    yield api.say("???", "Then only one place remains - the Long Room. Everything you have walked, every relic, every ridiculous errand, has been leading you there. It's where the hum begins. It's where I've been waiting this whole time.");
     api.setGlobalVar("chapter", 16);
     api.playSound("select");
     yield api.wait(0.8);

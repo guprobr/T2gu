@@ -360,8 +360,8 @@ function* onLevelStart() {
     api.setVar("chapter5_intro_seen", true);
 
     yield api.wait(0.5);
-    yield api.say("Vex", "This wasn't a fire that spread from a hearth. Everything's burned from the same direction.");
-    yield api.say("Lara", "Careful. Whoever's left here has earned the right to be tired of visitors.");
+    yield api.say("Vex", "This wasn't a fire that spread from a hearth. Everything's burned from the exact same direction, like something walked through with very strong opinions.");
+    yield api.say("Lara", "Careful, then. Whoever's left here has more than earned the right to be sick of visitors.");
 }
 
 // A small open entrance pocket, no maze - just Nettle and basic supplies.
@@ -489,14 +489,14 @@ function* talkToNettle() {
     api.playSound("select");
 
     if (timesTalked === 0) {
-        yield api.say("Nettle", "If you're here for looting, there's nothing left. If you're here for anything else, I'm listening.");
-        yield api.say("Lara", "We're following something. It led us here.");
-        yield api.say("Nettle", "Of course it did. There are three people scattered through the ruins who each mourn, watch, and forgive in their own way - talk to them in that order and it seems to mean something.");
+        yield api.say("Nettle", "If you're here for looting, there's nothing left - I checked, thoroughly, out of professional curiosity. If you're here for anything else, I'm listening.");
+        yield api.say("Lara", "We're following something. It led us here, which is either a good sign or a very bad one.");
+        yield api.say("Nettle", "Of course it did. There are three people scattered through these ruins who each mourn, watch, and forgive in their own way. Talk to them in that order and it seems to actually mean something.");
     } else if (timesTalked === 1) {
         yield api.say("Vigil", "What happened here?");
-        yield api.say("Nettle", "Something came through fast and left just as fast. The dead here don't lie down easy.");
+        yield api.say("Nettle", "Something came through fast and left just as fast. The dead here don't lie down easy, and frankly neither would I in their position.");
     } else {
-        yield api.say("Nettle", "Then I'm coming. Somebody should be ready to patch you up when 'barely' stops being enough.");
+        yield api.say("Nettle", "Then I'm coming. Somebody should be on hand to patch you up the moment 'barely fine' stops being a load-bearing phrase.");
         api.despawnNpc("cyber_medic");
         api.spawnCharacter("cyber_medic", 10, 47, 70);
         api.setGlobalVar("nettle_recruited", true);
@@ -514,7 +514,7 @@ function* talkToRiddleKeeper(name) {
     api.playSound("select");
 
     if (api.getVar("riddle_solved", false)) {
-        yield api.say(displayName, "*nods, already answered*");
+        yield api.say(displayName, "*nods, already answered, in no hurry to repeat it*");
         return;
     }
 
@@ -522,18 +522,18 @@ function* talkToRiddleKeeper(name) {
         const newStep = step + 1;
         api.setVar("riddle_step", newStep);
         if (newStep === 1)
-            yield api.say("Mourn", "I mourn first. Someone has to, before anything else is possible.");
+            yield api.say("Mourn", "I mourn first. Someone has to, before anything else here becomes possible. It is, unfortunately, not a fun job.");
         else if (newStep === 2)
-            yield api.say("Watch", "And I watch, after, so the mourning isn't wasted on nothing. Go on - someone still has to forgive.");
+            yield api.say("Watch", "And I watch, after, so the mourning isn't spent on nothing. Go on - someone still has to forgive, and it certainly isn't going to be me.");
         else {
-            yield api.say("Forgive", "And I forgive. Last, and hardest, and the only one of the three that actually ends anything.");
+            yield api.say("Forgive", "And I forgive. Last, hardest, and the only one of the three that actually ends anything instead of just sitting with it.");
             api.setVar("riddle_solved", true);
             api.giveExperience(80);
             api.playSound("select");
         }
     } else {
         api.setVar("riddle_step", 0);
-        yield api.say(displayName, "Not yet. Not in that order.");
+        yield api.say(displayName, "Wrong order. Grief has a process, and you have just skipped several steps of it.");
     }
 }
 
@@ -548,7 +548,7 @@ function* talkToEmberKeeper(name) {
     api.playSound("select");
 
     if (api.getVar("emberRiddle_solved", false)) {
-        yield api.say(displayName, "*already answered*");
+        yield api.say(displayName, "*already answered, and not particularly interested in an encore*");
         return;
     }
 
@@ -556,28 +556,28 @@ function* talkToEmberKeeper(name) {
         const newStep = step + 1;
         api.setVar("emberRiddle_step", newStep);
         if (newStep === 1)
-            yield api.say("Fire-Spirit", "*flickers, low and steady among the graves* What burns longest with nothing left to feed it?");
+            yield api.say("Fire-Spirit", "*flickers, low and steady among the graves* Riddle for you: what burns longest with nothing left to feed it?");
         else {
-            yield api.say("Reaper", "*doesn't stop working* Grief. Same answer every harvest, if you're asking me instead of a priest.");
+            yield api.say("Reaper", "*doesn't stop working* Grief. Same answer every harvest, if you're asking me instead of a priest. Priests give the long version.");
             api.setVar("emberRiddle_solved", true);
             api.giveExperience(50);
             api.playSound("select");
         }
     } else {
-        yield api.say(displayName, "Not yet. The other one goes first.");
+        yield api.say(displayName, "Not yet. The other one goes first. I don't set the order, I just enjoy enforcing it.");
     }
 }
 
 function* rescueHostage() {
     if (api.getVar("hostage_rescued", false)) {
-        yield api.say("Innkeeper", "Still grateful, truly.");
+        yield api.say("Innkeeper", "Still grateful, truly. Still not charging you for the room, either, on account of there being no room.");
         return;
     }
     api.setVar("hostage_rescued", true);
     api.playSound("select");
-    yield api.say("Innkeeper", "You- that thing's been circling me since dawn. Thank you.");
+    yield api.say("Innkeeper", "You- that thing's been circling me since dawn like I owed it a tab. Thank you.");
     yield api.say("Lara", "Are you hurt?");
-    yield api.say("Innkeeper", "Just tired. I kept the inn here, once. There's nothing left of it, but I keep coming back anyway.");
+    yield api.say("Innkeeper", "Just tired. I kept the inn here, once. There's nothing left of it but a foundation and my own stubbornness, and I keep coming back anyway.");
     api.giveExperience(100);
 }
 
@@ -595,13 +595,13 @@ function* onEnemyDefeated(name) {
 
     if (name === "skeleton_swordsman" || name === "zombie_peasant") {
         yield api.wait(0.3);
-        yield api.say("Nettle", "Rest, finally. That's more than I could do for most of the ones I found here.");
+        yield api.say("Nettle", "Rest, finally. That's more than I could manage for most of the ones I found out here.");
     } else if (name === "ghoul") {
         yield api.wait(0.3);
-        yield api.say("Lara", "It didn't want to fight. It wanted us to leave. I think that's the closest thing to grief it had left.");
+        yield api.say("Lara", "It didn't want to fight. It wanted us to leave. I think that was the closest thing to grief it had left in it.");
     } else if (name === "vampire") {
         yield api.wait(0.3);
-        yield api.say("Nettle", "That one remembered being a person, right up until it didn't. That's the part that never stops being sad.");
+        yield api.say("Nettle", "That one remembered being a person right up until it didn't. That part never stops being sad, no matter how many I put back down.");
     }
 }
 
@@ -610,11 +610,11 @@ function* onItemCollected(itemId) {
         return;
 
     yield api.wait(0.3);
-    yield api.say("Lara", "Warm, like the rest. Untouched, even though everything around it burned.");
-    yield api.say("Nettle", "That charm belonged to someone. I dug through this whole district and never found who.");
-    yield api.say("???", "You wouldn't have. They're not gone the way you're picturing - just further along the same path you're all walking now.");
-    yield api.say("Lara", "That's not comforting.");
-    yield api.say("???", "It isn't meant to be. One more place, Lara - somewhere old and cold and paler than anywhere you've been yet. Bring all four of them.");
+    yield api.say("Lara", "Warm, like the rest. Completely untouched, even though everything around it very much wasn't.");
+    yield api.say("Nettle", "That charm belonged to someone. I dug through this entire district and never found who. Trust me, I looked under everything a person can look under.");
+    yield api.say("???", "You wouldn't have found them. They're not gone the way you're picturing - just further along the same path all of you happen to be walking right now.");
+    yield api.say("Lara", "That is not, in any way, comforting.");
+    yield api.say("???", "It wasn't meant to be. One more place, Lara - somewhere old, cold, and considerably paler than anywhere you've been yet. Bring all four of them. Dress warm.");
 
     api.setVar("cinder_charm_collected", true);
     yield* tryLeaveMourningRow();
@@ -632,11 +632,11 @@ function* tryLeaveMourningRow() {
         return;
 
     if (!api.getGlobalVar("nettle_recruited", false)) {
-        yield api.say("Lara", "Not without Nettle. She's earned a seat before we go anywhere.");
+        yield api.say("Lara", "Not without Nettle. She's earned a seat at this table before we go anywhere at all.");
         return;
     }
 
-    yield api.say("Lara", "Everyone's here. Let's go.");
+    yield api.say("Lara", "Everyone's here. Let's go before I think too hard about any of that.");
     api.setGlobalVar("chapter", 6);
     api.playSound("select");
     yield api.wait(0.8);
