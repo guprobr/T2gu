@@ -471,10 +471,14 @@ private:
 
     enum class HealthBarDisplay { HeroOnly, All, None };
 
-    // Picks the actual level music once the entrance's ambient intro (see
-    // the constructor) finishes - an arbitrary track, but never the same
-    // one that was just playing, so "alternate" reads as "keep it varied,"
-    // not "let it sometimes repeat by chance."
+    // Picks the next level music track, either once the entrance's ambient
+    // intro (see the constructor) finishes or when the previous level track
+    // itself finishes - an arbitrary track, but never the same one that was
+    // just playing, so "alternate" reads as "keep it varied," not "let it
+    // sometimes repeat by chance." Each track plays once (not looped) and
+    // re-connects AudioManager::musicFinished to itself (single-shot) so the
+    // level keeps shuffling through the whole playlist indefinitely, rather
+    // than picking one track and looping just that one forever.
     void playRandomLevelTrack();
     // Selects `target` (a party/enemy/NPC Character, or an item pickup's
     // Prop) and shows its info panel - unless `target` is already the

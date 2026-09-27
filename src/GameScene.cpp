@@ -826,7 +826,14 @@ void GameScene::playRandomLevelTrack()
         musicChoices = kLevelMusicTracks;
     const QString chosenTrack = musicChoices.at(QRandomGenerator::global()->bounded(musicChoices.size()));
     m_state->lastMusicTrack = chosenTrack;
-    m_audio.playMusic(chosenTrack);
+    // Not looped: this is one song in an ongoing shuffle, not the level's
+    // single permanent track. Re-arming musicFinished (single-shot, same as
+    // the ambient-intro handoff above) each time this track ends is what
+    // turns "play one random track" into an actual jukebox - without this,
+    // the chosen track would just loop itself forever via QMediaPlayer.
+    m_audio.playMusic(chosenTrack, /*loop=*/false);
+    connect(&m_audio, &AudioManager::musicFinished, this, &GameScene::playRandomLevelTrack,
+            Qt::SingleShotConnection);
 }
 
 Character *GameScene::createCharacterAt(const QString &name, int tileCol, int tileRow, int hp)

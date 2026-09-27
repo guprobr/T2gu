@@ -46,6 +46,12 @@ InventoryWidget::InventoryWidget(QWidget *parent)
     layout->addWidget(m_list, 1);
     layout->addLayout(detailsLayout, 1);
 
+    // A mouse click changes m_list's own current row directly (NoFocus only
+    // blocks keyboard focus, not mouse selection) without going through
+    // moveSelection() - without this, clicking a row highlighted it but left
+    // the description pane showing whatever was selected before.
+    connect(m_list, &QListWidget::currentRowChanged, this, &InventoryWidget::updateDescriptionForCurrentRow);
+
     hide();
 }
 
