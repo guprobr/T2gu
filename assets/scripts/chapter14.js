@@ -183,6 +183,21 @@ function buildBranchingMaze(west, east, northRow, southRow, corridorWidth, wallW
             return true;
         return diagonalSeam && (isOpenAt(c - 1, r - 1) || isOpenAt(c + 1, r - 1) || isOpenAt(c - 1, r + 1) || isOpenAt(c + 1, r + 1));
     }
+    // Below each mouth (the openings in the outer border), wall tiles get small edge props,
+    // never the block's core set-piece. Props draw upward from their base, so a core prop a
+    // few rows south of the opening (a cottage is ~3 tiles tall, cliff_face ~7) painted over
+    // the whole 2-tile corridor: the gap was walkable but the maze read as a solid wall from
+    // outside. The border's outer face never counts as a seam (isOpenAt only knows the maze's
+    // own tiles), which is why the border under a mouth got the big type. The side margin
+    // covers wide art (cliff_face spans ~5 tiles). Rolled from a separate stream so every
+    // other prop in the maze comes out exactly as before.
+    const kMouthClearRows = 7, kMouthSideMargin = 2;
+    const mouthRand = mulberry32(seed ^ 0x6d6f7574);
+    function inMouthBand(c, r) {
+        const band = (c0, c1, openingSouthRow) => c >= c0 && c <= c1 && r > openingSouthRow && r <= openingSouthRow + kMouthClearRows;
+        return band(west, cellColEnd(0) + kMouthSideMargin, cellRowEnd(startCy))
+            || band(cellColStart(numCellsX - 1) - kMouthSideMargin, east, cellRowEnd(exitCy));
+    }
 
     // Renders one contiguous non-open rectangle as a coherent core cluster
     // (one obstacle type for the whole block's interior) with a rough,
@@ -215,6 +230,8 @@ function buildBranchingMaze(west, east, northRow, southRow, corridorWidth, wallW
                 if (isOpenAt(c, r)) continue;
                 if (isSeamWall(c, r))
                     api.spawnProp(edgeObstacles[Math.floor(rand() * edgeObstacles.length)], X(c), r);
+                else if (inMouthBand(c, r))
+                    api.spawnProp(edgeObstacles[Math.floor(mouthRand() * edgeObstacles.length)], X(c), r);
                 else
                     api.spawnProp(coreType, X(c), r);
             }
@@ -519,8 +536,6 @@ function* onLevelStart() {
     buildTown();
     buildMaze();
     buildPocket();
-    if (!api.getVar("toll_paid", false))
-        setFordGate(true);
 
     if (api.getVar("chapter14_intro_seen", false))
         return;
@@ -531,12 +546,6 @@ function* onLevelStart() {
     yield* companionSays("nettle_recruited", "Nettle", "Don't look down for too long. Something in there looks back a beat too late for comfort.");
     yield* companionSays("vigil_recruited", "Vigil", "I do not care for water that refuses to move. Still water is always waiting on something, and I've never once liked what it turned out to be waiting for.");
     yield api.say("Hint", "This level runs left to right. The town is behind you; the Glass Maze lies beyond the river, to the east. Don't make eye contact with the water.");
-}
-
-// The ford: a land gap through the river, rows MID-1..MID+2. The gate covers exactly the river's columns.
-function setFordGate(blocked) {
-    const a = colAt(TOWN_U + 1), b = colAt(TOWN_U + RIVER_COLS);
-    api.setBarrier("ford_gate", Math.min(a, b), MID - 1, RIVER_COLS, 4, blocked);
 }
 
 function buildTown() {
@@ -612,20 +621,20 @@ function* onTalkTo(name) {
 function* talkToFerrywoman() {
     api.playSound("select");
     if (api.getVar("toll_paid", false)) {
-        yield api.say("Ferrywoman", "It's kept its rent, so it's kept its word. Cross when you like. Try not to wave at your own reflection - it gets ideas, and it never asks first.");
+        yield api.say("Ferrywoman", "It's kept its rent, so it's kept its word. Try not to wave at your own reflection - it gets ideas, and it never asks first.");
         return;
     }
     const held = valuablesHeld();
     const first = !api.getVar("ferry_met", false);
     api.setVar("ferry_met", true);
     if (first) {
-        yield api.say("Ferrywoman", "The ford's closed. It closes itself, the instant anyone gets near it with nothing to give. The river keeps a copy of everything that crosses, you see, and it has an excellent eye for what's worth copying.");
-        yield api.say("Ferrywoman", "The rent is three valuables. Anything with a shine and a story to it - coins, pearls, a ring. Leave them with me and I'll drop them in myself. The river carries them down to the reflected village, and the ford opens.");
+        yield api.say("Ferrywoman", "You can wade the ford free of charge, if you like. The river keeps a copy of everything that crosses either way, and it has an excellent eye for what's worth copying.");
+        yield api.say("Ferrywoman", "But if you'd rather pay its rent properly - three valuables, anything with a shine and a story to it, coins, pearls, a ring - leave them with me and I'll drop them in myself. The river's grateful in its own particular way.");
         yield api.say("Lara", "That's what the toll is? A donation to a river?");
         yield api.say("Ferrywoman", "It's rent, love. Everyone's got one landlord or another. Some of us just have wetter ones.");
     }
     if (held < TOLL) {
-        yield api.say("Ferrywoman", "You're carrying " + held + ". I need " + TOLL + ". Look about the village - folk lose things constantly, and the river isn't the only thing around here that keeps them.");
+        yield api.say("Ferrywoman", "You're carrying " + held + ". I'd want " + TOLL + " for the river's trouble. Look about the village - folk lose things constantly, and the river isn't the only thing around here that keeps them.");
         return;
     }
     let owed = TOLL;
@@ -637,12 +646,12 @@ function* talkToFerrywoman() {
         }
     });
     api.setVar("toll_paid", true);
-    setFordGate(false);
     api.giveExperience(90);
+    api.giveItem("gemstone_cluster", 1);
     yield api.say("Ferrywoman", "*she holds them out over the water, one at a time; each is gone before it even lands* There. Paid in full. You can hear it, can't you? The river settling its accounts.");
-    yield api.say("Lara", "The ford's open?");
-    yield api.say("Ferrywoman", "It's open. What's waiting on the far side is entirely a matter between you and whatever you happened to bring with you.");
-    yield* companionSays("cobb_recruited", "Cobb", "Paid rent to a river. I've been evicted for considerably less than that.");
+    yield api.say("Lara", "It gave something back?");
+    yield api.say("Ferrywoman", "*fishes a gemstone cluster out of the shallows, still cold* It always does, for rent paid properly. Take it. What's waiting on the far side is entirely a matter between you and whatever you happened to bring with you.");
+    yield* companionSays("cobb_recruited", "Cobb", "Paid rent to a river and got a gemstone back. I've been evicted for considerably less than that.");
 }
 
 function* talkToTownsfolk(name) {

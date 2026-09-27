@@ -182,6 +182,21 @@ function buildBranchingMaze(west, east, northRow, southRow, corridorWidth, wallW
             return true;
         return diagonalSeam && (isOpenAt(c - 1, r - 1) || isOpenAt(c + 1, r - 1) || isOpenAt(c - 1, r + 1) || isOpenAt(c + 1, r + 1));
     }
+    // Below each mouth (the openings in the outer border), wall tiles get small edge props,
+    // never the block's core set-piece. Props draw upward from their base, so a core prop a
+    // few rows south of the opening (a cottage is ~3 tiles tall, cliff_face ~7) painted over
+    // the whole 2-tile corridor: the gap was walkable but the maze read as a solid wall from
+    // outside. The border's outer face never counts as a seam (isOpenAt only knows the maze's
+    // own tiles), which is why the border under a mouth got the big type. The side margin
+    // covers wide art (cliff_face spans ~5 tiles). Rolled from a separate stream so every
+    // other prop in the maze comes out exactly as before.
+    const kMouthClearRows = 7, kMouthSideMargin = 2;
+    const mouthRand = mulberry32(seed ^ 0x6d6f7574);
+    function inMouthBand(c, r) {
+        const band = (c0, c1, openingSouthRow) => c >= c0 && c <= c1 && r > openingSouthRow && r <= openingSouthRow + kMouthClearRows;
+        return band(west, cellColEnd(0) + kMouthSideMargin, cellRowEnd(startCy))
+            || band(cellColStart(numCellsX - 1) - kMouthSideMargin, east, cellRowEnd(exitCy));
+    }
 
     // Renders one contiguous non-open rectangle as a coherent core cluster
     // (one obstacle type for the whole block's interior) with a rough,
@@ -214,6 +229,8 @@ function buildBranchingMaze(west, east, northRow, southRow, corridorWidth, wallW
                 if (isOpenAt(c, r)) continue;
                 if (isSeamWall(c, r))
                     api.spawnProp(edgeObstacles[Math.floor(rand() * edgeObstacles.length)], X(c), r);
+                else if (inMouthBand(c, r))
+                    api.spawnProp(edgeObstacles[Math.floor(mouthRand() * edgeObstacles.length)], X(c), r);
                 else
                     api.spawnProp(coreType, X(c), r);
             }
@@ -516,10 +533,8 @@ function* onLevelStart() {
     respawnCompanions();
 
     buildTown();
-    const exitRows = buildMaze();
+    buildMaze();
     buildPocket();
-    if (!api.getVar("checkpoint_open", false))
-        setExitGate("checkpoint_gate", exitRows, true);
 
     if (api.getVar("chapter8_intro_seen", false))
         return;
@@ -604,7 +619,7 @@ function* talkToLedger() {
     api.playSound("select");
     if (n === 0) {
         yield api.say("Ledger", "Good. Someone with boots. The Stacks run east from here - a maze made of every single thing this district ever decided it didn't need anymore.");
-        yield api.say("Ledger", "At the far end there's a checkpoint. It wants three permit chips to open. Permit chips don't get sold; they get *found*, which is bureaucracy's way of saying 'go dig through the trash.' Four are lying out in the Stacks. Bring three to the warden.");
+        yield api.say("Ledger", "There's a checkpoint at the far end, run by a warden who collects permit chips out of pure habit - it doesn't actually stop anyone anymore. Bring him three anyway and he'll make it worth your while. Permit chips don't get sold; they get *found*, which is bureaucracy's way of saying 'go dig through the trash.' Four are lying out in the Stacks.");
         yield api.say("Lara", "And past the checkpoint?");
         yield api.say("Ledger", "The lantern-core. Every light in Lanternside runs off a copy of it, and the original stopped answering its own name three nights ago. Same night as the hum. Funny how that keeps happening.");
     } else {
@@ -615,21 +630,21 @@ function* talkToLedger() {
 function* talkToWarden() {
     api.playSound("select");
     if (api.getVar("checkpoint_open", false)) {
-        yield api.say("Warden", "Go on through. Mind the core. It's been in a mood, and frankly, so have I.");
+        yield api.say("Warden", "Already logged your chips. Go on through. Mind the core - it's been in a mood, and frankly, so have I.");
         return;
     }
     const have = api.getItemCount("tech_chip");
     if (have < 3) {
-        yield api.say("Warden", "CHECKPOINT. Three permit chips, please. You currently have " + have + ", which is, per my records, not three.");
+        yield api.say("Warden", "CHECKPOINT. Nobody's actually checked in years, but I still like three permit chips for the ledger. You currently have " + have + ", which is, per my records, not three.");
         yield api.say("Lara", "There are four out in the Stacks, aren't there.");
         yield api.say("Warden", "*static* ...I am not permitted to confirm the number. I am, however, permitted to imply it very loudly with static.");
         return;
     }
     api.removeItem("tech_chip", 3);
     api.setVar("checkpoint_open", true);
-    api.setBarrier("checkpoint_gate", 0, 0, 1, 1, false);
     api.giveExperience(100);
-    yield api.say("Warden", "One. Two. Three. VALID. *a heavy clunk from the gate behind him* ...Honestly? I've been standing here for years hoping someone would finally use those.");
+    api.giveItem("sealed_scroll", 1);
+    yield api.say("Warden", "One. Two. Three. VALID. *a heavy clunk from somewhere behind him, entirely for show* ...Honestly? I've been standing here for years hoping someone would finally use those. Here - a scroll from the old archive. Take it, I never learned to read it anyway.");
     yield* companionSays("cobb_recruited", "Cobb", "Bribing a wall with paperwork. I've seen dwarves try worse, with considerably less paperwork.");
 }
 

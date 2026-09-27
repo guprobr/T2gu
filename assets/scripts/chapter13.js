@@ -182,6 +182,21 @@ function buildBranchingMaze(west, east, northRow, southRow, corridorWidth, wallW
             return true;
         return diagonalSeam && (isOpenAt(c - 1, r - 1) || isOpenAt(c + 1, r - 1) || isOpenAt(c - 1, r + 1) || isOpenAt(c + 1, r + 1));
     }
+    // Below each mouth (the openings in the outer border), wall tiles get small edge props,
+    // never the block's core set-piece. Props draw upward from their base, so a core prop a
+    // few rows south of the opening (a cottage is ~3 tiles tall, cliff_face ~7) painted over
+    // the whole 2-tile corridor: the gap was walkable but the maze read as a solid wall from
+    // outside. The border's outer face never counts as a seam (isOpenAt only knows the maze's
+    // own tiles), which is why the border under a mouth got the big type. The side margin
+    // covers wide art (cliff_face spans ~5 tiles). Rolled from a separate stream so every
+    // other prop in the maze comes out exactly as before.
+    const kMouthClearRows = 7, kMouthSideMargin = 2;
+    const mouthRand = mulberry32(seed ^ 0x6d6f7574);
+    function inMouthBand(c, r) {
+        const band = (c0, c1, openingSouthRow) => c >= c0 && c <= c1 && r > openingSouthRow && r <= openingSouthRow + kMouthClearRows;
+        return band(west, cellColEnd(0) + kMouthSideMargin, cellRowEnd(startCy))
+            || band(cellColStart(numCellsX - 1) - kMouthSideMargin, east, cellRowEnd(exitCy));
+    }
 
     // Renders one contiguous non-open rectangle as a coherent core cluster
     // (one obstacle type for the whole block's interior) with a rough,
@@ -214,6 +229,8 @@ function buildBranchingMaze(west, east, northRow, southRow, corridorWidth, wallW
                 if (isOpenAt(c, r)) continue;
                 if (isSeamWall(c, r))
                     api.spawnProp(edgeObstacles[Math.floor(rand() * edgeObstacles.length)], X(c), r);
+                else if (inMouthBand(c, r))
+                    api.spawnProp(edgeObstacles[Math.floor(mouthRand() * edgeObstacles.length)], X(c), r);
                 else
                     api.spawnProp(coreType, X(c), r);
             }
@@ -520,10 +537,8 @@ function* onLevelStart() {
     respawnCompanions();
 
     buildTown();
-    const exitRows = buildMaze();
+    buildMaze();
     buildPocket();
-    if (!api.getVar("line_live", false))
-        setExitGate("relay_gate", exitRows, true);
 
     if (api.getVar("chapter13_intro_seen", false))
         return;
@@ -618,7 +633,7 @@ function* talkToFuse() {
         yield api.say("Fuse", "Welcome to the Undertrack. We keep the old railway's signals alive, mostly out of spite. Three relays carry the line through the Signal Tunnels, west of here.");
         yield api.say("Fuse", "Every relay listens to the one upstream of it. Wake the first and it wakes the second, wake the second and it wakes the third. Since the hum started, not one of them will start on its own anymore. Lazy equipment.");
         yield api.say("Lara", "And the bulkhead at the end of the tunnels?");
-        yield api.say("Fuse", "Same interlock. Live line, open door. Dead line, wall. Talk to the relays in order - each one will grudgingly tell you where the next is.");
+        yield api.say("Fuse", "Passable either way, live line or dead. But wake all three in order and they'll thank you properly - each one will grudgingly tell you where the next is.");
     } else {
         yield api.say("Fuse", "One, two, three. Downstream, in that order. If one of them says it hears nothing, congratulations, you skipped a link.");
     }
@@ -648,9 +663,9 @@ function* speakToRelay(name) {
     } else {
         yield api.say("Relay Three", "*a chime that goes on far, far too long* CARRIER LIVE. INTERLOCK THROWN. Was that dramatic enough for everyone?");
         api.setVar("line_live", true);
-        api.setBarrier("relay_gate", 0, 0, 1, 1, false);
         api.giveExperience(110);
-        yield api.say("Lara", "Somewhere down the tunnel, a bulkhead just let go of its frame with an enormous, satisfied clang.");
+        api.giveItem("woven_talisman", 1);
+        yield api.say("Relay Three", "One more thing, before you go - something's been humming in step with the line for years. Here. It's yours now, not mine.");
         yield* companionSays("cobb_recruited", "Cobb", "Three little boxes, all listening to each other in exact order. That's a better system than most dwarf gatherings I've sat through.");
     }
 }

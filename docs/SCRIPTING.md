@@ -139,8 +139,8 @@ it directly.
 | `api.getVar(name, defaultValue = false)` | Reads back a variable set with `setVar` **from the current chapter's own script** - a name set by a different chapter's script reads back as `defaultValue` here, even though it's still stored. |
 | `api.setGlobalVar(name, value)` | Same storage as `setVar`, without the per-chapter namespacing - `name` reads back the same way from every chapter's script. For the few things that must genuinely carry across a chapter change: which companions have been recruited, the chapter counter. |
 | `api.getGlobalVar(name, defaultValue = false)` | Reads a variable set with `setGlobalVar` - the same value from any chapter. |
-| `api.giveItem(itemId, count = 1)` | Adds to the persistent inventory directly (for a scripted reward, not a world pickup - `spawnItem` is what puts something in the world for the player to walk up to). |
-| `api.removeItem(itemId, count = 1)` | Removes from the inventory (e.g. spending a key item on a puzzle). Clamped at 0, never goes negative. |
+| `api.giveItem(itemId, count = 1)` | Adds to the persistent inventory directly (for a scripted reward, not a world pickup - `spawnItem` is what puts something in the world for the player to walk up to). Shows a "Received ..." line in the top-of-screen status box. |
+| `api.removeItem(itemId, count = 1)` | Removes from the inventory (e.g. spending a key item on a puzzle). Clamped at 0, never goes negative. Shows a "Handed over ..." line in the status box, for the amount actually held (nothing if none was). |
 | `api.getItemCount(itemId)` | Returns how many of an item are held (`0` if none). |
 | `api.hasItem(itemId)` | Shorthand for `getItemCount(itemId) > 0`. |
 | `api.playSound(name)` | Plays a one-shot SFX from `assets/audio/sfx/<name>.wav` (e.g. `"attack"`, `"hit"`, `"death"`, `"select"`). Fine to call several times in quick succession - each plays independently. |

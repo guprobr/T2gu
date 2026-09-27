@@ -151,6 +151,16 @@ public:
     // InventoryWidget::refresh().
     QVector<ItemEntry> inventoryEntries() const;
 
+    // What a statusMessage() line reports - MainWindow's StatusMessageWidget
+    // picks the colour, so the scene says what happened, not how it looks.
+    enum class StatusKind
+    {
+        Loot,     // an item gathered or handed to the party
+        Victory,  // a hostile defeated
+        Loss,     // a party member fallen
+        Progress, // a level reached, an item handed over
+    };
+
     // A snapshot of whatever's currently selected (see mousePressEvent()),
     // ready for SelectionInfoWidget to display - description is empty for
     // any character (party/enemy/NPC), since none carries lore text the
@@ -355,6 +365,11 @@ signals:
     void selectionChanged(const GameScene::SelectionInfo &info);
     void selectionCleared();
 
+    // A one-line notice for the top-of-screen status box (see
+    // StatusMessageWidget) - never blocks play or input, unlike
+    // dialogueRequested.
+    void statusMessage(const QString &text, GameScene::StatusKind kind);
+
 protected:
     void mousePressEvent(QGraphicsSceneMouseEvent *event) override;
 
@@ -487,6 +502,12 @@ private:
     // from an enemy's own attack or killControlledCharacter()'s debug
     // shortcut.
     void notifyPlayerDeathIfNeeded();
+    // Posts the "has fallen" status line for a party member whose HP just
+    // hit 0. Every damage path that can kill a party member calls it once,
+    // at the same spot it checks isDead() after applying the blow.
+    void announcePartyMemberDeath(Character *member);
+    // The catalog's display name for an item, falling back to its id.
+    QString itemDisplayName(const QString &itemId) const;
     void updateEnemyAI(qreal dtSeconds);
     // Drives every party member except the currently-controlled one: fight
     // the nearest enemy within kPartyEngageRadius if there is one, otherwise

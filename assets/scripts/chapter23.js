@@ -182,6 +182,21 @@ function buildBranchingMaze(west, east, northRow, southRow, corridorWidth, wallW
             return true;
         return diagonalSeam && (isOpenAt(c - 1, r - 1) || isOpenAt(c + 1, r - 1) || isOpenAt(c - 1, r + 1) || isOpenAt(c + 1, r + 1));
     }
+    // Below each mouth (the openings in the outer border), wall tiles get small edge props,
+    // never the block's core set-piece. Props draw upward from their base, so a core prop a
+    // few rows south of the opening (a cottage is ~3 tiles tall, cliff_face ~7) painted over
+    // the whole 2-tile corridor: the gap was walkable but the maze read as a solid wall from
+    // outside. The border's outer face never counts as a seam (isOpenAt only knows the maze's
+    // own tiles), which is why the border under a mouth got the big type. The side margin
+    // covers wide art (cliff_face spans ~5 tiles). Rolled from a separate stream so every
+    // other prop in the maze comes out exactly as before.
+    const kMouthClearRows = 7, kMouthSideMargin = 2;
+    const mouthRand = mulberry32(seed ^ 0x6d6f7574);
+    function inMouthBand(c, r) {
+        const band = (c0, c1, openingSouthRow) => c >= c0 && c <= c1 && r > openingSouthRow && r <= openingSouthRow + kMouthClearRows;
+        return band(west, cellColEnd(0) + kMouthSideMargin, cellRowEnd(startCy))
+            || band(cellColStart(numCellsX - 1) - kMouthSideMargin, east, cellRowEnd(exitCy));
+    }
 
     // Renders one contiguous non-open rectangle as a coherent core cluster
     // (one obstacle type for the whole block's interior) with a rough,
@@ -214,6 +229,8 @@ function buildBranchingMaze(west, east, northRow, southRow, corridorWidth, wallW
                 if (isOpenAt(c, r)) continue;
                 if (isSeamWall(c, r))
                     api.spawnProp(edgeObstacles[Math.floor(rand() * edgeObstacles.length)], X(c), r);
+                else if (inMouthBand(c, r))
+                    api.spawnProp(edgeObstacles[Math.floor(mouthRand() * edgeObstacles.length)], X(c), r);
                 else
                     api.spawnProp(coreType, X(c), r);
             }
@@ -523,10 +540,8 @@ function* onLevelStart() {
     respawnCompanions();
 
     buildTown();
-    const exitRows = buildMaze();
+    buildMaze();
     buildPocket();
-    if (!api.getVar("survey_done", false))
-        setExitGate("survey_gate", exitRows, true);
 
     if (api.getVar("chapter23_intro_seen", false))
         return;
@@ -611,7 +626,7 @@ function* talkToCartographer() {
         yield api.say("Aldous", "Cartographers' Rest. Every stone in this village is set to a benchmark, and every benchmark is on the grid. Out in the Survey, west of here, three of them have gone astray - three brass discs, buried in the snowfields.");
         yield api.say("Aldous", "Three of my surveyors each know exactly where one lies, down to the tile. Talk to them; they'll read you the numbers. And take this compass. It's a poor one - doesn't point anywhere useful - but it'll tell you which tile you're standing on.");
         yield api.say("Hint", "Open your inventory with I, select the compass and press Enter: it tells you the tile (column, row) you are standing on. Walk until your numbers match a surveyor's.");
-        yield api.say("Aldous", "Find all three and the survey closes itself; the exit at the far end will unbar on its own. You needn't even come back to tell me. I'll know.");
+        yield api.say("Aldous", "The exit's open regardless - nobody's locking a road over three missing discs. But find all three anyway and the survey closes itself properly. You needn't even come back to tell me. I'll know.");
     } else if (n === 1) {
         yield api.say("Aldous", "Wynne, Dov and Fen. One benchmark each: first stretch, middle, last. The numbers are columns and rows, counted from the top-left corner of the whole map - so as you go west, the column count falls.");
     } else {
@@ -653,9 +668,9 @@ function* onItemCollected(itemId) {
         api.giveExperience(30);
         if (found >= 3) {
             api.setVar("survey_done", true);
-            api.setBarrier("survey_gate", 0, 0, 1, 1, false);
             api.giveExperience(100);
-            yield api.say("Lara", "That's the third disc. The compass in my pack gave a small satisfied click, like a lid finally closing, and somewhere ahead a long iron bar slid back. The survey's closed itself.");
+            api.giveItem("sealed_scroll", 1);
+            yield api.say("Lara", "That's the third disc. The compass in my pack gave a small satisfied click, like a lid finally closing. Aldous already left something on the notice board for whoever finished the set.");
             yield* companionSays("vex_recruited", "Vex", "Three points define a plane. That may honestly be the most beautiful sentence in any language ever spoken.");
         } else {
             yield api.say("Lara", "A brass disc, stamped with a coordinate that's long since been rubbed out. " + found + " of 3.");

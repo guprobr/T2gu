@@ -1,0 +1,22 @@
+Use case: stylized-concept. Create ONE transparent animation sheet for {name} in the ShadowShine isometric RPG. The single attached reference shows the SAME character from FRONT (left) and BACK (right); preserve identity, anatomy, outfit, colors, equipment and rear details in all poses.
+
+IDENTITY: {identity}
+ATTACK AND SKILL: {actions}
+
+Polished hand-painted 2D fantasy game art matching the reference. Fixed elevated three-quarter orthographic camera and soft upper-left light. Front faces lower-right; true back faces upper-left. One consistent character scale. No extra limbs, equipment or bodies.
+
+EXACT LAYOUT: tall aspect 4480:10120, eight equal columns by ten equal rows. Front poses in columns 1–4. Column 5 ALWAYS fully transparent. Back poses in columns 6–8. Rows with three fronts leave column 4 empty too. Each complete figure fits inside its own cell with ample transparent margins. Idle height approximately 28% of cell height; standing ground anchor 50% across and 83% down. No overlap between figures or cells.
+
+TEN ROWS, TOP TO BOTTOM:
+1 idle: 3 front + 3 back; subtle breathing.
+2 walk: 4 front + 3 back; alternating footfalls and arm motion.
+3 run: 4 front + 3 back; distinct forward-leaning strides.
+4 defend: 4 front + 3 back; brace, block, recoil, recover.
+5 attack: 4 front + 3 back; wind-up, strike, follow-through, recovery.
+6 skill: 3 front + 3 back; prepare, activate, recover.
+7 hit: 3 front + 3 back; distinct flinches, stay upright.
+8 die: 3 front + 3 back; buckle, fall sideways, lie fully prone with eyes closed. No gore.
+9 dash: 3 front + 3 back; low lunge, fast stride, braking recovery. Not jumping.
+10 jump: 4 front + 3 back; crouch, launch, airborne with bent legs, landing. Show actual elevation; final bottom row.
+
+Exactly 65 poses; row counts 6,7,7,7,7,6,6,6,6,7. Exactly 15 empty transparent slots. Real rear views, not mirrored fronts. All weapons/accessories remain consistent. Effects, if called for, stay compact and connected to the character. True transparent RGBA, clean antialiased edges. No floor, shadows, scenery, haze, detached particles, extra figures, grid, labels, text or watermark.

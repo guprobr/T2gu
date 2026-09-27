@@ -196,6 +196,21 @@ function buildBranchingMaze(west, east, northRow, southRow, corridorWidth, wallW
             return true;
         return diagonalSeam && (isOpenAt(c - 1, r - 1) || isOpenAt(c + 1, r - 1) || isOpenAt(c - 1, r + 1) || isOpenAt(c + 1, r + 1));
     }
+    // Below each mouth (the openings in the outer border), wall tiles get small edge props,
+    // never the block's core set-piece. Props draw upward from their base, so a core prop a
+    // few rows south of the opening (a cottage is ~3 tiles tall, cliff_face ~7) painted over
+    // the whole 2-tile corridor: the gap was walkable but the maze read as a solid wall from
+    // outside. The border's outer face never counts as a seam (isOpenAt only knows the maze's
+    // own tiles), which is why the border under a mouth got the big type. The side margin
+    // covers wide art (cliff_face spans ~5 tiles). Rolled from a separate stream so every
+    // other prop in the maze comes out exactly as before.
+    const kMouthClearRows = 7, kMouthSideMargin = 2;
+    const mouthRand = mulberry32(seed ^ 0x6d6f7574);
+    function inMouthBand(c, r) {
+        const band = (c0, c1, openingSouthRow) => c >= c0 && c <= c1 && r > openingSouthRow && r <= openingSouthRow + kMouthClearRows;
+        return band(west, cellColEnd(0) + kMouthSideMargin, cellRowEnd(startCy))
+            || band(cellColStart(numCellsX - 1) - kMouthSideMargin, east, cellRowEnd(exitCy));
+    }
 
     // Renders one contiguous non-open rectangle as a coherent core cluster
     // (one obstacle type for the whole block's interior) with a rough,
@@ -228,6 +243,8 @@ function buildBranchingMaze(west, east, northRow, southRow, corridorWidth, wallW
                 if (isOpenAt(c, r)) continue;
                 if (isSeamWall(c, r))
                     api.spawnProp(edgeObstacles[Math.floor(rand() * edgeObstacles.length)], X(c), r);
+                else if (inMouthBand(c, r))
+                    api.spawnProp(edgeObstacles[Math.floor(mouthRand() * edgeObstacles.length)], X(c), r);
                 else
                     api.spawnProp(coreType, X(c), r);
             }
@@ -353,7 +370,6 @@ function* onLevelStart() {
 
     buildSurfaceEntry();
     buildJunctionGauntlet();
-    raiseVaultGate();
     buildEndVault();
 
     if (api.getVar("chapter4_intro_seen", false))
@@ -456,14 +472,6 @@ function buildJunctionGauntlet() {
     api.spawnItem("health_potion", spots[66].col, spots[66].row);
 }
 
-// A real, mandatory barrier - down (blocking) until the three terminals
-// are activated in the right order, guarded here rather than left to a
-// script race, so a reload before solving it re-raises the same gate.
-function raiseVaultGate() {
-    if (!api.getVar("vault_gate_open", false))
-        api.setBarrier("vault_gate", 166, 0, 1, 96, true);
-}
-
 function buildEndVault() {
     api.spawnProp("holo_terminal", 172, 20);
     scatterOrganic(["salvage_pile", "cyber_supply_crate"], 168, 177, 6, 90, 16, 40002, [
@@ -506,7 +514,7 @@ function* talkToVex() {
     if (timesTalked === 0) {
         yield api.say("Vex", "You three walked out of a cave holding a rock that glows and a root that's been carved. That is, professionally speaking, a very unusual afternoon.");
         yield api.say("Lara", "You can tell what these are?");
-        yield api.say("Vex", "I can tell they're keeping time with each other, which is already more than either of them are legally supposed to do. I've traced a line under here for a tenday - three relay minds along it, still answering if you ask in the right order. Solve that, and whatever's locked past them opens for real.");
+        yield api.say("Vex", "I can tell they're keeping time with each other, which is already more than either of them are legally supposed to do. I've traced a line under here for a tenday - three relay minds along it, still answering if you ask in the right order. Solve that, and they'll actually hand you something for the trouble.");
     } else if (timesTalked === 1) {
         yield api.say("Cobb", "Sounds familiar. My vein did the same thing - always further, never an actual answer, like talking to a very smug tunnel.");
         yield api.say("Vex", "Then maybe the four of us finally finding the end of it is overdue.");
@@ -519,10 +527,9 @@ function* talkToVex() {
     }
 }
 
-// Mandatory order puzzle: android -> cyber_rogue -> gnome_engineer. Unlike
-// the last three chapters' riddles, getting this right actually lifts
-// vault_gate - wrong order resets progress with an in-fiction hint,
-// same soft-fail style, just with real stakes this time.
+// Order puzzle: android -> cyber_rogue -> gnome_engineer. Purely a bonus now -
+// the vault ahead is open either way - wrong order resets progress with an
+// in-fiction hint, same soft-fail style as every other riddle in this project.
 function* activateTerminal(name) {
     const order = ["android", "cyber_rogue", "gnome_engineer"];
     const displayName = { android: "Relay-1", cyber_rogue: "Relay-2", gnome_engineer: "Relay-3" }[name];
@@ -542,10 +549,11 @@ function* activateTerminal(name) {
         else if (newStep === 2)
             yield api.say("Relay-2", "ROUTED. I don't ask, I don't answer, I just make sure the question actually shows up somewhere. Thankless work, but somebody's node has to do it.");
         else {
-            yield api.say("Relay-3", "CONFIRMED. Ask, route, confirm - that's the entire chain of command down here. Vault sealed no longer. You're welcome.");
-            api.setBarrier("vault_gate", 166, 0, 1, 96, false);
+            yield api.say("Relay-3", "CONFIRMED. Ask, route, confirm - that's the entire chain of command down here. You're welcome.");
             api.setVar("vault_gate_open", true);
             api.giveExperience(80);
+            api.giveItem("humming_crystal", 1);
+            yield api.say("Relay-3", "One more thing - a stray crystal's been resonating with this line for years. Take it. It never did anything for us.");
             api.playSound("select");
         }
     } else {

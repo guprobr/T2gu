@@ -182,6 +182,21 @@ function buildBranchingMaze(west, east, northRow, southRow, corridorWidth, wallW
             return true;
         return diagonalSeam && (isOpenAt(c - 1, r - 1) || isOpenAt(c + 1, r - 1) || isOpenAt(c - 1, r + 1) || isOpenAt(c + 1, r + 1));
     }
+    // Below each mouth (the openings in the outer border), wall tiles get small edge props,
+    // never the block's core set-piece. Props draw upward from their base, so a core prop a
+    // few rows south of the opening (a cottage is ~3 tiles tall, cliff_face ~7) painted over
+    // the whole 2-tile corridor: the gap was walkable but the maze read as a solid wall from
+    // outside. The border's outer face never counts as a seam (isOpenAt only knows the maze's
+    // own tiles), which is why the border under a mouth got the big type. The side margin
+    // covers wide art (cliff_face spans ~5 tiles). Rolled from a separate stream so every
+    // other prop in the maze comes out exactly as before.
+    const kMouthClearRows = 7, kMouthSideMargin = 2;
+    const mouthRand = mulberry32(seed ^ 0x6d6f7574);
+    function inMouthBand(c, r) {
+        const band = (c0, c1, openingSouthRow) => c >= c0 && c <= c1 && r > openingSouthRow && r <= openingSouthRow + kMouthClearRows;
+        return band(west, cellColEnd(0) + kMouthSideMargin, cellRowEnd(startCy))
+            || band(cellColStart(numCellsX - 1) - kMouthSideMargin, east, cellRowEnd(exitCy));
+    }
 
     // Renders one contiguous non-open rectangle as a coherent core cluster
     // (one obstacle type for the whole block's interior) with a rough,
@@ -214,6 +229,8 @@ function buildBranchingMaze(west, east, northRow, southRow, corridorWidth, wallW
                 if (isOpenAt(c, r)) continue;
                 if (isSeamWall(c, r))
                     api.spawnProp(edgeObstacles[Math.floor(rand() * edgeObstacles.length)], X(c), r);
+                else if (inMouthBand(c, r))
+                    api.spawnProp(edgeObstacles[Math.floor(mouthRand() * edgeObstacles.length)], X(c), r);
                 else
                     api.spawnProp(coreType, X(c), r);
             }
@@ -444,9 +461,9 @@ function pocketCols() {
 // thieves when the puzzle was written: every other reading needs two liars).
 // To accuse, hear the suspect out, then talk to them WITH the warrant - and talk
 // to them a second time to confirm, so a stray key press never accuses anyone.
-// The thief confesses and the court gate opens; an innocent takes offence and
+// The thief confesses and hands over a reward; an innocent takes offence and
 // becomes hostile (the warrant is not spent). A wrong accusation costs a fight,
-// never the run.
+// never the run - the Assize Yard's exit was never actually locked.
 //
 //   Maud  (baker):        "It wasn't me, and it wasn't the Woodward."
 //   Hale  (lumberjack_2): "I was with Maud the whole night."
@@ -533,10 +550,8 @@ function* onLevelStart() {
     respawnCompanions();
 
     buildTown();
-    const exitRows = buildMaze();
+    buildMaze();
     buildPocket();
-    if (!api.getVar("thief_caught", false))
-        setExitGate("court_gate", exitRows, true);
 
     if (api.getVar("chapter24_intro_seen", false))
         return;
@@ -647,12 +662,12 @@ function* talkToSuspect(name) {
         if (name === THIEF) {
             api.removeItem("magistrates_warrant", 1);
             api.setVar("thief_caught", true);
-            api.setBarrier("court_gate", 0, 0, 1, 1, false);
             api.giveExperience(150);
+            api.giveItem("gemstone_cluster", 1);
             yield api.say(who, "*a long, ugly silence, and then the reaper's shoulders finally drop* ...The Woodward. Yes. I said the Woodward, and I was looking at my own hands the entire time I said it.");
-            yield api.say(who, "I couldn't stand the quiet anymore. The bell used to ring the harvest in, and when the hum stopped I wanted it to ring for me, just once more. I took the clapper. It's in the chapel yard, beyond the far gate. I never actually meant to keep it.");
+            yield api.say(who, "I couldn't stand the quiet anymore. The bell used to ring the harvest in, and when the hum stopped I wanted it to ring for me, just once more. I took the clapper. It's in the chapel yard, past the gate. I never actually meant to keep it.");
             yield api.say("Lara", "You lied, and that's precisely how I knew. The only person who could accuse the Woodward and be lying was the thief themselves.");
-            yield api.say(who, "Take me to the Magistrate, then. And the gate's open. I unlocked it myself the night I hid it away. I'd have unlocked the bell too, if I could have.");
+            yield api.say(who, "Take me to the Magistrate, then. Here - this was in with the clapper, whatever it's worth. I'd have given back the bell's ring too, if I could have.");
             yield* companionSays("vigil_recruited", "Vigil", "There's no real cruelty in this. Just a man who wanted to hear something ring one more time. I'd like to remember him that way, on balance.");
         } else {
             yield* wrongAccusation(name, who);

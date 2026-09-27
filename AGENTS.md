@@ -143,7 +143,7 @@ scene-graph or entity-component system layered on top.
 - **`MainWindow`** — the `QMainWindow`. Owns `GameState` (the only thing
   that survives a level transition), the current `GameScene`, and every
   chrome widget (dialogue box, inventory, death menu, loading overlay,
-  debug HUD). Handles all keyboard input and dispatches into `GameScene`.
+  status box, debug HUD). Handles all keyboard input and dispatches into `GameScene`.
 - **`GameScene`** (`QGraphicsScene`) — one instance per loaded map/chapter,
   destroyed and replaced wholesale on every level transition (see "Level
   transitions" below), never reused or mutated into a different map.
@@ -327,6 +327,16 @@ Room); 17–25 are the second, nine places along "the Quiet Road".
   adjacent to the walkable corridor and visually bury the hero/nearby
   entities under overlapping sprite art. Never flatten this back into one
   `obstacles` list.
+- The same problem hid the maze **entrances**: props draw upward from their
+  base, core props are up to ~7 tiles tall (`cliff_face`; cottages and
+  chapels ~5), and the border's outer face never counts as a seam, so a core
+  set-piece a few rows south of a mouth painted over the whole 2-tile
+  opening — walkable, but it read as a solid wall (confirmed by rendering
+  every entrance; collision was open in all 25 chapters). `inMouthBand()`
+  now gives edge props to wall tiles up to `kMouthClearRows` (7) rows below
+  each mouth, across the border and first cell column plus a 2-column margin.
+  It rolls from its own `mulberry32` stream, so maze structure and every
+  other prop are unchanged.
 - Every entity placed inside one maze (hostiles, riddle-keeper NPCs, the
   hostage, loot) is drawn from **one shared `sampleCells(cells, totalCount,
   seed)` pool**, sliced by a running index (`let i = 0; ...; i++`) — this

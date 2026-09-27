@@ -182,6 +182,21 @@ function buildBranchingMaze(west, east, northRow, southRow, corridorWidth, wallW
             return true;
         return diagonalSeam && (isOpenAt(c - 1, r - 1) || isOpenAt(c + 1, r - 1) || isOpenAt(c - 1, r + 1) || isOpenAt(c + 1, r + 1));
     }
+    // Below each mouth (the openings in the outer border), wall tiles get small edge props,
+    // never the block's core set-piece. Props draw upward from their base, so a core prop a
+    // few rows south of the opening (a cottage is ~3 tiles tall, cliff_face ~7) painted over
+    // the whole 2-tile corridor: the gap was walkable but the maze read as a solid wall from
+    // outside. The border's outer face never counts as a seam (isOpenAt only knows the maze's
+    // own tiles), which is why the border under a mouth got the big type. The side margin
+    // covers wide art (cliff_face spans ~5 tiles). Rolled from a separate stream so every
+    // other prop in the maze comes out exactly as before.
+    const kMouthClearRows = 7, kMouthSideMargin = 2;
+    const mouthRand = mulberry32(seed ^ 0x6d6f7574);
+    function inMouthBand(c, r) {
+        const band = (c0, c1, openingSouthRow) => c >= c0 && c <= c1 && r > openingSouthRow && r <= openingSouthRow + kMouthClearRows;
+        return band(west, cellColEnd(0) + kMouthSideMargin, cellRowEnd(startCy))
+            || band(cellColStart(numCellsX - 1) - kMouthSideMargin, east, cellRowEnd(exitCy));
+    }
 
     // Renders one contiguous non-open rectangle as a coherent core cluster
     // (one obstacle type for the whole block's interior) with a rough,
@@ -214,6 +229,8 @@ function buildBranchingMaze(west, east, northRow, southRow, corridorWidth, wallW
                 if (isOpenAt(c, r)) continue;
                 if (isSeamWall(c, r))
                     api.spawnProp(edgeObstacles[Math.floor(rand() * edgeObstacles.length)], X(c), r);
+                else if (inMouthBand(c, r))
+                    api.spawnProp(edgeObstacles[Math.floor(mouthRand() * edgeObstacles.length)], X(c), r);
                 else
                     api.spawnProp(coreType, X(c), r);
             }
@@ -526,12 +543,6 @@ function* onLevelStart() {
     buildTown();
     buildMaze();
     buildPocket();
-    // The doors go up on every load until their own quest var says they were opened.
-    const doorH = doorInfo.rows[1] - doorInfo.rows[0] + 1;
-    if (!api.getVar("door_bronze_open", false))
-        api.setBarrier("door_bronze", doorInfo.bronzeCol, doorInfo.rows[0], 2, doorH, true);
-    if (!api.getVar("door_silver_open", false))
-        api.setBarrier("door_silver", doorInfo.silverCol, doorInfo.rows[0], 2, doorH, true);
 
     if (api.getVar("chapter18_intro_seen", false))
         return;
@@ -644,11 +655,11 @@ function* talkToCaptain() {
         yield api.say("Captain Brann", "Both doors open. I haven't laid eyes on the far end of the Undercroft in nineteen years. Go on - and please, shut nothing behind you.");
     } else if (n === 0) {
         yield api.say("Captain Brann", "The Keepwalk. Once the keep's bailey, now the town that grew up comfortably in its shadow. The Undercroft below is where the old garrison kept everything worth stealing - and locked away everything they were afraid of.");
-        yield api.say("Captain Brann", "Two doors cross it. The bronze door about a third of the way in, the silver door two-thirds. Each has a Doorward under strict orders: open for the key, and for absolutely nothing else. They take that very, very seriously.");
+        yield api.say("Captain Brann", "Two doors cross it, hanging half off their hinges by now - the bronze door about a third of the way in, the silver door two-thirds. You can walk straight through both. But each has a Doorward who'll thank you properly if you bring the right key anyway.");
         yield api.say("Lara", "And the keys?");
-        yield api.say("Captain Brann", "In the stretch before each door, guarded by whatever we left to guard them. Bronze key first, then silver. You cannot reach the silver key without the bronze door open first - believe me, I've personally tried. Twice.");
+        yield api.say("Captain Brann", "In the stretch before each door, guarded by whatever we left to guard them. Bronze key first, then silver, if you want them both - though nothing's stopping you from walking the whole Undercroft empty-handed.");
     } else {
-        yield api.say("Captain Brann", "Bronze key opens the first door, silver key the second. Each key lies before its own door. Bring plenty of potions - the guards were told to be thorough, and thorough they remain.");
+        yield api.say("Captain Brann", "Bronze key opens the first Doorward's good mood, silver key the second's. Each key lies before its own door. Bring plenty of potions regardless - the guards were told to be thorough, and thorough they remain.");
     }
 }
 
@@ -662,17 +673,17 @@ function* talkToDoorward(name) {
     if (api.hasItem(d.key)) {
         api.removeItem(d.key, 1);
         api.setVar(d.id + "_open", true);
-        api.setBarrier(d.id, 0, 0, 1, 1, false);
         api.giveExperience(80);
-        yield api.say(d.who, "*he turns the " + d.metal + " key in the air, inspects the stamp on it closely, and nods once, satisfied* That's the one. Stand back.");
-        yield api.say(d.who, "*a long iron groan as the door swings inward along the entire width of the vault* Go on. " + d.next.charAt(0).toUpperCase() + d.next.slice(1) + " is yours now.");
+        api.giveItem("whetstone", 1);
+        yield api.say(d.who, "*he turns the " + d.metal + " key in the air, inspects the stamp on it closely, and nods once, satisfied* That's the one. Didn't strictly need it - door's been ajar for years, if you look at it right - but a key delivered honestly deserves something honest back.");
+        yield api.say(d.who, "*presses a whetstone into your hand* Here. Keeps an edge better than anything in the armory. Go on. " + d.next.charAt(0).toUpperCase() + d.next.slice(1) + " is yours now.");
         yield* companionSays("vex_recruited", "Vex", "Pin tumbler, seven pins, bronze. Genuinely elegant work. I'd love to meet whoever made it, and I strongly suspect they are extremely long gone.");
         return;
     }
     const n = api.getVar("ward_talks_" + name, 0);
     api.setVar("ward_talks_" + name, n + 1);
     if (n === 0) {
-        yield api.say(d.who, "This door opens for the " + d.metal + " key and absolutely nothing else. Not a favor, not a fight, not a bribe, not a good story. I was told that, and told that anyone claiming otherwise is trying to get past me.");
+        yield api.say(d.who, "Door's unlocked either way, if you look closely - the hinges gave out long before I did. But bring me the " + d.metal + " key anyway, and I'll make it worth the walk.");
         yield api.say("Lara", "And where's the key, exactly?");
         yield api.say(d.who, "Back the way you came, in the stretch before this door. Whatever was left there to guard it will not be pleased to see you.");
     } else {

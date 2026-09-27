@@ -182,6 +182,21 @@ function buildBranchingMaze(west, east, northRow, southRow, corridorWidth, wallW
             return true;
         return diagonalSeam && (isOpenAt(c - 1, r - 1) || isOpenAt(c + 1, r - 1) || isOpenAt(c - 1, r + 1) || isOpenAt(c + 1, r + 1));
     }
+    // Below each mouth (the openings in the outer border), wall tiles get small edge props,
+    // never the block's core set-piece. Props draw upward from their base, so a core prop a
+    // few rows south of the opening (a cottage is ~3 tiles tall, cliff_face ~7) painted over
+    // the whole 2-tile corridor: the gap was walkable but the maze read as a solid wall from
+    // outside. The border's outer face never counts as a seam (isOpenAt only knows the maze's
+    // own tiles), which is why the border under a mouth got the big type. The side margin
+    // covers wide art (cliff_face spans ~5 tiles). Rolled from a separate stream so every
+    // other prop in the maze comes out exactly as before.
+    const kMouthClearRows = 7, kMouthSideMargin = 2;
+    const mouthRand = mulberry32(seed ^ 0x6d6f7574);
+    function inMouthBand(c, r) {
+        const band = (c0, c1, openingSouthRow) => c >= c0 && c <= c1 && r > openingSouthRow && r <= openingSouthRow + kMouthClearRows;
+        return band(west, cellColEnd(0) + kMouthSideMargin, cellRowEnd(startCy))
+            || band(cellColStart(numCellsX - 1) - kMouthSideMargin, east, cellRowEnd(exitCy));
+    }
 
     // Renders one contiguous non-open rectangle as a coherent core cluster
     // (one obstacle type for the whole block's interior) with a rough,
@@ -214,6 +229,8 @@ function buildBranchingMaze(west, east, northRow, southRow, corridorWidth, wallW
                 if (isOpenAt(c, r)) continue;
                 if (isSeamWall(c, r))
                     api.spawnProp(edgeObstacles[Math.floor(rand() * edgeObstacles.length)], X(c), r);
+                else if (inMouthBand(c, r))
+                    api.spawnProp(edgeObstacles[Math.floor(mouthRand() * edgeObstacles.length)], X(c), r);
                 else
                     api.spawnProp(coreType, X(c), r);
             }
@@ -522,10 +539,8 @@ function* onLevelStart() {
     respawnCompanions();
 
     buildTown();
-    const exitRows = buildMaze();
+    buildMaze();
     buildPocket();
-    if (!api.getVar("claims_done", false))
-        setExitGate("claims_gate", exitRows, true);
 
     if (api.getVar("chapter17_intro_seen", false))
         return;
@@ -610,14 +625,14 @@ function* talkToClerk() {
         yield api.say("Clerk", "All claims closed, ledger shut, road stamped. Do you have any idea how long it's been since I could say that sentence? Go on through. Quietly, please - it's a habit at this point.");
     } else if (done >= Object.keys(CLAIMS).length) {
         api.setVar("claims_done", true);
-        api.setBarrier("claims_gate", 0, 0, 1, 1, false);
         api.giveExperience(100);
+        api.giveItem("mana_potion", 1);
         yield api.say("Clerk", "*he counts the returns on his fingers, twice, just to be sure* Three claims. Three closed. That is - that is genuinely the entire ledger.");
-        yield api.say("Clerk", "*a small wet thump as he brings the stamp down on the road-pass* There. The gate at the far end of the Snowlanes will let you out. First stamp I've been able to give since the hum stopped, and I've been rehearsing it in my head all week.");
+        yield api.say("Clerk", "*a small wet thump as he brings the stamp down on the road-pass* There. A proper stamp, first one I've given since the hum stopped, and I've been rehearsing it in my head all week. Take this too - somebody left it on the desk with your name half-guessed on it.");
         yield* companionSays("cobb_recruited", "Cobb", "A whole town held up by one man's ledger. I've personally seen sillier things hold up mountains.");
     } else if (n === 0) {
-        yield api.say("Clerk", "Hushgate is where the road out of the Quiet gets stamped. Nobody leaves without a stamp. It's the only rule we have left, so we keep it very, very carefully.");
-        yield api.say("Clerk", "My ledger has three open claims - three people who lost something in the Snowlanes, west of here - and I refuse to stamp a road while a claim's still open. It isn't cruelty. It's that a road stamped over an open claim goes crooked, and I have seen that go badly.");
+        yield api.say("Clerk", "Hushgate stamps the road out of the Quiet, for whoever wants one. Nobody's stopped by it, mind - the road's open regardless - but I do like the paperwork tidy.");
+        yield api.say("Clerk", "My ledger has three open claims - three people who lost something in the Snowlanes, west of here - and I'd sleep a great deal better with them closed. It isn't cruelty. It's that a road stamped over an open claim goes crooked, and I have seen that go badly.");
         yield api.say("Lara", "So I find their things and bring them home.");
         yield api.say("Clerk", "Each to its owner, in whatever order suits you. When all three are closed, come see me, and try not to lose anything of your own on the way.");
     } else {

@@ -182,6 +182,21 @@ function buildBranchingMaze(west, east, northRow, southRow, corridorWidth, wallW
             return true;
         return diagonalSeam && (isOpenAt(c - 1, r - 1) || isOpenAt(c + 1, r - 1) || isOpenAt(c - 1, r + 1) || isOpenAt(c + 1, r + 1));
     }
+    // Below each mouth (the openings in the outer border), wall tiles get small edge props,
+    // never the block's core set-piece. Props draw upward from their base, so a core prop a
+    // few rows south of the opening (a cottage is ~3 tiles tall, cliff_face ~7) painted over
+    // the whole 2-tile corridor: the gap was walkable but the maze read as a solid wall from
+    // outside. The border's outer face never counts as a seam (isOpenAt only knows the maze's
+    // own tiles), which is why the border under a mouth got the big type. The side margin
+    // covers wide art (cliff_face spans ~5 tiles). Rolled from a separate stream so every
+    // other prop in the maze comes out exactly as before.
+    const kMouthClearRows = 7, kMouthSideMargin = 2;
+    const mouthRand = mulberry32(seed ^ 0x6d6f7574);
+    function inMouthBand(c, r) {
+        const band = (c0, c1, openingSouthRow) => c >= c0 && c <= c1 && r > openingSouthRow && r <= openingSouthRow + kMouthClearRows;
+        return band(west, cellColEnd(0) + kMouthSideMargin, cellRowEnd(startCy))
+            || band(cellColStart(numCellsX - 1) - kMouthSideMargin, east, cellRowEnd(exitCy));
+    }
 
     // Renders one contiguous non-open rectangle as a coherent core cluster
     // (one obstacle type for the whole block's interior) with a rough,
@@ -214,6 +229,8 @@ function buildBranchingMaze(west, east, northRow, southRow, corridorWidth, wallW
                 if (isOpenAt(c, r)) continue;
                 if (isSeamWall(c, r))
                     api.spawnProp(edgeObstacles[Math.floor(rand() * edgeObstacles.length)], X(c), r);
+                else if (inMouthBand(c, r))
+                    api.spawnProp(edgeObstacles[Math.floor(mouthRand() * edgeObstacles.length)], X(c), r);
                 else
                     api.spawnProp(coreType, X(c), r);
             }
@@ -518,10 +535,8 @@ function* onLevelStart() {
     respawnCompanions();
 
     buildTown();
-    const exitRows = buildMaze();
+    buildMaze();
     buildPocket();
-    if (!api.getVar("mile_open", false))
-        setExitGate("mile_gate", exitRows, true);
 
     if (api.getVar("chapter22_intro_seen", false))
         return;
@@ -662,21 +677,21 @@ function* talkToDrone() {
     if (api.hasItem("signal_lens")) {
         api.removeItem("signal_lens", 1);
         api.setVar("mile_open", true);
-        api.setBarrier("mile_gate", 0, 0, 1, 1, false);
         api.giveExperience(100);
+        api.giveItem("round_shield", 1);
         yield api.say("Gate-drone", "*a long, deliberate scan, apparently the first clear image it's had in quite some time* ...SCAN CLEAR. PERSON: LARA. COMPANIONS: FOUR. THREAT LEVEL: ...LOW. HOW VERY ODD. RECALCULATING. STILL LOW.");
-        yield api.say("Gate-drone", "GATE OPEN. THANK YOU FOR THE LENS. THIS UNIT HAD BEGUN TO SUSPECT EVERYONE, EVERYWHERE, WAS STATIC.");
+        yield api.say("Gate-drone", "THANK YOU FOR THE LENS. THIS UNIT HAD BEGUN TO SUSPECT EVERYONE, EVERYWHERE, WAS STATIC. TAKE THIS SALVAGED PLATE. THIS UNIT HAS NO FURTHER USE FOR IT.");
         yield* companionSays("vex_recruited", "Vex", "It's spent years mistaking every single traveller for interference. I find that deeply, personally relatable.");
         return;
     }
     const n = api.getVar("drone_talks", 0);
     api.setVar("drone_talks", n + 1);
     if (n === 0) {
-        yield api.say("Gate-drone", "SCAN FAILED. INPUT: STATIC. THIS UNIT REQUIRES A SIGNAL LENS TO READ TRAVELLERS. NO LENS, NO GATE. THIS POLICY IS NOT NEGOTIABLE.");
+        yield api.say("Gate-drone", "SCAN FAILED. INPUT: STATIC. THIS UNIT CANNOT READ YOU WITHOUT A SIGNAL LENS. THIS DOES NOT, TECHNICALLY, STOP YOU FROM WALKING PAST. THIS UNIT WOULD APPRECIATE A LENS ANYWAY.");
         yield api.say("Lara", "Where do I get a lens?");
         yield api.say("Gate-drone", "*a long, whirring, faintly embarrassed pause* THIS UNIT DOES NOT KNOW. THIS UNIT HAS ONLY EVER BEEN ASKED FOR IT, NEVER TOLD WHERE IT COMES FROM. THE MYSTIC, BACK ALONG THE MILE, MAY KNOW.");
     } else {
-        yield api.say("Gate-drone", "NO LENS. STILL STATIC. THE MYSTIC MAY STILL KNOW. THIS UNIT HAS NOT CHANGED ITS ANSWER.");
+        yield api.say("Gate-drone", "STILL STATIC, STILL WALKABLE. THE MYSTIC MAY STILL KNOW. THIS UNIT HAS NOT CHANGED ITS ANSWER.");
     }
 }
 

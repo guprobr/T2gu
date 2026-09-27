@@ -15,6 +15,7 @@ class InventoryWidget;
 class DeathMenuWidget;
 class LoadingOverlayWidget;
 class SelectionInfoWidget;
+class StatusMessageWidget;
 class QResizeEvent;
 class QLabel;
 
@@ -112,6 +113,7 @@ private:
     void repositionPositionLabel();
     void repositionTreasureLabel();
     void repositionSelectionInfoWidget();
+    void repositionStatusMessages();
 
     GameState m_gameState; // persists across loadLevel() calls - owns story vars/inventory
     GameScene *m_scene = nullptr;
@@ -132,6 +134,7 @@ private:
     DeathMenuWidget *m_deathMenuWidget = nullptr;
     LoadingOverlayWidget *m_loadingOverlay = nullptr;
     SelectionInfoWidget *m_selectionInfoWidget = nullptr;
+    StatusMessageWidget *m_statusMessages = nullptr;
     // Dev/debug HUD - see updateDebugOverlays()/jumpToNextLevel(). Not part
     // of the actual game.
     QLabel *m_positionLabel = nullptr;

@@ -182,6 +182,21 @@ function buildBranchingMaze(west, east, northRow, southRow, corridorWidth, wallW
             return true;
         return diagonalSeam && (isOpenAt(c - 1, r - 1) || isOpenAt(c + 1, r - 1) || isOpenAt(c - 1, r + 1) || isOpenAt(c + 1, r + 1));
     }
+    // Below each mouth (the openings in the outer border), wall tiles get small edge props,
+    // never the block's core set-piece. Props draw upward from their base, so a core prop a
+    // few rows south of the opening (a cottage is ~3 tiles tall, cliff_face ~7) painted over
+    // the whole 2-tile corridor: the gap was walkable but the maze read as a solid wall from
+    // outside. The border's outer face never counts as a seam (isOpenAt only knows the maze's
+    // own tiles), which is why the border under a mouth got the big type. The side margin
+    // covers wide art (cliff_face spans ~5 tiles). Rolled from a separate stream so every
+    // other prop in the maze comes out exactly as before.
+    const kMouthClearRows = 7, kMouthSideMargin = 2;
+    const mouthRand = mulberry32(seed ^ 0x6d6f7574);
+    function inMouthBand(c, r) {
+        const band = (c0, c1, openingSouthRow) => c >= c0 && c <= c1 && r > openingSouthRow && r <= openingSouthRow + kMouthClearRows;
+        return band(west, cellColEnd(0) + kMouthSideMargin, cellRowEnd(startCy))
+            || band(cellColStart(numCellsX - 1) - kMouthSideMargin, east, cellRowEnd(exitCy));
+    }
 
     // Renders one contiguous non-open rectangle as a coherent core cluster
     // (one obstacle type for the whole block's interior) with a rough,
@@ -214,6 +229,8 @@ function buildBranchingMaze(west, east, northRow, southRow, corridorWidth, wallW
                 if (isOpenAt(c, r)) continue;
                 if (isSeamWall(c, r))
                     api.spawnProp(edgeObstacles[Math.floor(rand() * edgeObstacles.length)], X(c), r);
+                else if (inMouthBand(c, r))
+                    api.spawnProp(edgeObstacles[Math.floor(mouthRand() * edgeObstacles.length)], X(c), r);
                 else
                     api.spawnProp(coreType, X(c), r);
             }
@@ -514,10 +531,8 @@ function* onLevelStart() {
     respawnCompanions();
 
     buildTown();
-    const exitRows = buildMaze();
+    buildMaze();
     buildPocket();
-    if (!api.getVar("strays_home", false))
-        setExitGate("pasture_gate", exitRows, true);
 
     if (api.getVar("chapter7_intro_seen", false))
         return;
@@ -614,11 +629,11 @@ function* talkToHerder() {
     api.setVar("herder_talks", n + 1);
     api.playSound("select");
     if (api.getVar("strays_home", false)) {
-        yield api.say("Herder", "All three home, and the gate just let go on its own like it was never that attached to being closed. Go on through - you've earned the bell, and the bell's earned a rest.");
+        yield api.say("Herder", "All three home, safe and smug about it. Go on through, and take that draught with you - you've more than earned it.");
     } else if (n === 0) {
         yield api.say("Herder", "You're the ones who walked out of the east, aren't you. The market hasn't talked about anything else in hours. It's genuinely getting old.");
-        yield api.say("Herder", "Tell you what, I'll trade you a favor for it. Three of my draft horses bolted into the Whiteout Rows the night the hum started - bay, chestnut, and the dun. The pasture gate won't unlatch while a horse is still out. Old rule. Older than the gate, older than me, and yet somehow still my problem.");
-        yield api.say("Lara", "So we find the horses, and the gate opens.");
+        yield api.say("Herder", "Tell you what, I'll make it worth your while. Three of my draft horses bolted into the Whiteout Rows the night the hum started - bay, chestnut, and the dun. I'd go myself, but my knees have opinions about that.");
+        yield api.say("Lara", "So we find the horses, and you'll make it worth our while.");
         yield api.say("Herder", "Find them, talk them down, they'll wander home once they're calm. Any order's fine. Mind the wolves. And the trolls. And, honestly, the weather - it's been in a mood all week.");
     } else {
         const left = 3 - STRAYS.filter(s => api.getVar("stray_home_" + s, false)).length;
@@ -642,10 +657,9 @@ function* calmStray(name) {
         api.setVar("strays_home", true);
         api.giveExperience(60);
         yield api.say(displayName, "*leans into your hand for a moment, entirely too pleased with itself, then trots off after the others*");
-        yield api.say("Lara", "That's all three. Listen - far behind us, that's the pasture gate. It sounds exactly like somebody striking a bell, which, credit where due, it is.");
+        api.giveItem("stamina_draught", 1);
+        yield api.say("Lara", "That's all three. The Herder left something on the fencepost for the trouble - a draught that smells like it means business.");
         yield* companionSays("nettle_recruited", "Nettle", "Frost releasing its hold on iron. It does that, apparently, when it's been asked politely enough.");
-        // The gate at the west end of the maze is now free.
-        api.setBarrier("pasture_gate", 0, 0, 1, 1, false);   // lifts by id - the coordinates are ignored
     }
 }
 

@@ -182,6 +182,21 @@ function buildBranchingMaze(west, east, northRow, southRow, corridorWidth, wallW
             return true;
         return diagonalSeam && (isOpenAt(c - 1, r - 1) || isOpenAt(c + 1, r - 1) || isOpenAt(c - 1, r + 1) || isOpenAt(c + 1, r + 1));
     }
+    // Below each mouth (the openings in the outer border), wall tiles get small edge props,
+    // never the block's core set-piece. Props draw upward from their base, so a core prop a
+    // few rows south of the opening (a cottage is ~3 tiles tall, cliff_face ~7) painted over
+    // the whole 2-tile corridor: the gap was walkable but the maze read as a solid wall from
+    // outside. The border's outer face never counts as a seam (isOpenAt only knows the maze's
+    // own tiles), which is why the border under a mouth got the big type. The side margin
+    // covers wide art (cliff_face spans ~5 tiles). Rolled from a separate stream so every
+    // other prop in the maze comes out exactly as before.
+    const kMouthClearRows = 7, kMouthSideMargin = 2;
+    const mouthRand = mulberry32(seed ^ 0x6d6f7574);
+    function inMouthBand(c, r) {
+        const band = (c0, c1, openingSouthRow) => c >= c0 && c <= c1 && r > openingSouthRow && r <= openingSouthRow + kMouthClearRows;
+        return band(west, cellColEnd(0) + kMouthSideMargin, cellRowEnd(startCy))
+            || band(cellColStart(numCellsX - 1) - kMouthSideMargin, east, cellRowEnd(exitCy));
+    }
 
     // Renders one contiguous non-open rectangle as a coherent core cluster
     // (one obstacle type for the whole block's interior) with a rough,
@@ -214,6 +229,8 @@ function buildBranchingMaze(west, east, northRow, southRow, corridorWidth, wallW
                 if (isOpenAt(c, r)) continue;
                 if (isSeamWall(c, r))
                     api.spawnProp(edgeObstacles[Math.floor(rand() * edgeObstacles.length)], X(c), r);
+                else if (inMouthBand(c, r))
+                    api.spawnProp(edgeObstacles[Math.floor(mouthRand() * edgeObstacles.length)], X(c), r);
                 else
                     api.spawnProp(coreType, X(c), r);
             }
@@ -515,10 +532,8 @@ function* onLevelStart() {
     respawnCompanions();
 
     buildTown();
-    const exitRows = buildMaze();
+    buildMaze();
     buildPocket();
-    if (!api.getVar("rite_done", false))
-        setExitGate("rite_gate", exitRows, true);
 
     if (api.getVar("chapter10_intro_seen", false))
         return;
@@ -602,7 +617,7 @@ function* talkToSexton() {
         yield api.say("Sexton", "The Hall keeps its hours again. Take the lantern - it was always meant for someone who could carry a sorrow without spilling it everywhere.");
     } else if (n === 0) {
         yield api.say("Sexton", "You've come to the Fair. Nobody *comes to* the Fair. They come *through* it, quickly, and usually without stopping for the sausage rolls.");
-        yield api.say("Sexton", "The Hall of Hours past the gate keeps the dead's calendar. To pass it, you say goodnight to each of the hour-keepers in turn. I'll give you the order the way my own mother gave it to me: as an infuriating riddle.");
+        yield api.say("Sexton", "The Hall of Hours past the gate keeps the dead's calendar. Walk through whenever you like - but say goodnight to each of the hour-keepers in turn, in order, and they'll thank you properly. I'll give you the order the way my own mother gave it to me: as an infuriating riddle.");
         yield api.say("Sexton", "\"Night keeps the watch. Day gives the warmth. And last, the storm that breaks it.\" Three keepers. That exact order. Get it wrong and they'll politely, patiently, make you start over from scratch.");
         yield api.say("Lara", "Night, day, storm. That's the moon, the sun, and - the storm itself, presumably, being dramatic about it?");
         yield api.say("Sexton", "You'll know them when you meet them. They're not remotely shy. They're just extraordinarily, supernaturally patient.");
@@ -630,8 +645,9 @@ function* speakToSpirit(name) {
             yield api.say("Storm", "*a low, rolling rumble, softer than it sounds* Goodnight. And last, the storm that breaks it - and, this one time only, only breaks the lock, and not, say, the entire hall.");
             yield api.say("Lara", "Night, day, storm. The Sexton's riddle, solved, in exactly three goodnights.");
             api.setVar("rite_done", true);
-            api.setBarrier("rite_gate", 0, 0, 1, 1, false);
             api.giveExperience(110);
+            api.giveItem("sealed_vial_of_mist", 1);
+            yield api.say("Storm", "*a last, gentler rumble* For the trouble - a little of the night, bottled. It travels well.");
             yield* companionSays("cobb_recruited", "Cobb", "Never in my life thought I'd see the day a lock got tucked in and told goodnight.");
         }
     } else {

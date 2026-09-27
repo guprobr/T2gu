@@ -21,6 +21,7 @@
 #include "DeathMenuWidget.h"
 #include "LoadingOverlayWidget.h"
 #include "SelectionInfoWidget.h"
+#include "StatusMessageWidget.h"
 
 namespace {
 // A single quicksave slot under the user's own home directory (not
@@ -175,6 +176,9 @@ MainWindow::MainWindow(QWidget *parent)
     m_selectionInfoWidget = new SelectionInfoWidget(m_view);
     repositionSelectionInfoWidget();
 
+    m_statusMessages = new StatusMessageWidget(m_view);
+    repositionStatusMessages();
+
     // Created last so it stacks on top of every other overlay by default
     // (sibling QWidgets paint in creation order) - loadLevel() also
     // explicitly raise()s it, but starting on top means a transition that
@@ -270,6 +274,7 @@ void MainWindow::finishLoadingLevel(const QString &mapPath)
     connect(m_scene, &GameScene::playerDied, this, &MainWindow::showDeathMenu);
     connect(m_scene, &GameScene::selectionChanged, this, &MainWindow::showSelectionInfo);
     connect(m_scene, &GameScene::selectionCleared, this, &MainWindow::hideSelectionInfo);
+    connect(m_scene, &GameScene::statusMessage, m_statusMessages, &StatusMessageWidget::post);
 
     // Stale key/dialogue/inventory/death-menu state from the old map
     // shouldn't leak into the new one - a held movement key should still
@@ -369,6 +374,7 @@ void MainWindow::resizeEvent(QResizeEvent *event)
     repositionPositionLabel();
     repositionTreasureLabel();
     repositionSelectionInfoWidget();
+    repositionStatusMessages();
 }
 
 void MainWindow::repositionDialogueBox()
@@ -448,14 +454,38 @@ void MainWindow::repositionSelectionInfoWidget()
     m_selectionInfoWidget->setGeometry(margin, margin, width, height);
 }
 
+void MainWindow::repositionStatusMessages()
+{
+    // Centered at the top. With a panel selected (top-left, see
+    // repositionSelectionInfoWidget()) it stays in the gap between that
+    // panel and its mirror on the right; when that gap is too narrow for a
+    // typical line ("Skeleton Swordsman defeated  x2" is ~290px) it drops
+    // below the panel instead - eliding every line on a small window, or
+    // sliding under the panel, would both hide the message. Without a
+    // selection it keeps the top edge, clear of the hero's head.
+    constexpr int margin = 8;
+    constexpr int minGapWidth = 420;
+    const QRect panel = m_selectionInfoWidget->geometry(); // positioned first, in the constructor and resizeEvent()
+    const int fullWidth = m_view->width() - 2 * margin;
+    const int gapWidth = m_view->width() - 2 * (panel.right() + 1 + margin);
+    if (!m_selectionInfoWidget->isVisible())
+        m_statusMessages->setLayoutBounds(margin, fullWidth);
+    else if (gapWidth >= minGapWidth)
+        m_statusMessages->setLayoutBounds(margin, gapWidth);
+    else
+        m_statusMessages->setLayoutBounds(panel.bottom() + 1 + margin, fullWidth);
+}
+
 void MainWindow::showSelectionInfo(const GameScene::SelectionInfo &info)
 {
     m_selectionInfoWidget->showInfo(info);
+    repositionStatusMessages();
 }
 
 void MainWindow::hideSelectionInfo()
 {
     m_selectionInfoWidget->hide();
+    repositionStatusMessages();
 }
 
 void MainWindow::showDeathMenu()
@@ -561,7 +591,9 @@ void MainWindow::saveGame()
         m_scene->showInfoMessage(QStringLiteral("Game"), QStringLiteral("Save failed - couldn't write the save file."));
         return;
     }
-    m_scene->showInfoMessage(QStringLiteral("Game"), QStringLiteral("Game saved."));
+    // A status line, not a dialogue box to dismiss - a successful save is
+    // routine and shouldn't stop play; the failures above still do.
+    m_statusMessages->post(QStringLiteral("Game saved"), GameScene::StatusKind::Progress);
 }
 
 void MainWindow::loadGame()

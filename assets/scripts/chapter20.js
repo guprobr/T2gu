@@ -183,6 +183,21 @@ function buildBranchingMaze(west, east, northRow, southRow, corridorWidth, wallW
             return true;
         return diagonalSeam && (isOpenAt(c - 1, r - 1) || isOpenAt(c + 1, r - 1) || isOpenAt(c - 1, r + 1) || isOpenAt(c + 1, r + 1));
     }
+    // Below each mouth (the openings in the outer border), wall tiles get small edge props,
+    // never the block's core set-piece. Props draw upward from their base, so a core prop a
+    // few rows south of the opening (a cottage is ~3 tiles tall, cliff_face ~7) painted over
+    // the whole 2-tile corridor: the gap was walkable but the maze read as a solid wall from
+    // outside. The border's outer face never counts as a seam (isOpenAt only knows the maze's
+    // own tiles), which is why the border under a mouth got the big type. The side margin
+    // covers wide art (cliff_face spans ~5 tiles). Rolled from a separate stream so every
+    // other prop in the maze comes out exactly as before.
+    const kMouthClearRows = 7, kMouthSideMargin = 2;
+    const mouthRand = mulberry32(seed ^ 0x6d6f7574);
+    function inMouthBand(c, r) {
+        const band = (c0, c1, openingSouthRow) => c >= c0 && c <= c1 && r > openingSouthRow && r <= openingSouthRow + kMouthClearRows;
+        return band(west, cellColEnd(0) + kMouthSideMargin, cellRowEnd(startCy))
+            || band(cellColStart(numCellsX - 1) - kMouthSideMargin, east, cellRowEnd(exitCy));
+    }
 
     // Renders one contiguous non-open rectangle as a coherent core cluster
     // (one obstacle type for the whole block's interior) with a rough,
@@ -215,6 +230,8 @@ function buildBranchingMaze(west, east, northRow, southRow, corridorWidth, wallW
                 if (isOpenAt(c, r)) continue;
                 if (isSeamWall(c, r))
                     api.spawnProp(edgeObstacles[Math.floor(rand() * edgeObstacles.length)], X(c), r);
+                else if (inMouthBand(c, r))
+                    api.spawnProp(edgeObstacles[Math.floor(mouthRand() * edgeObstacles.length)], X(c), r);
                 else
                     api.spawnProp(coreType, X(c), r);
             }
@@ -524,9 +541,9 @@ function* onLevelStart() {
     api.giveControl("lara_cyber");
     respawnCompanions();
 
-    // The map file is always the flooded one, so a drain that already happened has to be redone.
-    if (api.getVar("ford_drained", false))
-        drainFord();
+    // The map file is always the flooded one, so the ford is redrained on every load - the
+    // crossing was never meant to depend on finding Odo's parts, only the sluice wheel reward is.
+    drainFord();
 
     buildTown();
     buildMaze();
@@ -537,10 +554,10 @@ function* onLevelStart() {
     api.setVar("chapter20_intro_seen", true);
 
     yield api.wait(0.6);
-    yield api.say("Lara", "The river's come up over the ford and simply stayed there. Not a flood, exactly - more like it's unilaterally decided this is where the bank lives now.");
-    yield* companionSays("cobb_recruited", "Cobb", "Water that refuses to drain is water that's been firmly told not to. Somewhere, a lock has forgotten its entire job description.");
+    yield api.say("Lara", "The river came up over the ford, and somebody's patched a bridge across it since. Not a flood anymore, exactly - more like it's still deciding whether to unilaterally reclaim the bank.");
+    yield* companionSays("cobb_recruited", "Cobb", "Bridge or no bridge, water that doesn't drain is water that's been firmly told not to. Somewhere, a lock's forgotten its entire job description.");
     yield* companionSays("vex_recruited", "Vex", "There's a sluice on the far side of the village. My instruments show zero pressure in it. Nobody's turned that wheel in a very long time.");
-    yield api.say("Hint", "This level runs left to right. The town is behind you; the river is ahead, and beyond it, to the east, the Millrace Meadow. Waterproof boots recommended.");
+    yield api.say("Hint", "This level runs left to right. The town is behind you; the bridge crosses the river to the Millrace Meadow, to the east. The Lockkeeper's still got a fetch quest going, if you're in the mood.");
 }
 
 function buildTown() {
@@ -554,8 +571,7 @@ function buildTown() {
             api.spawnProp("lily_pads", colAt(TOWN_U + 2), r + 1);
     }
     api.spawnProp("signpost", colAt(TOWN_U - 2), MID - 3);
-    if (api.getVar("ford_drained", false))
-        api.spawnProp("wooden_bridge", colAt(TOWN_U + 2), MID);
+    api.spawnProp("wooden_bridge", colAt(TOWN_U + 2), MID);
 
     api.spawnNpc("gnome_engineer", colAt(37), MID - 4);     // Lockkeeper Odo
     api.spawnNpc("angler", colAt(14), MID - 3);             // Netter
@@ -614,7 +630,7 @@ function* onTalkTo(name) {
 function* talkToLockkeeper() {
     api.playSound("select");
     if (api.getVar("ford_drained", false)) {
-        yield api.say("Odo", "Hear that? That's a river going back to exactly where it lives. Thirty years I've kept that sluice, and I have never once been so glad about a wet boot. Off you go.");
+        yield api.say("Odo", "Hear that? That's a sluice wheel finally turning under its own steam. Thirty years I've kept that thing, and I have never once been so glad to see brass. Go on, cross wherever you like.");
         return;
     }
     const held = partsHeld();
@@ -622,22 +638,20 @@ function* talkToLockkeeper() {
         PARTS.forEach(p => api.removeItem(p, 1));
         api.setVar("ford_drained", true);
         yield api.say("Odo", "*he lays the crank, the chain and the gear on the sill, and his hands know exactly what to do with them well before he does* Crank... chain... and the gear with the missing tooth. Ha! The tooth was always the difficult bit, every time.");
-        yield api.say("Odo", "*a long wooden groan from the lock, followed by the sound of a genuinely enormous amount of water changing its mind* Stand well back. I mean it.");
-        drainFord();
-        api.spawnProp("wooden_bridge", colAt(TOWN_U + 2), MID);
+        yield api.say("Odo", "*a long wooden groan from the lock, followed by the sound of the sluice wheel finally spinning free* There. Wasn't stopping anyone from crossing that bridge, mind, but it's good to have the old girl working again.");
         api.giveExperience(120);
-        yield api.wait(0.5);
-        yield api.say("Lara", "The water's going down. There's a crossing right where the ford always was - the bank tiles even line up perfectly.");
-        yield* companionSays("cobb_recruited", "Cobb", "Three little bits of brass, and an entire river reconsiders its life choices. That's a proper dwarf lesson right there, free of charge.");
+        api.giveItem("berry_pouch", 1);
+        yield api.say("Odo", "Take this for the walking. Waterskin's better for a river, but a full berry pouch is better for everything else.");
+        yield* companionSays("cobb_recruited", "Cobb", "Three little bits of brass, and an entire sluice reconsiders its life choices. That's a proper dwarf lesson right there, free of charge.");
         return;
     }
     const n = api.getVar("odo_talks", 0);
     api.setVar("odo_talks", n + 1);
     if (n === 0) {
-        yield api.say("Odo", "Odo. I keep the sluice, and the sluice keeps the ford. When the hum stopped, the river came up all at once and yanked the wheel clean off its axle - crank, chain and gear, flung to all four winds. Well. Three of them.");
+        yield api.say("Odo", "Odo. I keep the sluice, though the bridge does the actual work of getting you across these days. When the hum stopped, the river came up all at once and yanked the wheel clean off its axle - crank, chain and gear, flung to all four winds. Well. Three of them.");
         yield api.say("Odo", "The crank went north-west, over by the fence. The chain went north, along the bank, among the reeds. The gear went south, down by the last lane, assuming the geese haven't claimed it already.");
-        yield api.say("Lara", "And with all three you can open the sluice?");
-        yield api.say("Odo", "With all three, I can put an entire river back in its proper bed. Bring them here, to the bank. I can't leave my post - there'd be nobody left standing here to turn the wheel.");
+        yield api.say("Lara", "And if I bring you all three?");
+        yield api.say("Odo", "Then I get my sluice back, and you get something for your trouble. Bring them here, to the bank. I can't leave my post - there'd be nobody left standing here to turn the wheel.");
     } else {
         yield api.say("Odo", "You hold " + held + " of the " + PARTS.length + ". Crank north-west, chain north on the bank, gear south by the last lane. Bring them all together and I'll handle the rest myself.");
     }

@@ -59,6 +59,8 @@ add_executable(T2gu2
     src/AudioManager.h
     src/SelectionInfoWidget.cpp
     src/SelectionInfoWidget.h
+    src/StatusMessageWidget.cpp
+    src/StatusMessageWidget.h
     src/GameState.h
     src/Version.h
     src/AssetPath.cpp

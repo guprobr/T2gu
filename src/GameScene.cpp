@@ -76,6 +76,13 @@ QString prettifyRosterName(const QString &rosterKey)
     return words.join(QLatin1Char(' '));
 }
 
+// "Received Whetstone" / "Handed over Tech Chip ×3" for the status box.
+QString countedItemText(const QString &verb, const QString &itemName, int count)
+{
+    return count > 1 ? QStringLiteral("%1 %2 \u00d7%3").arg(verb, itemName).arg(count)
+                     : QStringLiteral("%1 %2").arg(verb, itemName);
+}
+
 // Cell key for a simple spatial hash used by resolveSpawnCollision() below -
 // same bucketing idea as BlockingGrid.h, sized to the "is this the exact
 // same coordinate" threshold rather than typical object size, since that's
@@ -1172,8 +1179,10 @@ void GameScene::killControlledCharacter()
         player->setMaxHp(1); // see the header comment - never a silent no-op
     player->applyDamage(player->maxHp());
     m_audio.playSound(QStringLiteral("death"));
-    if (player->isDead())
+    if (player->isDead()) {
+        announcePartyMemberDeath(player);
         notifyPlayerDeathIfNeeded();
+    }
 }
 
 void GameScene::notifyPlayerDeathIfNeeded()
@@ -1192,12 +1201,24 @@ void GameScene::notifyPlayerDeathIfNeeded()
     emit playerDied();
 }
 
+void GameScene::announcePartyMemberDeath(Character *member)
+{
+    if (m_party.contains(member))
+        emit statusMessage(QStringLiteral("%1 has fallen").arg(prettifyRosterName(member->name())), StatusKind::Loss);
+}
+
+QString GameScene::itemDisplayName(const QString &itemId) const
+{
+    return m_itemsCatalog.value(itemId).toObject().value("name").toString(itemId);
+}
+
 void GameScene::awardEnemyDefeatRewards(Enemy &enemy)
 {
     if (enemy.scriptNotified)
         return;
     enemy.scriptNotified = true;
     enemy.corpseTimeRemaining = kCorpseLifetimeSeconds;
+    emit statusMessage(QStringLiteral("%1 defeated").arg(prettifyRosterName(enemy.name)), StatusKind::Victory);
     awardExperience(xpForDefeatingEnemy(enemy.character->maxHp()));
     dropRandomLoot(enemy.character->feetPos().x(), enemy.character->feetPos().y());
     m_scriptEngine.callEntryPoint(QStringLiteral("onEnemyDefeated"), { QJSValue(enemy.name) });
@@ -1868,8 +1889,10 @@ void GameScene::updateEnemyAI(qreal dtSeconds)
                 if (character->isWithinMeleeReach(player->feetPos(), kEnemyAttackReach)) {
                     player->applyDamage(attackDamageFor(character->strength(), kEnemyAttackDamage));
                     m_audio.playSound(player->isDead() ? QStringLiteral("death") : QStringLiteral("hit"));
-                    if (player->isDead())
+                    if (player->isDead()) {
+                        announcePartyMemberDeath(player);
                         notifyPlayerDeathIfNeeded();
+                    }
                 }
                 enemy.attackCooldownRemaining = kEnemyAttackCooldown;
             }
@@ -2047,6 +2070,7 @@ void GameScene::updatePendingFireballHits(qreal dtSeconds)
                         }
                     }
                 } else {
+                    announcePartyMemberDeath(hit.target);
                     notifyPlayerDeathIfNeeded();
                 }
             }
@@ -2581,6 +2605,7 @@ void GameScene::awardExperience(int amount)
     if (leveledUp) {
         applyLevelBonusesToParty();
         showLevelUpEffect();
+        emit statusMessage(QStringLiteral("Reached level %1").arg(m_state->level), StatusKind::Progress);
     }
 }
 
@@ -2627,6 +2652,7 @@ void GameScene::updateItemPickups()
 
         m_state->inventory[itemId] += 1;
         m_audio.playSound(QStringLiteral("select"));
+        emit statusMessage(QStringLiteral("Picked up %1").arg(itemDisplayName(itemId)), StatusKind::Loot);
         // Picking up a chapter's own key item counts as completing that
         // chapter's main task - automatic, no script involvement needed,
         // works for every chapter already written without touching them.
@@ -2718,11 +2744,20 @@ QVariant GameScene::scriptGetGlobalVar(const QString &name, const QVariant &defa
 void GameScene::scriptGiveItem(const QString &itemId, int count)
 {
     m_state->inventory[itemId] += count;
+    if (count > 0)
+        emit statusMessage(countedItemText(QStringLiteral("Received"), itemDisplayName(itemId), count), StatusKind::Loot);
 }
 
 void GameScene::scriptRemoveItem(const QString &itemId, int count)
 {
-    const int remaining = m_state->inventory.value(itemId, 0) - count;
+    const int held = m_state->inventory.value(itemId, 0);
+    // Only what was actually held - a script taking an item defensively
+    // (a trade that already happened, a reload) shouldn't claim a hand-over.
+    const int handedOver = std::min(held, count);
+    if (handedOver > 0)
+        emit statusMessage(countedItemText(QStringLiteral("Handed over"), itemDisplayName(itemId), handedOver),
+                           StatusKind::Progress);
+    const int remaining = held - count;
     if (remaining > 0)
         m_state->inventory[itemId] = remaining;
     else
