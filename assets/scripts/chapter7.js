@@ -556,7 +556,7 @@ function buildTown() {
     api.spawnProp("standing_torch_sconce", colAt(TOWN_U), MID - 3);
     api.spawnProp("standing_torch_sconce", colAt(TOWN_U), MID + 4);
 
-    api.spawnNpc("lumberjack_2", colAt(14), MID - 3);   // the herder
+    api.spawnNpc("lumberjack", colAt(14), MID - 3);   // the herder
     api.spawnNpc("merchant", colAt(24), MID - 4);
     api.spawnNpc("innkeeper", colAt(26), MID + 5);
     api.spawnNpc("baker_2", colAt(9), MID + 6);
@@ -615,7 +615,7 @@ function buildPocket() {
 // Conversations
 // ============================================================================
 function* onTalkTo(name) {
-    if (name === "lumberjack_2") {
+    if (name === "lumberjack") {
         yield* talkToHerder();
     } else if (STRAYS.indexOf(name) >= 0) {
         yield* calmStray(name);

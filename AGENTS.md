@@ -610,16 +610,16 @@ of any new ad hoc synchronous-completion assumption.
 roster name for party/NPC lookups (`giveControl`, `despawnNpc`), where a
 name genuinely identifies one entity — but `scriptSpawnEnemy` inserts into
 the *same* table, and enemies are explicitly allowed to repeat a name
-(`spawnEnemy("orc")` three times is fine, unlike party/NPC spawns, which
+(`spawnEnemy("goblin")` three times is fine, unlike party/NPC spawns, which
 refuse a duplicate). The table is therefore serving two different concepts
 (unique entity identity vs. creature archetype) through one keyspace,
 where every enemy of the same type overwrites the previous one's entry.
-This works today because nothing currently does `giveControl("orc")` or
+This works today because nothing currently does `giveControl("goblin")` or
 otherwise expects a name-based lookup to resolve a *specific* enemy
 instance — but if a future feature needs that (a named unique boss
-tracked by ID, "target the same orc I just talked to"), the fix is a
-separate `entityId`/`archetype` distinction (e.g. `orc_0042` as the table
-key, `"orc"` as a separate archetype field), not a workaround bolted onto
+tracked by ID, "target the same goblin I just talked to"), the fix is a
+separate `entityId`/`archetype` distinction (e.g. `goblin_0042` as the table
+key, `"goblin"` as a separate archetype field), not a workaround bolted onto
 the current name-as-both-things scheme.
 
 ## Coding conventions

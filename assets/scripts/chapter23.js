@@ -528,7 +528,7 @@ const TOWN = [
 ];
 // surveyor NPC -> [display name, which benchmark, which stretch of the Survey]
 const SURVEYORS = {
-    tribal_archer_girl: ["Wynne", 0, "first"],
+    tribal_archer_girl_2: ["Wynne", 0, "first"],
     lumberjack: ["Dov", 1, "middle"],
     herbalist: ["Fen", 2, "last"],
 };
@@ -559,7 +559,7 @@ function buildTown() {
     api.spawnProp("signpost", colAt(TOWN_U - 1), MID - 3);
 
     api.spawnNpc("elder_2", colAt(14), MID - 3);                 // Cartographer Aldous
-    api.spawnNpc("tribal_archer_girl", colAt(24), MID + 5);      // Wynne
+    api.spawnNpc("tribal_archer_girl_2", colAt(24), MID + 5);      // Wynne
     api.spawnNpc("lumberjack", colAt(10), MID + 6);              // Dov
     api.spawnNpc("herbalist", colAt(30), MID - 5);               // Fen
 

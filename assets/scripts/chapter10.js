@@ -553,7 +553,7 @@ function buildTown() {
 
     api.spawnNpc("elder", colAt(14), MID - 3);                 // the Sexton
     api.spawnNpc("farmgirl", colAt(24), MID + 5);              // a mourner who stayed
-    api.spawnNpc("tribal_gatherer_girl", colAt(10), MID + 6);  // laying flowers
+    api.spawnNpc("herbalist", colAt(10), MID + 6);  // laying flowers
     api.spawnNpc("innkeeper", colAt(30), MID - 5);             // the fair's last barker
 
     if (api.getVar("town_loot_spawned", false))
@@ -604,7 +604,7 @@ function* onTalkTo(name) {
         yield* talkToSexton();
     } else if (RITE.indexOf(name) >= 0) {
         yield* speakToSpirit(name);
-    } else if (name === "farmgirl" || name === "tribal_gatherer_girl" || name === "innkeeper") {
+    } else if (name === "farmgirl" || name === "herbalist" || name === "innkeeper") {
         yield* talkToTownsfolk(name);
     }
 }
@@ -660,12 +660,12 @@ function* talkToTownsfolk(name) {
     const lines = {
         farmgirl: ["I came back to lay a wreath and simply forgot to leave. There's a lot of that going around, here.",
                    "The carousel turns once a night. Never the same night twice, and never with any horses. Nobody's fixed that in decades."],
-        tribal_gatherer_girl: ["Flowers keep. Grief doesn't. So I bring both, and let them argue about which one's more useful.",
+        herbalist: ["Flowers keep. Grief doesn't. So I bring both, and let them argue about which one's more useful.",
                                 "The Sexton talks entirely in riddles because the plain truth is apparently too blunt to say out loud around here."],
         innkeeper: ["Step right up! Free admission, on account of there being nobody left to charge admission. Mind the ones who aren't technically there.",
                     "Tickets are just the memory of tickets at this point. But the sausage rolls, and I cannot explain this, are somehow still completely real."],
     }[name];
-    const displayName = { farmgirl: "Mourner", tribal_gatherer_girl: "Gatherer", innkeeper: "Barker" }[name];
+    const displayName = { farmgirl: "Mourner", herbalist: "Gatherer", innkeeper: "Barker" }[name];
     const n = api.getVar("talk_" + name, 0);
     api.setVar("talk_" + name, n + 1);
     api.playSound("select");

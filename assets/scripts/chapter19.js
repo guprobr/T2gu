@@ -524,8 +524,8 @@ const TOWN = [
 ];
 const HEIRLOOMS = [
     // item id, display name, ambush: [[enemy, count, hp], ...]
-    ["gildmere_chalice", "the chalice", [["slime_gold", 3, 30]]],
-    ["gildmere_signet", "the signet", [["slime_bronze", 3, 30], ["imp", 2, 30]]],
+    ["gildmere_chalice", "the chalice", [["slime_void", 3, 30]]],
+    ["gildmere_signet", "the signet", [["slime_ice", 3, 30], ["imp", 2, 30]]],
     ["gildmere_censer", "the censer", [["goblin", 4, 35]]],
     ["gildmere_crown", "the crown", [["lizardman", 3, 45], ["slime_pearl", 2, 35]]],
 ];
@@ -585,7 +585,7 @@ function buildMaze() {
     spawnLoot(spots, HEIRLOOMS.map(h => h[0]), "heirlooms_spawned");
 
     spawnPacks(takeCells(pool, 0.06, 1.0, 38, 191906),
-        [["goblin", 10, 30], ["imp", 8, 30], ["lizardman", 8, 45], ["slime_gold", 6, 30], ["slime_bronze", 6, 30]],
+        [["goblin", 10, 30], ["imp", 8, 30], ["lizardman", 8, 45], ["slime_void", 6, 30], ["slime_ice", 6, 30]],
         "maze_hostiles_spawned");
 
     spawnLoot(takeCells(pool, 0.05, 0.95, 11, 191910),
@@ -692,9 +692,9 @@ function* springAmbush(index) {
 function* onEnemyDefeated(name) {
     if (Math.random() > 0.1)
         return;
-    if (name === "slime_gold") {
+    if (name === "slime_void") {
         yield api.wait(0.3);
-        yield api.say("Lara", "It left a smear of gilt on the grass, and the grass, remarkably, took it right back in.");
+        yield api.say("Lara", "It left a smear of nothing-in-particular on the grass, and the grass, remarkably, took it right back in.");
     } else if (name === "imp") {
         yield api.wait(0.3);
         yield api.say("Lara", "It was only ever guarding what it thought was rightfully its own. So, frankly, was everything else out here today.");

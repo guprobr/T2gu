@@ -421,7 +421,7 @@ function buildAdaTown() {
             "skeleton", "skeleton", "skeleton", "skeleton", "skeleton", "skeleton", "skeleton", "skeleton", "skeleton", "skeleton",
             "skeleton_archer", "skeleton_archer", "skeleton_archer", "skeleton_archer", "skeleton_archer", "skeleton_archer", "skeleton_archer", "skeleton_archer",
             "ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "ghoul",
-            "mummy", "mummy", "mummy", "mummy", "mummy", "mummy", "mummy", "mummy",
+            "zombie_peasant", "zombie_peasant", "zombie_peasant", "zombie_peasant", "zombie_peasant", "zombie_peasant", "zombie_peasant", "zombie_peasant",
         ];
         hostileTypes.forEach(type => { api.spawnEnemy(type, spots[i].col, spots[i].row, 32); i++; });
     } else {
@@ -433,7 +433,7 @@ function buildAdaTown() {
     // raise the gate. See onTalkTo/talkToKeeper().
     api.spawnNpc("gnome_wizard", spots[i].col, spots[i].row); i++;
     api.spawnNpc("harpy", spots[i].col, spots[i].row); i++;
-    api.spawnNpc("tribal_elder_woman", spots[i].col, spots[i].row); i++;
+    api.spawnNpc("sun_spirit", spots[i].col, spots[i].row); i++;
 
     if (!api.getVar("hostage_spawned", false)) {
         api.setVar("hostage_spawned", true);
@@ -485,7 +485,7 @@ function buildVault() {
 function* onTalkTo(name) {
     if (name === "dark_knight") {
         yield* talkToVigil();
-    } else if (name === "gnome_wizard" || name === "harpy" || name === "tribal_elder_woman") {
+    } else if (name === "gnome_wizard" || name === "harpy" || name === "sun_spirit") {
         yield* talkToKeeper(name);
     } else if (name === "herbalist") {
         yield* rescueHostage();
@@ -514,7 +514,7 @@ function* talkToVigil() {
 // the vault gate. Unlike Chapter 4's terminal sequence, getting the ORDER
 // right doesn't matter here - only finding all three does.
 function* talkToKeeper(name) {
-    const displayName = { gnome_wizard: "the Wizard", harpy: "the Harpy", tribal_elder_woman: "the Scholar" }[name];
+    const displayName = { gnome_wizard: "the Wizard", harpy: "the Harpy", sun_spirit: "the Scholar" }[name];
     const already = api.getVar(`fragment_${name}`, false);
     api.playSound("select");
 
@@ -536,7 +536,7 @@ function* talkToKeeper(name) {
     else
         yield api.say("the Scholar", "I came here to study the old records and somehow ended up guarding a grief instead. Occupational hazard. Take the last piece - somebody should actually use it for once.");
 
-    const count = ["gnome_wizard", "harpy", "tribal_elder_woman"].filter(n => api.getVar(`fragment_${n}`, false)).length;
+    const count = ["gnome_wizard", "harpy", "sun_spirit"].filter(n => api.getVar(`fragment_${n}`, false)).length;
     if (count === 3) {
         yield api.wait(0.3);
         yield api.say("Lara", "Three pieces, three keepers. That's the entire riddle. Honestly? A little underwhelming for how much walking that took.");
@@ -579,9 +579,9 @@ function* onEnemyDefeated(name) {
     } else if (name === "ghoul") {
         yield api.wait(0.3);
         yield api.say("Lara", "Hungry, and long past asking why. This town hasn't fed anything with a pulse in ages.");
-    } else if (name === "mummy") {
+    } else if (name === "zombie_peasant") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Somebody wrapped that with real care, once upon a time. Doesn't make it any safer to leave shuffling around the neighborhood.");
+        yield api.say("Lara", "Somebody buried that with real care, once upon a time. Doesn't make it any safer to leave shuffling around the neighborhood.");
     }
 }
 

@@ -572,7 +572,7 @@ function buildMaze() {
     // The eight trolls (the bounty) are spread through the whole maze; the rest of the hostiles fill in.
     spawnPacks(takeCells(pool, 0.10, 1.0, 8, 90902), [["troll", 8, 70]], "trolls_spawned");
     spawnPacks(takeCells(pool, 0.06, 1.0, 34, 90903),
-        [["orc", 14, 40], ["goblin", 12, 30], ["wolf", 8, 30]], "maze_hostiles_spawned");
+        [["troll", 14, 40], ["goblin", 12, 30], ["wolf", 8, 30]], "maze_hostiles_spawned");
 
     spawnLoot(takeCells(pool, 0.05, 0.95, 12, 90910),
         ["health_potion", "health_potion", "health_potion", "health_potion", "health_potion", "health_potion",
@@ -664,7 +664,7 @@ function* onEnemyDefeated(name) {
     }
     if (Math.random() > 0.1)
         return;
-    if (name === "orc") {
+    if (name === "troll") {
         yield api.wait(0.3);
         yield api.say("Lara", "Trained, at least. Somebody, somewhere, paid good money for that discipline.");
     } else if (name === "goblin") {

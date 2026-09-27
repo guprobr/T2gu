@@ -564,9 +564,9 @@ function buildTown() {
     api.spawnProp("alley_lantern_post", colAt(TOWN_U), MID + 4);
 
     api.spawnNpc("elder", colAt(14), MID - 3);               // the Lamplighter
-    api.spawnNpc("lumberjack_2", colAt(24), MID + 5);        // Woodcutter
+    api.spawnNpc("lumberjack", colAt(24), MID + 5);        // Woodcutter
     api.spawnNpc("innkeeper", colAt(10), MID + 6);           // Innkeeper
-    api.spawnNpc("tribal_archer_girl", colAt(30), MID - 5);  // the Watch
+    api.spawnNpc("tribal_archer_girl_2", colAt(30), MID - 5);  // the Watch
 
     if (api.getVar("town_loot_spawned", false))
         return;
@@ -592,7 +592,7 @@ function buildMaze() {
     waveSpots = pool.filter(c => dist(c) >= 4 && dist(c) <= 16).sort((a, b) => dist(a) - dist(b)).slice(0, 36);
 
     spawnPacks(takeCells(pool, 0.06, 0.84, 40, 151503),
-        [["orc", 8, 45], ["goblin", 10, 30], ["skeleton_swordsman", 8, 35], ["skeleton_archer", 8, 30], ["ghoul", 6, 35]],
+        [["troll", 8, 45], ["goblin", 10, 30], ["skeleton_swordsman", 8, 35], ["skeleton_archer", 8, 30], ["ghoul", 6, 35]],
         "maze_hostiles_spawned");
 
     spawnLoot(takeCells(pool, 0.05, 0.95, 12, 151510),
@@ -616,7 +616,7 @@ function* onTalkTo(name) {
         yield* talkToLamplighter();
     } else if (name === "crystal_spirit") {
         yield* talkToVigilLight();
-    } else if (name === "lumberjack_2" || name === "innkeeper" || name === "tribal_archer_girl") {
+    } else if (name === "lumberjack" || name === "innkeeper" || name === "tribal_archer_girl_2") {
         yield* talkToTownsfolk(name);
     }
 }
@@ -675,14 +675,14 @@ function spawnWave(k) {
 
 function* talkToTownsfolk(name) {
     const lines = {
-        lumberjack_2: ["I cut the poles the lanterns hang from. A hundred of them, every single year. Never had one go crooked before the hum started.",
+        lumberjack: ["I cut the poles the lanterns hang from. A hundred of them, every single year. Never had one go crooked before the hum started.",
                        "Wolves don't scare me. It's the way they walk toward the light lately, with absolutely no hurry at all, that does."],
         innkeeper: ["Hot soup, warm bed, every window lit. That's the entire winter trade around here. Don't go out into the dark without at least the first two.",
                     "The Lamplighter's nowhere near as frail as he lets on. Hauled a wolf clean off a fence-post last week by its tail, no ladder required."],
-        tribal_archer_girl: ["I keep watch from the ridge. Something's definitely shifted in the hills lately. The wolves go quiet right before they run.",
+        tribal_archer_girl_2: ["I keep watch from the ridge. Something's definitely shifted in the hills lately. The wolves go quiet right before they run.",
                              "Every arrow I own has a lantern-oil rag tied to it. Don't laugh. It works, and frankly, it looks fantastic in flight."],
     }[name];
-    const displayName = { lumberjack_2: "Woodcutter", innkeeper: "Innkeeper", tribal_archer_girl: "Watch" }[name];
+    const displayName = { lumberjack: "Woodcutter", innkeeper: "Innkeeper", tribal_archer_girl_2: "Watch" }[name];
     const n = api.getVar("talk_" + name, 0);
     api.setVar("talk_" + name, n + 1);
     api.playSound("select");

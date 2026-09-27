@@ -531,7 +531,7 @@ const TOWN = [
     ["bush", 46, 45]
 ];
 // boss forms in order: [roster key, hp, name]
-const FORMS = [["mech_red_spider_tank", 220, "Body"], ["necromancer", 200, "Voice"], ["crystal_spirit", 240, "Memory"]];
+const FORMS = [["cyber_trooper", 220, "Body"], ["necromancer", 200, "Voice"], ["crystal_spirit", 240, "Memory"]];
 const KEEPSAKES = [["clerks_stamp", "the stamp"], ["keepers_ring", "the ring"], ["reeves_ledger", "the ledger"], ["sluice_wheel", "the wheel"],
                    ["peace_banner", "the banner"], ["first_coin", "the coin"], ["surveyors_star", "the star"], ["chapel_clapper", "the clapper"]];
 let bossCell = null;
@@ -595,7 +595,7 @@ function buildMaze() {
     bossCell = takeCells(pool, 0.90, 0.97, 1, 252502)[0];
 
     spawnPacks(takeCells(pool, 0.06, 0.88, 48, 252503),
-        [["orc", 8, 45], ["troll", 4, 60], ["wraith", 8, 45], ["lizardman", 8, 45], ["imp", 8, 30], ["mech_spider", 6, 35], ["ghoul", 6, 35]],
+        [["goblin", 8, 45], ["troll", 4, 60], ["wraith", 8, 45], ["lizardman", 8, 45], ["imp", 8, 30], ["mech_spider", 6, 35], ["ghoul", 6, 35]],
         "maze_hostiles_spawned");
 
     spawnLoot(takeCells(pool, 0.05, 0.92, 14, 252510),

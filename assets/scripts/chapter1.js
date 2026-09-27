@@ -590,7 +590,7 @@ function buildMaze() {
     const elder = takeCells(pool, 0.40, 0.65, 1, 11004)[0];
     const echo = takeCells(pool, 0.70, 0.92, 1, 11005)[0];
     api.spawnNpc("bird_night_owl", owl.col, owl.row);
-    api.spawnNpc("tribal_elder_woman", elder.col, elder.row);
+    api.spawnNpc("moon_spirit", elder.col, elder.row);
     api.spawnNpc("crystal_spirit", echo.col, echo.row);
 
     // A rare friendly pair in the maze - fox poses the small riddle early, deer
@@ -625,7 +625,7 @@ function* onTalkTo(name) {
         yield* talkToWren();
     } else if (name === "baker" || name === "farmgirl" || name === "lumberjack" || name === "fisherman") {
         yield* talkToVillager(name);
-    } else if (name === "bird_night_owl" || name === "tribal_elder_woman" || name === "crystal_spirit") {
+    } else if (name === "bird_night_owl" || name === "moon_spirit" || name === "crystal_spirit") {
         yield* talkToRiddleKeeper(name);
     } else if (name === "farmhand_young") {
         yield* rescueHostage();
@@ -673,13 +673,13 @@ function* talkToVillager(name) {
     yield api.say(displayName, lines[n % lines.length]);
 }
 
-// Order-of-three riddle: bird_night_owl (listens) -> tribal_elder_woman
+// Order-of-three riddle: bird_night_owl (listens) -> moon_spirit
 // (remembers) -> crystal_spirit (answers). Talking out of order resets the
 // step with an in-fiction hint, never a hard fail - same soft-fail style
 // this project already uses for order puzzles.
 function* talkToRiddleKeeper(name) {
-    const order = ["bird_night_owl", "tribal_elder_woman", "crystal_spirit"];
-    const displayName = { bird_night_owl: "Owl", tribal_elder_woman: "Elder", crystal_spirit: "Echo" }[name];
+    const order = ["bird_night_owl", "moon_spirit", "crystal_spirit"];
+    const displayName = { bird_night_owl: "Owl", moon_spirit: "Elder", crystal_spirit: "Echo" }[name];
     const step = api.getVar("riddle_step", 0);
     api.playSound("select");
 

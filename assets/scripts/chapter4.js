@@ -431,11 +431,11 @@ function buildJunctionGauntlet() {
     const spots = sampleCells(cells, 67, 41002);
     if (!api.getVar("gauntlet_hostiles_spawned", false)) {
         api.setVar("gauntlet_hostiles_spawned", true);
-        // Exactly the original mix (mech_spider x2, mech_crimson_warbot x2,
+        // Exactly the original mix (mech_spider x2, cyber_brawler x2,
         // cyber_trooper x1, mech_stealth_fighter x1), repeated 8x (double
         // the original 4x) - "for every maze creature, four times more,
         // twice over."
-        const oneShare = ["mech_spider", "mech_crimson_warbot", "cyber_trooper", "mech_stealth_fighter", "mech_spider", "mech_crimson_warbot"];
+        const oneShare = ["mech_spider", "cyber_brawler", "cyber_trooper", "mech_stealth_fighter", "mech_spider", "cyber_brawler"];
         const hostileTypes = [].concat(oneShare, oneShare, oneShare, oneShare, oneShare, oneShare, oneShare, oneShare);
         hostileTypes.forEach((type, i) => api.spawnEnemy(type, spots[i].col, spots[i].row, 40));
     }
@@ -619,7 +619,7 @@ function* onEnemyDefeated(name) {
     if (Math.random() > 0.1)
         return;
 
-    if (name === "mech_spider" || name === "mech_crimson_warbot") {
+    if (name === "mech_spider" || name === "cyber_brawler") {
         yield api.wait(0.3);
         yield api.say("Vex", "Autonomous scrap. Whatever it was guarding, it forgot the reason around the same time it forgot to shut itself off. Relatable, honestly.");
     } else if (name === "cyber_trooper") {

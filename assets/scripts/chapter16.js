@@ -567,7 +567,7 @@ function buildTown() {
     api.spawnProp("signpost", colAt(TOWN_U - 1), MID - 3);
     api.spawnProp("standing_torch_sconce", colAt(TOWN_U), MID + 4);
 
-    api.spawnNpc("tribal_elder_woman", colAt(14), MID - 3);    // the Matron
+    api.spawnNpc("cyber_mystic", colAt(14), MID - 3);    // the Matron
     api.spawnNpc("baker", colAt(24), MID + 5);                 // Baker
     api.spawnNpc("farmhand_pitchfork", colAt(10), MID + 6);    // Hollis
     api.spawnNpc("herbalist", colAt(30), MID - 5);             // the Herbalist
@@ -597,7 +597,7 @@ function buildMaze() {
     guardSpots.forEach(g => pool.splice(pool.indexOf(g), 1));
     if (!api.getVar("guards_spawned", false)) {
         api.setVar("guards_spawned", true);
-        guardSpots.forEach((g, k) => api.spawnEnemy(k % 2 ? "troll" : "orc", g.col, g.row, k % 2 ? 60 : 45));
+        guardSpots.forEach((g, k) => api.spawnEnemy(k % 2 ? "troll" : "goblin", g.col, g.row, k % 2 ? 60 : 45));
     }
 
     // The Cantor keeps the last stretch before the door.
@@ -608,7 +608,7 @@ function buildMaze() {
     }
 
     spawnPacks(takeCells(pool, 0.06, 0.96, 38, 161604),
-        [["mummy", 8, 45], ["skeleton_swordsman", 8, 35], ["ghoul", 8, 35], ["wraith", 8, 45], ["vampire", 6, 60]],
+        [["zombie_peasant", 8, 45], ["skeleton_swordsman", 8, 35], ["ghoul", 8, 35], ["wraith", 8, 45], ["vampire", 6, 60]],
         "maze_hostiles_spawned");
 
     spawnLoot(takeCells(pool, 0.05, 0.95, 12, 161610),
@@ -642,7 +642,7 @@ function* openDoorIfReady() {
 }
 
 function* onTalkTo(name) {
-    if (name === "tribal_elder_woman") {
+    if (name === "cyber_mystic") {
         yield* talkToMatron();
     } else if (name === "elder_2") {
         yield* talkToChoirmaster();
@@ -740,9 +740,9 @@ function* onEnemyDefeated(name) {
     }
     if (Math.random() > 0.1)
         return;
-    if (name === "mummy") {
+    if (name === "zombie_peasant") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Wrapped and waiting since before this hall even had a roof. I sincerely hope the next wait is shorter than that one.");
+        yield api.say("Lara", "Buried and waiting since before this hall even had a roof. I sincerely hope the next wait is shorter than that one.");
     } else if (name === "vampire") {
         yield api.wait(0.3);
         yield api.say("Lara", "It didn't want to be here either, clearly. That's the part that keeps catching me off guard about every single one of them.");

@@ -573,7 +573,7 @@ function buildMaze() {
     const pool = cells.slice();
 
     spawnPacks(takeCells(pool, 0.06, 1.0, 38, 121202),
-        [["fire_spirit", 10, 40], ["imp", 12, 30], ["lizardman", 8, 45], ["orc", 8, 45]], "maze_hostiles_spawned");
+        [["fire_spirit", 10, 40], ["imp", 12, 30], ["lizardman", 8, 45], ["goblin", 8, 45]], "maze_hostiles_spawned");
 
     // The Slagwarden waits in the last stretch before the exit. One golem, a great deal of it.
     const warden = takeCells(pool, 0.90, 0.98, 1, 121203)[0];

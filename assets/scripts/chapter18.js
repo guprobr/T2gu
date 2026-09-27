@@ -530,7 +530,7 @@ const TOWN = [
 ];
 // Doorward NPC -> the barrier it opens, the key it wants, and how it speaks
 const DOORS = {
-    tribal_warrior_man: { id: "door_bronze", key: "keep_key_bronze", who: "Doorward Halric", metal: "bronze", next: "the second door, further in" },
+    cyber_swordfighter: { id: "door_bronze", key: "keep_key_bronze", who: "Doorward Halric", metal: "bronze", next: "the second door, further in" },
     tribal_caveman_warrior: { id: "door_silver", key: "keep_key_silver", who: "Doorward Orn", metal: "silver", next: "the way out" },
 };
 let doorInfo = null;   // set by buildMaze: the two door columns and the rows of the openings they close
@@ -600,7 +600,7 @@ function buildMaze() {
         return cell;
     };
     const ward1 = wardCell(0), ward2 = wardCell(1);
-    api.spawnNpc("tribal_warrior_man", ward1.col, ward1.row);
+    api.spawnNpc("cyber_swordfighter", ward1.col, ward1.row);
     api.spawnNpc("tribal_caveman_warrior", ward2.col, ward2.row);
 
     // Each key lies inside the stage before its own door, with two guards left near it.
@@ -613,12 +613,12 @@ function buildMaze() {
         .filter(x => x.d >= 4).sort((a, b) => a.d - b.d).slice(0, 2).map(x => x.c);
     if (!api.getVar("key_guards_spawned", false)) {
         api.setVar("key_guards_spawned", true);
-        guardsFor(key1).forEach(g => api.spawnEnemy("orc", g.col, g.row, 50));
+        guardsFor(key1).forEach(g => api.spawnEnemy("goblin", g.col, g.row, 50));
         guardsFor(key2).forEach(g => api.spawnEnemy("troll", g.col, g.row, 70));
     }
 
     spawnPacks(takeCells(pool, 0.06, 1.0, 44, 181804),
-        [["skeleton_swordsman", 10, 35], ["skeleton_archer", 8, 30], ["mummy", 8, 45], ["ghoul", 8, 35], ["zombie_peasant", 10, 30]],
+        [["skeleton_swordsman", 10, 35], ["skeleton_archer", 8, 30], ["wraith", 8, 45], ["ghoul", 8, 35], ["zombie_peasant", 10, 30]],
         "maze_hostiles_spawned");
 
     spawnLoot(takeCells(pool, 0.05, 0.95, 12, 181810),
@@ -713,9 +713,9 @@ function* onEnemyDefeated(name) {
     if (name === "skeleton_archer") {
         yield api.wait(0.3);
         yield api.say("Lara", "Still nocking an arrow at the exact door it was told to watch. The door, I should mention, is well behind me now.");
-    } else if (name === "mummy") {
+    } else if (name === "wraith") {
         yield api.wait(0.3);
-        yield api.say("Lara", "Whoever was wrapped up in all of this must have been genuinely terrified of being found.");
+        yield api.say("Lara", "Whoever that used to be must have been genuinely terrified of being found.");
     }
 }
 

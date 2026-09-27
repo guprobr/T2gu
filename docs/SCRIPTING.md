@@ -208,7 +208,7 @@ Once a character's total Intelligence (base `stats.json` value plus level
 and item bonuses - see below) reaches **12**, they can throw fireballs.
 `stats.json`'s roster spans Intelligence 2-22 (median 8); 12 keeps every
 common hostile "grunt" shut out (checked the whole hostile roster - wolf,
-bear, boar, goblin, every skeleton variant, orc, troll, zombie_peasant,
+bear, boar, goblin, every skeleton variant, troll, zombie_peasant,
 the mech-* line, etc. all sit at 2-10) while letting the real mage/spirit/
 undead archetypes through (`necromancer` 21, `dark_elf_mage`/
 `gnome_wizard` 20, the elemental spirits at 17-19, `cyber_medic`/
@@ -436,7 +436,7 @@ no-op (you just get an object back and discard it). **They only work inside a
 
 ```js
 function* onLevelStart() {
-    api.spawnEnemy("orc", 10, 5);            // immediate - runs right away
+    api.spawnEnemy("goblin", 10, 5);         // immediate - runs right away
     yield api.wait(2.0);                      // pauses 2 real seconds
     yield api.say("lara_cyber", "Hello!");    // pauses until the player advances
     api.setTileset("grass_dirt");             // runs once resumed

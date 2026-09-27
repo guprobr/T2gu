@@ -466,7 +466,7 @@ function pocketCols() {
 // never the run - the Assize Yard's exit was never actually locked.
 //
 //   Maud  (baker):        "It wasn't me, and it wasn't the Woodward."
-//   Hale  (lumberjack_2): "I was with Maud the whole night."
+//   Hale  (lumberjack): "I was with Maud the whole night."
 //   Grimm (farmer_reaper):"The Woodward is the thief."
 // ----------------------------------------------------------------------------
 const TOWN = [
@@ -539,7 +539,7 @@ const THIEF = "farmer_reaper";
 // suspect NPC -> [display name, statement, the line that goes with it]
 const SUSPECTS = {
     baker: ["Maud", "It wasn't me, and it wasn't the Woodward. That is all I can tell you, and it is all that is true.", "I was up before the bell should have rung, kneading. I'd have heard anyone."],
-    lumberjack_2: ["Hale", "I was with Maud the whole night, from the last toll to the dawn. Ask her, if you like.", "I don't sleep well since the hum stopped. I sit up with people. It helps."],
+    lumberjack: ["Hale", "I was with Maud the whole night, from the last toll to the dawn. Ask her, if you like.", "I don't sleep well since the hum stopped. I sit up with people. It helps."],
     farmer_reaper: ["Grimm", "The Woodward is the thief. I saw the sack under his arm, plain as the gallows.", "Oh, I'm not saying it lightly. I've known Hale for years."],
 };
 let suspectSpots = {};   // suspect key -> its cell (set by buildMaze), so a wrongly accused one turns hostile where they stood
@@ -569,7 +569,7 @@ function buildTown() {
     api.spawnProp("signpost", colAt(TOWN_U - 1), MID - 3);
     api.spawnProp("standing_torch_sconce", colAt(TOWN_U), MID + 4);
 
-    api.spawnNpc("tribal_elder_woman", colAt(14), MID - 3);     // Magistrate Oona
+    api.spawnNpc("cyber_mystic", colAt(14), MID - 3);     // Magistrate Oona
     api.spawnNpc("innkeeper", colAt(24), MID + 5);              // the Landlord
     api.spawnNpc("gnome_wizard", colAt(10), MID + 6);           // the Court Clerk
     api.spawnNpc("angler", colAt(30), MID - 5);                 // Netter, a witness
@@ -620,7 +620,7 @@ function buildPocket() {
 }
 
 function* onTalkTo(name) {
-    if (name === "tribal_elder_woman") {
+    if (name === "cyber_mystic") {
         yield* talkToMagistrate();
     } else if (SUSPECTS[name]) {
         yield* talkToSuspect(name);

@@ -435,21 +435,21 @@ function buildTheHollow() {
         // troll x1, mummy x1, skeleton_swordsman x1), repeated 8x (double
         // the original 4x) - "for every maze creature, four times more,
         // twice over."
-        const oneShare = ["skeleton", "skeleton_archer", "orc", "troll", "mummy", "skeleton_swordsman", "skeleton", "orc"];
+        const oneShare = ["skeleton", "skeleton_archer", "goblin", "troll", "zombie_peasant", "skeleton_swordsman", "skeleton", "goblin"];
         const hostileTypes = [].concat(oneShare, oneShare, oneShare, oneShare, oneShare, oneShare, oneShare, oneShare);
         hostileTypes.forEach((type, i) => api.spawnEnemy(type, spots[i].col, spots[i].row, 35));
     }
 
     // Order-of-three riddle-keepers, spaced deep along the same corridor -
-    // gnome_alchemist (mixes) -> earth_spirit (settles) -> tribal_elder_woman
+    // gnome_alchemist (mixes) -> earth_spirit (settles) -> storm_spirit
     // (remembers).
     api.spawnNpc("gnome_alchemist", spots[64].col, spots[64].row);
     api.spawnNpc("earth_spirit", spots[65].col, spots[65].row);
-    api.spawnNpc("tribal_elder_woman", spots[66].col, spots[66].row);
+    api.spawnNpc("storm_spirit", spots[66].col, spots[66].row);
 
     if (!api.getVar("hostage_spawned", false)) {
         api.setVar("hostage_spawned", true);
-        api.spawnNpc("miner", spots[67].col, spots[67].row);
+        api.spawnNpc("gnome_engineer", spots[67].col, spots[67].row);
     }
 
     if (api.getVar("hollow_loot_spawned", false))
@@ -496,9 +496,9 @@ function buildEndAlcove() {
 function* onTalkTo(name) {
     if (name === "dwarf_miner") {
         yield* talkToCobb();
-    } else if (name === "gnome_alchemist" || name === "earth_spirit" || name === "tribal_elder_woman") {
+    } else if (name === "gnome_alchemist" || name === "earth_spirit" || name === "storm_spirit") {
         yield* talkToRiddleKeeper(name);
-    } else if (name === "miner") {
+    } else if (name === "gnome_engineer") {
         yield* rescueHostage();
     } else if (name === "dwarf_bomber" || name === "blacksmith_2") {
         yield* talkToForgeKeeper(name);
@@ -527,10 +527,10 @@ function* talkToCobb() {
 }
 
 // Order-of-three riddle: gnome_alchemist (mixes) -> earth_spirit (settles)
-// -> tribal_elder_woman (remembers).
+// -> storm_spirit (remembers).
 function* talkToRiddleKeeper(name) {
-    const order = ["gnome_alchemist", "earth_spirit", "tribal_elder_woman"];
-    const displayName = { gnome_alchemist: "Mix", earth_spirit: "Settle", tribal_elder_woman: "Remember" }[name];
+    const order = ["gnome_alchemist", "earth_spirit", "storm_spirit"];
+    const displayName = { gnome_alchemist: "Mix", earth_spirit: "Settle", storm_spirit: "Remember" }[name];
     const step = api.getVar("riddle_step", 0);
     api.playSound("select");
 
@@ -617,10 +617,10 @@ function* onEnemyDefeated(name) {
     if (name === "skeleton" || name === "skeleton_archer" || name === "skeleton_swordsman") {
         yield api.wait(0.3);
         yield api.say("Cobb", "Old bones. This claim's a lot older than I ever gave it credit for, and considerably more crowded.");
-    } else if (name === "mummy") {
+    } else if (name === "zombie_peasant") {
         yield api.wait(0.3);
         yield api.say("Lara", "Whatever kept that thing standing, it wasn't life. Something was just doing routine maintenance on it.");
-    } else if (name === "troll" || name === "orc") {
+    } else if (name === "troll" || name === "goblin") {
         yield api.wait(0.3);
         yield api.say("Cobb", "Not undead, that one - just mean, lost, and a very long way from wherever it's supposed to be complaining about its commute.");
     }

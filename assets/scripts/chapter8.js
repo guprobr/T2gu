@@ -575,7 +575,7 @@ function buildMaze() {
     const pool = cells.slice();
 
     spawnPacks(takeCells(pool, 0.06, 1.0, 38, 80802),
-        [["mech_spider", 12, 35], ["mech_crimson_warbot", 8, 45], ["mech_red_spider_tank", 4, 60], ["cyber_brawler", 8, 45], ["cyber_swordfighter", 6, 40]],
+        [["mech_spider", 12, 35], ["cyber_mystic", 8, 45], ["mech_stealth_fighter", 4, 60], ["cyber_brawler", 8, 45], ["cyber_swordfighter", 6, 40]],
         "maze_hostiles_spawned");
 
     // The warden stands in the last stretch before the exit gate - reachable, on the near side of it.

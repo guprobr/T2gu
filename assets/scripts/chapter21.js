@@ -584,7 +584,7 @@ function buildMaze() {
     spawnLoot(goods.map(g => g[0]), goods.map(g => g[1]), "guild_goods_spawned");
 
     spawnPacks(takeCells(pool, 0.06, 1.0, 36, 212110),
-        [["orc", 10, 45], ["goblin", 8, 30], ["troll", 4, 60], ["lizardman", 8, 45], ["imp", 6, 30]],
+        [["ghoul", 10, 45], ["goblin", 8, 30], ["troll", 4, 60], ["lizardman", 8, 45], ["imp", 6, 30]],
         "maze_hostiles_spawned");
 
     spawnLoot(takeCells(pool, 0.05, 0.95, 11, 212120),

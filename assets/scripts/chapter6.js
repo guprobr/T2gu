@@ -435,12 +435,12 @@ function buildTrialMaze() {
 
     if (!api.getVar("trial_hostiles_spawned", false)) {
         api.setVar("trial_hostiles_spawned", true);
-        const hp = { wolf: 35, orc: 45, troll: 55, lizardman: 60, skeleton_swordsman: 40 };
+        const hp = { wolf: 35, ghoul: 45, troll: 55, lizardman: 60, skeleton_swordsman: 40 };
         const hostileTypes = [
             "wolf", "wolf", "wolf", "wolf", "wolf", "wolf", "wolf", "wolf",
             "wolf", "wolf", "wolf", "wolf", "wolf", "wolf", "wolf", "wolf",
-            "orc", "orc", "orc", "orc", "orc", "orc", "orc", "orc", "orc",
-            "orc", "orc", "orc", "orc", "orc", "orc", "orc", "orc", "orc",
+            "ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "ghoul",
+            "ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "ghoul",
             "troll", "troll", "troll", "troll", "troll", "troll", "troll", "troll",
             "troll", "troll", "troll", "troll", "troll", "troll", "troll", "troll",
             "lizardman", "lizardman", "lizardman", "lizardman", "lizardman", "lizardman", "lizardman", "lizardman",

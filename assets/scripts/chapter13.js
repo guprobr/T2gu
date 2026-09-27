@@ -528,8 +528,8 @@ const TOWN = [
     ["rocks_small", 41, -15],
     ["cave_torch_sconce", 41, -3]
 ];
-const RELAYS = ["mech_arcane_fighter", "mech_crimson_warbot_2", "mech_stealth_fighter"];
-const RELAY_NAME = { mech_arcane_fighter: "Relay One", mech_crimson_warbot_2: "Relay Two", mech_stealth_fighter: "Relay Three" };
+const RELAYS = ["cyber_trooper", "cyber_rogue", "mech_stealth_fighter"];
+const RELAY_NAME = { cyber_trooper: "Relay One", cyber_rogue: "Relay Two", mech_stealth_fighter: "Relay Three" };
 
 function* onLevelStart() {
     api.spawnCharacter("lara_cyber", colAt(START_U), MID);
@@ -557,7 +557,7 @@ function buildTown() {
     api.spawnProp("cave_torch_sconce", colAt(TOWN_U), MID + 4);
 
     api.spawnNpc("gnome_engineer", colAt(14), MID - 3);     // Fuse, the line keeper
-    api.spawnNpc("miner", colAt(24), MID + 5);              // Digger
+    api.spawnNpc("gnome_inventor", colAt(24), MID + 5);              // Digger
     api.spawnNpc("elder_2", colAt(10), MID + 6);            // the Stationmaster
     api.spawnNpc("mushroom_gnome", colAt(30), MID - 5);     // Cap
 
@@ -578,7 +578,7 @@ function buildMaze() {
     const pool = cells.slice();
 
     spawnPacks(takeCells(pool, 0.06, 1.0, 40, 131302),
-        [["goblin", 12, 30], ["slime_void", 10, 35], ["mech_spider", 8, 35], ["mech_red_spider_tank", 4, 60], ["orc", 6, 45]],
+        [["goblin", 12, 30], ["slime_void", 10, 35], ["mech_spider", 8, 35], ["cyber_brawler", 4, 60], ["troll", 6, 45]],
         "maze_hostiles_spawned");
 
     // The relay chain, downstream: one unit per third of the tunnels.
@@ -618,7 +618,7 @@ function* onTalkTo(name) {
         yield* talkToFuse();
     } else if (RELAYS.indexOf(name) >= 0) {
         yield* speakToRelay(name);
-    } else if (name === "miner" || name === "elder_2" || name === "mushroom_gnome") {
+    } else if (name === "gnome_inventor" || name === "elder_2" || name === "mushroom_gnome") {
         yield* talkToTownsfolk(name);
     }
 }
@@ -672,14 +672,14 @@ function* speakToRelay(name) {
 
 function* talkToTownsfolk(name) {
     const lines = {
-        miner: ["I dig. That's the whole job description. The tunnels west of here, I did not dig. Somebody with considerably longer arms did.",
+        gnome_inventor: ["I dig. That's the whole job description. The tunnels west of here, I did not dig. Somebody with considerably longer arms did.",
                 "Ceilings that sparkle mean crystal. Ceilings that drip mean water. Ceilings that do neither, you run, and you don't stop to ask why."],
         elder_2: ["The last train left eleven years ago. We keep the platform swept anyway, just in case it feels like a comeback.",
                   "The Stationmaster's one rule: anyone who arrives gets a bench and a hot drink, and absolutely nobody asks where from. Good policy."],
         mushroom_gnome: ["Blue caps are for soup. Red caps are for arguments. Don't mix them up. I have mixed them up. I do not recommend it.",
                          "Everything down here is quietly, patiently growing. It's the only place I've ever actually felt at home in my life."],
     }[name];
-    const displayName = { miner: "Digger", elder_2: "Stationmaster", mushroom_gnome: "Cap" }[name];
+    const displayName = { gnome_inventor: "Digger", elder_2: "Stationmaster", mushroom_gnome: "Cap" }[name];
     const n = api.getVar("talk_" + name, 0);
     api.setVar("talk_" + name, n + 1);
     api.playSound("select");

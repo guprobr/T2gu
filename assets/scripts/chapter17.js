@@ -528,8 +528,8 @@ const TOWN = [
 // owner NPC -> [the lost item, display name, where they say they lost it]
 const CLAIMS = {
     farmhand_young: ["lost_music_box", "Pip", "somewhere near the start of the lanes"],
-    tribal_gatherer_girl: ["lost_locket", "Nell", "in the middle stretch, among the fences"],
-    lumberjack_2: ["lost_talisman", "Old Tam", "right at the far end, by the last drifts"],
+    herbalist: ["lost_locket", "Nell", "in the middle stretch, among the fences"],
+    lumberjack: ["lost_talisman", "Old Tam", "right at the far end, by the last drifts"],
 };
 const HEADING = DIR > 0 ? "east" : "west";
 
@@ -560,8 +560,8 @@ function buildTown() {
 
     api.spawnNpc("gnome_wizard", colAt(14), MID - 3);              // the Claims Clerk
     api.spawnNpc("farmhand_young", colAt(24), MID + 5);            // Pip
-    api.spawnNpc("tribal_gatherer_girl", colAt(10), MID + 6);      // Nell
-    api.spawnNpc("lumberjack_2", colAt(30), MID - 5);              // Old Tam
+    api.spawnNpc("herbalist", colAt(10), MID + 6);      // Nell
+    api.spawnNpc("lumberjack", colAt(30), MID - 5);              // Old Tam
 
     if (api.getVar("town_loot_spawned", false))
         return;
@@ -653,8 +653,8 @@ function* talkToClaimant(name) {
         api.giveExperience(40);
         const RETURN_LINES = {
             farmhand_young: "*he winds the key, and the little box plays half a tune, then waits, same as always* ...It always waits. Waiting for a second half nobody alive remembers writing. But it's mine again. Thank you!",
-            tribal_gatherer_girl: "*she closes her hand around the locket and doesn't open it* My grandmother's. I lost it the same week the hum stopped, and some small, unreasonable part of me thought that meant losing her all over again.",
-            lumberjack_2: "*he turns the woven charm over, counting knots with visible relief* Every winter, one knot. Forty-one of them. Ha! I genuinely thought the drifts had swallowed it for good.",
+            herbalist: "*she closes her hand around the locket and doesn't open it* My grandmother's. I lost it the same week the hum stopped, and some small, unreasonable part of me thought that meant losing her all over again.",
+            lumberjack: "*he turns the woven charm over, counting knots with visible relief* Every winter, one knot. Forty-one of them. Ha! I genuinely thought the drifts had swallowed it for good.",
         };
         yield api.say(who, RETURN_LINES[name]);
         const left = Object.keys(CLAIMS).length - claimsReturned();
@@ -667,8 +667,8 @@ function* talkToClaimant(name) {
     if (n === 0) {
         const OPENING = {
             farmhand_young: "I lost my music box. It's not worth much of anything. Only plays half a tune. But it's the one thing my mother left me that still, technically, does something.",
-            tribal_gatherer_girl: "I lost my grandmother's locket while out gathering. It's silver, and it's warm, and yes, I'm aware that's an odd thing to say about a piece of metal.",
-            lumberjack_2: "My charm. Woven, a knot for every winter I've personally survived. Forty-one knots. A man my age does not simply get to replace those.",
+            herbalist: "I lost my grandmother's locket while out gathering. It's silver, and it's warm, and yes, I'm aware that's an odd thing to say about a piece of metal.",
+            lumberjack: "My charm. Woven, a knot for every winter I've personally survived. Forty-one knots. A man my age does not simply get to replace those.",
         };
         yield api.say(who, OPENING[name]);
         yield api.say(who, "I lost it " + where + " of the Snowlanes - " + HEADING + " of here. Please be careful. And please find it.");

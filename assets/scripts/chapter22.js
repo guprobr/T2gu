@@ -582,7 +582,7 @@ function buildMaze() {
     api.spawnNpc("mech_stealth_fighter", drone.col, drone.row);
 
     spawnPacks(takeCells(pool, 0.06, 0.90, 38, 222204),
-        [["goblin", 10, 30], ["imp", 8, 30], ["slime_bronze", 8, 30], ["cyber_brawler", 6, 45], ["mech_spider", 6, 35]],
+        [["goblin", 10, 30], ["imp", 8, 30], ["slime_void", 8, 30], ["cyber_brawler", 6, 45], ["mech_spider", 6, 35]],
         "maze_hostiles_spawned");
 
     spawnLoot(takeCells(pool, 0.05, 0.95, 12, 222210),
