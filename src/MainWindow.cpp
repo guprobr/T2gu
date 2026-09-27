@@ -292,7 +292,6 @@ void MainWindow::finishLoadingLevel(const QString &mapPath)
     if (oldScene)
         QTimer::singleShot(0, this, [oldScene] { delete oldScene; }); // already stopped ticking in loadLevel()
 
-    m_loadingOverlay->hide();
     m_levelTransitionPending = false;
 
     // See loadGame()'s own comment - queued via singleShot(0) on the NEW
@@ -305,6 +304,18 @@ void MainWindow::finishLoadingLevel(const QString &mapPath)
         m_afterNextSceneReady = nullptr;
         QTimer::singleShot(0, m_scene, [callback] { callback(); });
     }
+
+    // The loading vignette used to hide right here, the instant this
+    // (still-empty) GameScene existed - GameScene's own onLevelStart is
+    // deferred to the next event-loop turn (see its constructor's own
+    // comment on why), so the town/maze/hostiles a chapter script spawns
+    // hadn't actually appeared yet: the overlay dropped, revealing a bare
+    // map for a beat, then everything popped in. Deferred one more
+    // singleShot(0) turn - queued last, after onLevelStart's own turn above
+    // and after a pending snapshot restore's turn, if any - so it fires
+    // once the level is genuinely populated, relying on the same same-
+    // priority queue-order guarantee m_afterNextSceneReady already does.
+    QTimer::singleShot(0, this, [this] { m_loadingOverlay->hide(); });
 }
 
 void MainWindow::centerViewOn(QPointF scenePos)

@@ -725,6 +725,19 @@ private:
     // spot it started from. Zero length once the real trail is long enough.
     QPointF m_trailTailDir;
     qreal m_trailTailLength = 0.0;
+    // Set by restoreSnapshot() right after it places every follower at its
+    // exact saved position - a freshly-constructed scene's trail state has
+    // no memory of that (updateLeaderTrail() treats it as "leader just
+    // appeared here," see above), so without this, followTrail()/
+    // shuffleInCrowd() would immediately start correcting each follower
+    // toward a trail slot computed from nothing but the leader's current
+    // spot - visibly undoing the restore by walking them to the leader
+    // instead of leaving them where the save put them. Cleared by
+    // updateLeaderTrail() the moment the leader genuinely moves again, at
+    // which point normal following resumes exactly as it does any other
+    // time a follower falls out of position - this only suppresses the
+    // one artificial "correction" a load would otherwise cause immediately.
+    bool m_partyFollowSuppressedUntilLeaderMoves = false;
     // Cells findPath() should treat as impassable a bit longer than the
     // map's own static data says, keyed by tile cell with seconds
     // remaining (decremented/pruned once per tick in onTick()). Populated

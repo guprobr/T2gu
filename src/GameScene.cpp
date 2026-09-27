@@ -1352,6 +1352,16 @@ void GameScene::updatePartyAI(qreal dtSeconds)
             continue;
         }
 
+        // A load just placed every follower at its exact saved spot - stand
+        // there rather than let the block below correct it toward a trail
+        // slot with no relation to that position. See the member comment;
+        // cleared the moment the leader genuinely moves again.
+        if (m_partyFollowSuppressedUntilLeaderMoves) {
+            character->setVelocity(QPointF(0, 0));
+            ++followerIndex;
+            continue;
+        }
+
         // No enemy nearby - follow the controlled character along its trail,
         // or, once it has stopped, mill about near it. The catch-up boost
         // is keyed on distance to the *player*, not to this follower's own
@@ -1408,6 +1418,7 @@ void GameScene::updateLeaderTrail(Character *leader, qreal dtSeconds)
     } else {
         m_leaderStillSeconds = 0.0;
         m_leaderHeading = moved / movedDistance;
+        m_partyFollowSuppressedUntilLeaderMoves = false; // see the member's own comment
     }
     m_lastLeaderFeet = feet;
 
@@ -2401,6 +2412,10 @@ void GameScene::restoreSnapshot(const SceneSnapshot &snapshot)
             break;
         }
     }
+    // See the member's own comment - without this, updatePartyAI() would
+    // immediately walk every follower away from the position just restored
+    // above, toward a trail slot with no relation to it.
+    m_partyFollowSuppressedUntilLeaderMoves = true;
     if (!snapshot.controlledName.isEmpty()) {
         for (int i = 0; i < m_party.size(); ++i) {
             if (m_party.at(i)->name() == snapshot.controlledName) {
