@@ -8,35 +8,19 @@ ScriptBridge::ScriptBridge(GameScene *scene, QObject *parent)
 {
 }
 
-// Every api.spawn* below plays a short cue on top of its actual effect -
-// deliberately scoped to this script-facing layer rather than the shared
-// GameScene helpers underneath (spawnPropAt, createCharacterAt), since those
-// are also used for bulk, non-narrative decoration (the border/wall ring,
-// the sandbox showcase grids, hand-authored village/ruins layouts) that
-// would turn into an unlistenable barrage if each one played a sound too.
-// Reuses "select" (see assets/audio/sfx/select.wav) rather than a dedicated
-// new asset - it already reads as a short, neutral "something happened" UI
-// blip elsewhere in the game.
-namespace {
-constexpr auto kSpawnCueName = "select";
-}
-
 void ScriptBridge::spawnCharacter(const QString &name, int col, int row, int hp)
 {
     m_scene->scriptSpawnCharacter(name, col, row, hp);
-    m_scene->scriptPlaySound(QString::fromLatin1(kSpawnCueName));
 }
 
 void ScriptBridge::spawnEnemy(const QString &name, int col, int row, int hp)
 {
     m_scene->scriptSpawnEnemy(name, col, row, hp);
-    m_scene->scriptPlaySound(QString::fromLatin1(kSpawnCueName));
 }
 
 void ScriptBridge::spawnNpc(const QString &name, int col, int row)
 {
     m_scene->scriptSpawnNpc(name, col, row);
-    m_scene->scriptPlaySound(QString::fromLatin1(kSpawnCueName));
 }
 
 void ScriptBridge::despawnNpc(const QString &name)
@@ -47,13 +31,11 @@ void ScriptBridge::despawnNpc(const QString &name)
 void ScriptBridge::spawnProp(const QString &name, int col, int row)
 {
     m_scene->spawnPropAt(name, col, row);
-    m_scene->scriptPlaySound(QString::fromLatin1(kSpawnCueName));
 }
 
 void ScriptBridge::spawnItem(const QString &itemId, int col, int row)
 {
     m_scene->scriptSpawnItem(itemId, col, row);
-    m_scene->scriptPlaySound(QString::fromLatin1(kSpawnCueName));
 }
 
 void ScriptBridge::setTileset(const QString &relativePath)

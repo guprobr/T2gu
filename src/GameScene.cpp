@@ -2582,10 +2582,6 @@ void GameScene::dropRandomLoot(qreal worldX, qreal worldY)
 
     const QString &itemId = m_lootPool.at(QRandomGenerator::global()->bounded(m_lootPool.size()));
     spawnItemInWorld(itemId, worldX, worldY);
-    // Same spawn cue ScriptBridge plays for a scripted spawn - a loot drop
-    // is engine-triggered, not script-triggered, but it's just as much a
-    // "something appeared" moment worth signaling.
-    m_audio.playSound(QStringLiteral("select"));
 }
 
 void GameScene::scriptGiveExperience(int amount)

@@ -112,17 +112,6 @@ directly, they don't receive it as an argument to their entry points.
 These run synchronously and return right away. Call them any time, inside or
 outside a generator - no `yield` needed.
 
-`spawnCharacter`/`spawnEnemy`/`spawnNpc`/`spawnProp`/`spawnItem` below each also
-play a short "select" cue the instant they place something - a script never
-needs to call `playSound` itself just to signal a spawn. This is scoped to
-these `api.*` calls specifically (in `ScriptBridge`, not the shared
-`GameScene` helpers underneath), so it does *not* fire for the map's own
-non-narrative bulk decoration (the border/wall ring, sandbox showcase grids,
-hand-authored layouts) - only script-triggered spawns get the cue. A random
-enemy-loot drop (see "Random enemy loot" further down, under Items and
-inventory) plays the same cue too, even though nothing in the script caused
-it directly.
-
 | Call | Effect |
 |---|---|
 | `api.spawnCharacter(name, col, row, hp = 0)` | Spawns a new **party-controllable** character at tile `(col, row)`. Added to the Tab/click-to-select roster. Strength/Speed (see below) come along automatically. `hp <= 0` (the default - omit it) means "use `GameState::heroBaseMaxHp`" (200 for a new game, persists across level transitions/saves) rather than a fixed number - every chapter's own `lara_cyber` spawn call relies on this so her max HP can actually progress instead of being reset to a literal every chapter. A companion should still pass its own explicit `hp` (its fixed archetype toughness), same as every existing one does. |

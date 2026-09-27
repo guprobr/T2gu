@@ -38,6 +38,15 @@ QPixmap buildSplashPixmap()
     painter.setFont(font);
     painter.drawText(QRect(0, 190, pixmap.width(), 60), Qt::AlignCenter, QStringLiteral("ShadowShine"));
 
+    // Same gold, dimmed rather than a different color - reads as part of
+    // the title lockup, not a separate debug/UI label.
+    painter.setPen(QColor(0xff, 0xd7, 0x00, 160));
+    QFont versionFont = painter.font();
+    versionFont.setPointSize(12);
+    versionFont.setBold(false);
+    painter.setFont(versionFont);
+    painter.drawText(QRect(0, 248, pixmap.width(), 24), Qt::AlignCenter, QString::fromLatin1(kGameVersion));
+
     painter.end();
     return pixmap;
 }

@@ -206,13 +206,15 @@ function buildBranchingMaze(west, east, northRow, southRow, corridorWidth, wallW
     }
     // Below each mouth (the openings in the outer border), wall tiles get small edge props,
     // never the block's core set-piece. Props draw upward from their base, so a core prop a
-    // few rows south of the opening (a cottage is ~3 tiles tall, cliff_face ~7) painted over
+    // few rows south of the opening (a cottage is ~3-4 tiles tall, cliff_face ~7-8) painted over
     // the whole 2-tile corridor: the gap was walkable but the maze read as a solid wall from
     // outside. The border's outer face never counts as a seam (isOpenAt only knows the maze's
     // own tiles), which is why the border under a mouth got the big type. The side margin
-    // covers wide art (cliff_face spans ~5 tiles). Rolled from a separate stream so every
-    // other prop in the maze comes out exactly as before.
-    const kMouthClearRows = 7, kMouthSideMargin = 2;
+    // covers wide art (cliff_face spans ~5-6 tiles). Rolled from a separate stream so every
+    // other prop in the maze comes out exactly as before. Both margins widened by one tile
+    // (2026-09-27) after every prop's catalog width grew ~9% (buildings ~18%) to read as more
+    // proportional to characters - re-derive these if that calibration ever changes again.
+    const kMouthClearRows = 8, kMouthSideMargin = 3;
     const mouthRand = mulberry32(seed ^ 0x6d6f7574);
     function inMouthBand(c, r) {
         const band = (c0, c1, openingSouthRow) => c >= c0 && c <= c1 && r > openingSouthRow && r <= openingSouthRow + kMouthClearRows;
