@@ -202,11 +202,12 @@ function buildBranchingMaze(west, east, northRow, southRow, corridorWidth, wallW
     // the whole 2-tile corridor: the gap was walkable but the maze read as a solid wall from
     // outside. The border's outer face never counts as a seam (isOpenAt only knows the maze's
     // own tiles), which is why the border under a mouth got the big type. The side margin
-    // covers wide art (cliff_face spans ~5-6 tiles). Rolled from a separate stream so every
+    // covers wide art (cliff_face spans ~6 tiles). Rolled from a separate stream so every
     // other prop in the maze comes out exactly as before. Both margins widened by one tile
-    // (2026-09-27) after every prop's catalog width grew ~9% (buildings ~18%) to read as more
-    // proportional to characters - re-derive these if that calibration ever changes again.
-    const kMouthClearRows = 8, kMouthSideMargin = 3;
+    // twice now (2026-09-27) - first after every prop's catalog width grew ~9% (buildings
+    // ~18%), then again after a flat further +8% across the board - to read as more
+    // proportional to characters. Re-derive these if that calibration ever changes again.
+    const kMouthClearRows = 9, kMouthSideMargin = 4;
     const mouthRand = mulberry32(seed ^ 0x6d6f7574);
     function inMouthBand(c, r) {
         const band = (c0, c1, openingSouthRow) => c >= c0 && c <= c1 && r > openingSouthRow && r <= openingSouthRow + kMouthClearRows;
@@ -411,10 +412,11 @@ function buildAdaTown() {
     const cells = buildBranchingMaze(28, 150, 1, 88, 2, 4, coreObstacles, edgeObstacles, 22101, { solid: true });
 
     // One shared, non-overlapping cell set for everything placed in the
-    // maze - 34 hostiles + 3 Keepers + the hostage + 13 loot items (8
-    // health potions - tripled from the original 2, per-level healing
-    // supply pass - 2 general trinkets, and 3 originals) = 53 cells.
-    const spots = sampleCells(cells, 53, 22102);
+    // maze - 34 hostiles + 3 Keepers + the hostage + 30 loot items (doubled
+    // 2026-09-27 from the original 15 - 10 health potions, small_ingot,
+    // silver_coin_pouch, nail_pouch, lockpick_set, stamina_draught, same
+    // mix twice) = 68 cells.
+    const spots = sampleCells(cells, 68, 22102);
     let i = 0;
 
     if (!api.getVar("colonnade_hostiles_spawned", false)) {
@@ -446,6 +448,21 @@ function buildAdaTown() {
     if (api.getVar("colonnade_loot_spawned", false))
         return;
     api.setVar("colonnade_loot_spawned", true);
+    api.spawnItem("small_ingot", spots[i].col, spots[i].row); i++;
+    api.spawnItem("silver_coin_pouch", spots[i].col, spots[i].row); i++;
+    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
+    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
+    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
+    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
+    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
+    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
+    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
+    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
+    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
+    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
+    api.spawnItem("nail_pouch", spots[i].col, spots[i].row); i++;
+    api.spawnItem("lockpick_set", spots[i].col, spots[i].row); i++;
+    api.spawnItem("stamina_draught", spots[i].col, spots[i].row); i++;
     api.spawnItem("small_ingot", spots[i].col, spots[i].row); i++;
     api.spawnItem("silver_coin_pouch", spots[i].col, spots[i].row); i++;
     api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;

@@ -210,11 +210,12 @@ function buildBranchingMaze(west, east, northRow, southRow, corridorWidth, wallW
     // the whole 2-tile corridor: the gap was walkable but the maze read as a solid wall from
     // outside. The border's outer face never counts as a seam (isOpenAt only knows the maze's
     // own tiles), which is why the border under a mouth got the big type. The side margin
-    // covers wide art (cliff_face spans ~5-6 tiles). Rolled from a separate stream so every
+    // covers wide art (cliff_face spans ~6 tiles). Rolled from a separate stream so every
     // other prop in the maze comes out exactly as before. Both margins widened by one tile
-    // (2026-09-27) after every prop's catalog width grew ~9% (buildings ~18%) to read as more
-    // proportional to characters - re-derive these if that calibration ever changes again.
-    const kMouthClearRows = 8, kMouthSideMargin = 3;
+    // twice now (2026-09-27) - first after every prop's catalog width grew ~9% (buildings
+    // ~18%), then again after a flat further +8% across the board - to read as more
+    // proportional to characters. Re-derive these if that calibration ever changes again.
+    const kMouthClearRows = 9, kMouthSideMargin = 4;
     const mouthRand = mulberry32(seed ^ 0x6d6f7574);
     function inMouthBand(c, r) {
         const band = (c0, c1, openingSouthRow) => c >= c0 && c <= c1 && r > openingSouthRow && r <= openingSouthRow + kMouthClearRows;
@@ -428,11 +429,9 @@ function buildTrialMaze() {
     // One shared, non-overlapping cell set for EVERYTHING placed in the
     // maze - 60 hostiles (double the old two-Trial+chamber total of 30:
     // wolf x16, orc x18, troll x16, lizardman x8, skeleton_swordsman x2) +
-    // the three Trial-keepers + the hostage + 16 loot items (8 health
-    // potions - tripled from the original 2/level baseline, per-level
-    // healing supply pass - and 2 general trinkets on top of the original
-    // 5) = 80 cells.
-    const spots = sampleCells(cells, 80, 61002);
+    // the three Trial-keepers + the hostage + 32 loot items (doubled
+    // 2026-09-27 from the original 16) = 96 cells.
+    const spots = sampleCells(cells, 96, 61002);
     let i = 0;
 
     if (!api.getVar("trial_hostiles_spawned", false)) {
@@ -468,6 +467,22 @@ function buildTrialMaze() {
     if (api.getVar("trial_loot_spawned", false))
         return;
     api.setVar("trial_loot_spawned", true);
+    api.spawnItem("sealed_vial_of_mist", spots[i].col, spots[i].row); i++;
+    api.spawnItem("woven_talisman", spots[i].col, spots[i].row); i++;
+    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
+    api.spawnItem("elixir_of_clarity", spots[i].col, spots[i].row); i++;
+    api.spawnItem("reinforced_boots", spots[i].col, spots[i].row); i++;
+    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
+    api.spawnItem("antidote_vial", spots[i].col, spots[i].row); i++;
+    api.spawnItem("humming_crystal", spots[i].col, spots[i].row); i++;
+    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
+    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
+    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
+    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
+    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
+    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
+    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
+    api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;
     api.spawnItem("sealed_vial_of_mist", spots[i].col, spots[i].row); i++;
     api.spawnItem("woven_talisman", spots[i].col, spots[i].row); i++;
     api.spawnItem("health_potion", spots[i].col, spots[i].row); i++;

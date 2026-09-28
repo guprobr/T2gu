@@ -115,9 +115,14 @@ src/            all C++ (flat, no subdirectories)
                 together on every release; main.cpp registers it with Qt
                 via `setApplicationVersion()`
 assets/
-  characters/   one subdirectory per roster entry (135 currently), each a
-                sprite sheet PNG + JSON sidecar; stats.json and
-                sounds.json are flat catalogs keyed by roster name
+  characters/   one subdirectory per roster entry (99 currently — down
+                from 135 at launch; a fine-tooth-comb sprite audit found
+                real per-frame defects (bleed, hard clipping, cross-cell
+                ghosting) in several dozen, some regenerated via Codex,
+                the rest removed and substituted for in every quest that
+                referenced them), each a sprite sheet PNG + JSON sidecar;
+                stats.json and sounds.json are flat catalogs keyed by
+                roster name
   props/        props.json catalog (nested under a "props" key, not flat)
                 + one PNG per entry; borders.json/walls.json map a
                 tileset/wallTheme name to a border prop list
@@ -328,15 +333,17 @@ Room); 17–25 are the second, nine places along "the Quiet Road".
   entities under overlapping sprite art. Never flatten this back into one
   `obstacles` list.
 - The same problem hid the maze **entrances**: props draw upward from their
-  base, core props are up to ~7 tiles tall (`cliff_face`; cottages and
-  chapels ~5), and the border's outer face never counts as a seam, so a core
+  base, core props are up to ~7-8 tiles tall (`cliff_face`; cottages and
+  chapels ~3-4), and the border's outer face never counts as a seam, so a core
   set-piece a few rows south of a mouth painted over the whole 2-tile
   opening — walkable, but it read as a solid wall (confirmed by rendering
   every entrance; collision was open in all 25 chapters). `inMouthBand()`
-  now gives edge props to wall tiles up to `kMouthClearRows` (7) rows below
-  each mouth, across the border and first cell column plus a 2-column margin.
+  now gives edge props to wall tiles up to `kMouthClearRows` (9) rows below
+  each mouth, across the border and a `kMouthSideMargin` (4) column margin.
   It rolls from its own `mulberry32` stream, so maze structure and every
-  other prop are unchanged.
+  other prop are unchanged. Both margins were widened by one tile twice
+  (2026-09-27, see the Asset pipeline section's props-width note below) —
+  re-derive them again if that calibration ever changes.
 - Every entity placed inside one maze (hostiles, riddle-keeper NPCs, the
   hostage, loot) is drawn from **one shared `sampleCells(cells, totalCount,
   seed)` pool**, sliced by a running index (`let i = 0; ...; i++`) — this
@@ -397,6 +404,22 @@ other tileset's index-9 terrain is purely decorative.
   standing at a slightly greater Y can never visually swallow an item
   sitting on a nearby (but tile-distinct) open cell — this is a real bug
   that made at least one chapter's key item invisible before the fix.
+- Every `props.json` catalog `width` was bumped again (2026-09-27, separate
+  from the one-time 2x bake above) — ~9% across the board, ~18% for 16
+  building-flavored entries (cottages, chapels, towers, the windmill, the
+  forge, the castle wall/gate/stairs, the drawbridge, the portcullis) —
+  so buildings in particular read as more proportional to characters. The
+  5 horizon-backdrop props (`dense_treeline`, `distant_treeline`,
+  `distant_hills`, `misty_peaks`, `misty_ridge`) are excluded — already
+  deliberately oversized background scenery, unrelated to the proportion
+  issue. `Prop`'s own machinery (trimming, feet fraction, footprint,
+  shadow radius) all scale from `width` automatically, so this needed no
+  code change — but the maze entrance clearance margins did (`inMouthBand()`
+  above), since `cliff_face`, the tallest core obstacle, moved closer to
+  the edge of the old margin than is safe. A further flat +8% followed the
+  same day, this time uniform across all 130 non-excluded entries (no
+  extra building bump) — `cliff_face` is now 800px (was 680px before
+  either pass), and the maze margins were widened by one more tile again.
 
 ## Party movement
 
@@ -444,6 +467,20 @@ other tileset's index-9 terrain is purely decorative.
   `kPartyTrailTeleportDistance` in one tick (level load, snapshot
   restore, script teleport), and `destroyEntity()` clears it if the leader
   is deleted.
+- `restoreSnapshot()` places every follower at its exact saved position,
+  but a restarted trail (previous bullet) has no memory of that — left
+  alone, `followTrail()`/`shuffleInCrowd()` would immediately "correct"
+  each follower toward a trail slot computed from nothing but the leader's
+  current spot, visibly undoing the restore by walking them to the leader
+  instead of leaving them where the save put them. `restoreSnapshot()`
+  sets `m_partyFollowSuppressedUntilLeaderMoves` right after positioning
+  the party; while it's set, a follower with no nearby enemy holds still
+  instead of following (it still fights an adjacent enemy normally - only
+  the "no enemy, follow the leader" branch is suppressed).
+  `updateLeaderTrail()` clears the flag the moment it detects genuine
+  leader movement, at which point following resumes exactly as it always
+  does when a follower falls out of position - this only suppresses the
+  one artificial correction a load would otherwise cause immediately.
 
 ## Combat
 
@@ -574,8 +611,9 @@ only block re-spawning a whole batch outright, never track which
 ## Level transitions — no nested event loops
 
 `MainWindow::loadLevel()` shows a loading overlay for a fixed ~1s (purely
-cosmetic — scene construction itself is fast), then swaps `GameScene`
-instances. **This delay must never be a nested `QEventLoop`** (a
+cosmetic — the delay itself, not the work that follows: constructing
+`GameScene` and populating it can take real time, see below), then swaps
+`GameScene` instances. **This delay must never be a nested `QEventLoop`** (a
 `blockFor()`-style `loop.exec()` after a `QTimer::singleShot`). It was
 originally implemented that way, and it's a real reentrancy hazard, not
 just an odd style choice: `loadLevel()` is very often called *from inside*
@@ -603,6 +641,41 @@ that call now returns before the swap happens. Use
 `m_afterNextSceneReady` (a `std::function<void()>` consumed exactly once
 by `finishLoadingLevel()` right after constructing the new scene) instead
 of any new ad hoc synchronous-completion assumption.
+
+**The loading overlay must stay up until the level is actually populated,
+not just until `GameScene` exists** (2026-09-27 fix). Constructing
+`GameScene` doesn't spawn a chapter's town/maze/hostiles — that's
+`onLevelStart`, deferred to the *next* event-loop turn (same
+`singleShot(0)` above). Hiding the overlay synchronously right after
+`new GameScene(...)`, as it used to, revealed a bare map for a beat before
+`onLevelStart` actually populated it. `finishLoadingLevel()` now hides it
+from its own `singleShot(0)`, queued *after* both `onLevelStart`'s turn
+and (if a save is loading) `m_afterNextSceneReady`'s turn — same
+same-priority FIFO queue-ordering guarantee `m_afterNextSceneReady` itself
+already relies on, just one link further down the chain.
+
+**A session's first level load can be slow enough to trip the OS's
+"Not Responding" state, and there's a narrow, deliberate exception to
+the "no event-loop-reentrancy" rule above that fixes it.**
+`GameScene::createCharacterAtWorldFeet()` keeps a process-lifetime cache
+of decoded `SpriteSheet`s (`spriteSheetCache()`), so only a genuinely new
+roster name pays `SpriteSheet::load()`'s real cost (~181 MB PNG decode).
+A session's *first* level load can hit a dozen-plus cache misses in a row,
+all inside one synchronous `onLevelStart` burst, with no event-loop turn
+in between to repaint or answer a window-manager ping - every later
+transition mostly hits the warm cache and doesn't show this.
+`SpriteSheet::load()` now calls
+`QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents)`
+once per fresh decode. This is safe specifically because, unlike the
+`loadLevel()` hazard above: user input is excluded; no `GameScene`'s tick
+timer is running yet at this point in *any* level's load (a new scene's
+own timer only starts at the very end of its constructor, and the old
+scene's was already stopped before this one exists); and if anything did
+still manage to trigger a duplicate `onLevelStart`, `ScriptEngine`'s own
+`callEntryPoint` guard (see *Scripting system* above) queues it rather
+than reentering. Don't add a bare `processEvents()` call anywhere else in
+this codebase on the strength of this precedent alone - re-check all
+three conditions for the new call site first.
 
 ## Known limitation, not yet worth fixing
 

@@ -202,11 +202,12 @@ function buildBranchingMaze(west, east, northRow, southRow, corridorWidth, wallW
     // the whole 2-tile corridor: the gap was walkable but the maze read as a solid wall from
     // outside. The border's outer face never counts as a seam (isOpenAt only knows the maze's
     // own tiles), which is why the border under a mouth got the big type. The side margin
-    // covers wide art (cliff_face spans ~5-6 tiles). Rolled from a separate stream so every
+    // covers wide art (cliff_face spans ~6 tiles). Rolled from a separate stream so every
     // other prop in the maze comes out exactly as before. Both margins widened by one tile
-    // (2026-09-27) after every prop's catalog width grew ~9% (buildings ~18%) to read as more
-    // proportional to characters - re-derive these if that calibration ever changes again.
-    const kMouthClearRows = 8, kMouthSideMargin = 3;
+    // twice now (2026-09-27) - first after every prop's catalog width grew ~9% (buildings
+    // ~18%), then again after a flat further +8% across the board - to read as more
+    // proportional to characters. Re-derive these if that calibration ever changes again.
+    const kMouthClearRows = 9, kMouthSideMargin = 4;
     const mouthRand = mulberry32(seed ^ 0x6d6f7574);
     function inMouthBand(c, r) {
         const band = (c0, c1, openingSouthRow) => c >= c0 && c <= c1 && r > openingSouthRow && r <= openingSouthRow + kMouthClearRows;
@@ -427,10 +428,9 @@ function buildJunctionGauntlet() {
     api.setBarrier("mzedge_south", 0, 95, 180, 1, true);
 
     // One shared, non-overlapping cell set (48 hostiles - double the
-    // original 24 - + 3 terminals + the hostage + 13 loot items - 8 health
-    // potions (tripled from the original 2, per-level healing supply
-    // pass), 2 general trinkets, and 3 originals = 67 cells).
-    const spots = sampleCells(cells, 67, 41002);
+    // original 24 - + 3 terminals + the hostage + 30 loot items (doubled
+    // 2026-09-27 from the original 15) = 82 cells).
+    const spots = sampleCells(cells, 82, 41002);
     if (!api.getVar("gauntlet_hostiles_spawned", false)) {
         api.setVar("gauntlet_hostiles_spawned", true);
         // Exactly the original mix (mech_spider x2, cyber_brawler x2,
@@ -472,6 +472,21 @@ function buildJunctionGauntlet() {
     api.spawnItem("health_potion", spots[64].col, spots[64].row);
     api.spawnItem("health_potion", spots[65].col, spots[65].row);
     api.spawnItem("health_potion", spots[66].col, spots[66].row);
+    api.spawnItem("repair_kit", spots[67].col, spots[67].row);
+    api.spawnItem("spool_of_copper_wire", spots[68].col, spots[68].row);
+    api.spawnItem("stamina_draught", spots[69].col, spots[69].row);
+    api.spawnItem("health_potion", spots[70].col, spots[70].row);
+    api.spawnItem("health_potion", spots[71].col, spots[71].row);
+    api.spawnItem("tech_chip", spots[72].col, spots[72].row);
+    api.spawnItem("small_ingot", spots[73].col, spots[73].row);
+    api.spawnItem("health_potion", spots[74].col, spots[74].row);
+    api.spawnItem("health_potion", spots[75].col, spots[75].row);
+    api.spawnItem("health_potion", spots[76].col, spots[76].row);
+    api.spawnItem("health_potion", spots[77].col, spots[77].row);
+    api.spawnItem("health_potion", spots[78].col, spots[78].row);
+    api.spawnItem("health_potion", spots[79].col, spots[79].row);
+    api.spawnItem("health_potion", spots[80].col, spots[80].row);
+    api.spawnItem("health_potion", spots[81].col, spots[81].row);
 }
 
 function buildEndVault() {

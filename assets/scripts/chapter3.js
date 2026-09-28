@@ -205,11 +205,12 @@ function buildBranchingMaze(west, east, northRow, southRow, corridorWidth, wallW
     // the whole 2-tile corridor: the gap was walkable but the maze read as a solid wall from
     // outside. The border's outer face never counts as a seam (isOpenAt only knows the maze's
     // own tiles), which is why the border under a mouth got the big type. The side margin
-    // covers wide art (cliff_face spans ~5-6 tiles). Rolled from a separate stream so every
+    // covers wide art (cliff_face spans ~6 tiles). Rolled from a separate stream so every
     // other prop in the maze comes out exactly as before. Both margins widened by one tile
-    // (2026-09-27) after every prop's catalog width grew ~9% (buildings ~18%) to read as more
-    // proportional to characters - re-derive these if that calibration ever changes again.
-    const kMouthClearRows = 8, kMouthSideMargin = 3;
+    // twice now (2026-09-27) - first after every prop's catalog width grew ~9% (buildings
+    // ~18%), then again after a flat further +8% across the board - to read as more
+    // proportional to characters. Re-derive these if that calibration ever changes again.
+    const kMouthClearRows = 9, kMouthSideMargin = 4;
     const mouthRand = mulberry32(seed ^ 0x6d6f7574);
     function inMouthBand(c, r) {
         const band = (c0, c1, openingSouthRow) => c >= c0 && c <= c1 && r > openingSouthRow && r <= openingSouthRow + kMouthClearRows;
@@ -425,12 +426,11 @@ function buildTheHollow() {
     const cells = buildBranchingMaze(30, 155, 1, 94, 2, 4, coreObstacles, edgeObstacles, 31001, { solid: true });
 
     // One shared, non-overlapping cell set (64 hostiles - double the
-    // original 32 - + 3 riddle-keepers + the hostage + 13 loot items - 8
-    // health potions (tripled from the original 2, per-level healing
-    // supply pass), 2 general trinkets, and 3 originals = 81 cells) -
-    // sampling without replacement from a single call guarantees distinct
-    // spots, no matter how dense.
-    const spots = sampleCells(cells, 81, 31002);
+    // original 32 - + 3 riddle-keepers + the hostage + 26 loot items
+    // (doubled 2026-09-27 from the original 13) = 94 cells) - sampling
+    // without replacement from a single call guarantees distinct spots,
+    // no matter how dense.
+    const spots = sampleCells(cells, 94, 31002);
     if (!api.getVar("hollow_hostiles_spawned", false)) {
         api.setVar("hollow_hostiles_spawned", true);
         // Exactly the original mix (skeleton x2, skeleton_archer x1, orc x2,
@@ -470,6 +470,19 @@ function buildTheHollow() {
     api.spawnItem("health_potion", spots[78].col, spots[78].row);
     api.spawnItem("health_potion", spots[79].col, spots[79].row);
     api.spawnItem("health_potion", spots[80].col, spots[80].row);
+    api.spawnItem("ore_chunk", spots[81].col, spots[81].row);
+    api.spawnItem("iron_sword", spots[82].col, spots[82].row);
+    api.spawnItem("antidote_vial", spots[83].col, spots[83].row);
+    api.spawnItem("health_potion", spots[84].col, spots[84].row);
+    api.spawnItem("health_potion", spots[85].col, spots[85].row);
+    api.spawnItem("repair_kit", spots[86].col, spots[86].row);
+    api.spawnItem("gemstone_cluster", spots[87].col, spots[87].row);
+    api.spawnItem("health_potion", spots[88].col, spots[88].row);
+    api.spawnItem("health_potion", spots[89].col, spots[89].row);
+    api.spawnItem("health_potion", spots[90].col, spots[90].row);
+    api.spawnItem("health_potion", spots[91].col, spots[91].row);
+    api.spawnItem("health_potion", spots[92].col, spots[92].row);
+    api.spawnItem("health_potion", spots[93].col, spots[93].row);
 }
 
 function buildEndAlcove() {

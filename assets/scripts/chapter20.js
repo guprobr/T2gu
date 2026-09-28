@@ -189,11 +189,12 @@ function buildBranchingMaze(west, east, northRow, southRow, corridorWidth, wallW
     // the whole 2-tile corridor: the gap was walkable but the maze read as a solid wall from
     // outside. The border's outer face never counts as a seam (isOpenAt only knows the maze's
     // own tiles), which is why the border under a mouth got the big type. The side margin
-    // covers wide art (cliff_face spans ~5-6 tiles). Rolled from a separate stream so every
+    // covers wide art (cliff_face spans ~6 tiles). Rolled from a separate stream so every
     // other prop in the maze comes out exactly as before. Both margins widened by one tile
-    // (2026-09-27) after every prop's catalog width grew ~9% (buildings ~18%) to read as more
-    // proportional to characters - re-derive these if that calibration ever changes again.
-    const kMouthClearRows = 8, kMouthSideMargin = 3;
+    // twice now (2026-09-27) - first after every prop's catalog width grew ~9% (buildings
+    // ~18%), then again after a flat further +8% across the board - to read as more
+    // proportional to characters. Re-derive these if that calibration ever changes again.
+    const kMouthClearRows = 9, kMouthSideMargin = 4;
     const mouthRand = mulberry32(seed ^ 0x6d6f7574);
     function inMouthBand(c, r) {
         const band = (c0, c1, openingSouthRow) => c >= c0 && c <= c1 && r > openingSouthRow && r <= openingSouthRow + kMouthClearRows;
@@ -601,9 +602,13 @@ function buildMaze() {
         [["slime_water", 10, 25], ["crocodile", 6, 50], ["water_spirit", 8, 30], ["boar", 6, 40], ["wolf", 6, 30]],
         "maze_hostiles_spawned");
 
-    spawnLoot(takeCells(pool, 0.05, 0.95, 11, 202010),
-        ["health_potion", "health_potion", "health_potion", "health_potion", "health_potion", "health_potion",
-         "mana_potion", "waterskin", "elixir_of_clarity", "stamina_draught", "antidote_vial"], "maze_loot_spawned");
+    spawnLoot(takeCells(pool, 0.05, 0.95, 22, 202010),
+        ["health_potion", "health_potion", "health_potion", "health_potion", "health_potion",
+         "health_potion", "mana_potion", "waterskin", "elixir_of_clarity",
+         "stamina_draught", "antidote_vial", "health_potion", "health_potion",
+         "health_potion", "health_potion", "health_potion", "health_potion",
+         "mana_potion", "waterskin", "elixir_of_clarity", "stamina_draught",
+         "antidote_vial"], "maze_loot_spawned");
     return cells.exitRows;
 }
 

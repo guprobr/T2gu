@@ -2,7 +2,7 @@
 
 ![ShadowShine screenshot](screenshot.png)
 
-v0.7.2
+v0.7.3
 
 > *A 100-chapter isometric RPG. Twenty-five chapters are done. The other seventy-five are, uh, "in the pipeline."*
 
