@@ -57,6 +57,8 @@ InventoryWidget::InventoryWidget(QWidget *parent)
 
 void InventoryWidget::refresh(const QVector<GameScene::ItemEntry> &items)
 {
+    const QString selectedId = selectedItemId();
+    const int previousRow = m_list->currentRow();
     m_list->clear();
 
     if (items.isEmpty()) {
@@ -65,14 +67,17 @@ void InventoryWidget::refresh(const QVector<GameScene::ItemEntry> &items)
         return;
     }
 
+    int selectedRow = -1;
     for (const GameScene::ItemEntry &item : items) {
+        if (item.id == selectedId)
+            selectedRow = m_list->count();
         auto *row = new QListWidgetItem(QIcon(QPixmap(item.imagePath)),
                                          QStringLiteral("%1 x%2").arg(item.name).arg(item.count));
         row->setData(Qt::UserRole, item.id);
         row->setData(Qt::UserRole + 1, item.description);
         m_list->addItem(row);
     }
-    m_list->setCurrentRow(0);
+    m_list->setCurrentRow(selectedRow >= 0 ? selectedRow : qBound(0, previousRow, int(items.size()) - 1));
     updateDescriptionForCurrentRow();
 }
 

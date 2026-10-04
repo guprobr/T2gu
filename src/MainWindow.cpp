@@ -1,5 +1,6 @@
 #include "MainWindow.h"
 #include "AssetPath.h"
+#include "SaveData.h"
 
 #include <QApplication>
 #include <QDir>
@@ -15,6 +16,7 @@
 #include <QResizeEvent>
 #include <QSaveFile>
 #include <QTimer>
+#include <utility>
 
 #include "DialogueBoxWidget.h"
 #include "InventoryWidget.h"
@@ -30,28 +32,19 @@ namespace {
 // directory is, created on first save if it doesn't exist yet.
 QString saveFilePath()
 {
-    const QString dir = QDir::homePath() + QStringLiteral("/.T2gu2");
+    // Allows isolated regression runs without touching the player's slot.
+    const QString dir = qEnvironmentVariable("T2GU_SAVE_DIR", QDir::homePath() + QStringLiteral("/.T2gu2"));
     QDir().mkpath(dir);
     return dir + QStringLiteral("/save.json");
 }
 
 // Bumped whenever the save JSON's own shape changes in a way that needs a
 // migration or an explicit compatibility decision, not on every field added
-// (loadGame() already treats every field as individually optional via
-// QJsonValue::toX(default) - a genuinely new, purely-additive field doesn't
+// (the save parser retains defaults for optional fields - a genuinely
+// new, purely-additive field doesn't
 // need a version bump, only a structural change that makes an old save
 // ambiguous or wrong to interpret under the new code does).
 constexpr int kCurrentSaveVersion = 2;
-
-// version 1 saves' "vars" object used flat, unnamespaced keys - version 2
-// prefixes every api.setVar/getVar key with the current map's filename (see
-// GameScene::chapterVarKey()) so two chapters reusing the same name (e.g.
-// both had a "vault_loot_spawned" guard) can no longer collide. A version 1
-// save loaded as-is would silently misread every chapter-local flag back to
-// its default (defaultValue), not a loud failure - so instead of attempting
-// that migration, version 1 saves are rejected outright below. There is
-// nothing worth migrating to preserve mid-development.
-constexpr int kMinSupportedSaveVersion = 2;
 
 // GameScene::CharacterSnapshot/ItemSnapshot <-> JSON - shared by both the
 // party and enemies/NPCs arrays (npcs just always have hp=maxHp=0, same as
@@ -66,23 +59,17 @@ QJsonArray characterSnapshotsToJson(const QVector<GameScene::CharacterSnapshot> 
         obj[QStringLiteral("y")] = c.y;
         obj[QStringLiteral("hp")] = c.hp;
         obj[QStringLiteral("maxHp")] = c.maxHp;
+        const auto &buffs = c.temporaryBuffs;
+        obj[QStringLiteral("temporaryBuffs")] = QJsonObject{
+            {QStringLiteral("strength"), buffs.strength},
+            {QStringLiteral("strengthRemaining"), buffs.strengthRemaining},
+            {QStringLiteral("intelligence"), buffs.intelligence},
+            {QStringLiteral("intelligenceRemaining"), buffs.intelligenceRemaining},
+            {QStringLiteral("speed"), buffs.speed},
+            {QStringLiteral("speedRemaining"), buffs.speedRemaining}};
         array.append(obj);
     }
     return array;
-}
-
-QVector<GameScene::CharacterSnapshot> characterSnapshotsFromJson(const QJsonArray &array)
-{
-    QVector<GameScene::CharacterSnapshot> list;
-    for (const QJsonValue &value : array) {
-        const QJsonObject obj = value.toObject();
-        list.append(GameScene::CharacterSnapshot{ obj.value(QStringLiteral("name")).toString(),
-                                                    obj.value(QStringLiteral("x")).toDouble(),
-                                                    obj.value(QStringLiteral("y")).toDouble(),
-                                                    obj.value(QStringLiteral("hp")).toInt(),
-                                                    obj.value(QStringLiteral("maxHp")).toInt() });
-    }
-    return list;
 }
 
 QJsonArray itemSnapshotsToJson(const QVector<GameScene::ItemSnapshot> &list)
@@ -98,22 +85,16 @@ QJsonArray itemSnapshotsToJson(const QVector<GameScene::ItemSnapshot> &list)
     return array;
 }
 
-QVector<GameScene::ItemSnapshot> itemSnapshotsFromJson(const QJsonArray &array)
-{
-    QVector<GameScene::ItemSnapshot> list;
-    for (const QJsonValue &value : array) {
-        const QJsonObject obj = value.toObject();
-        list.append(GameScene::ItemSnapshot{ obj.value(QStringLiteral("itemId")).toString(),
-                                              obj.value(QStringLiteral("x")).toDouble(),
-                                              obj.value(QStringLiteral("y")).toDouble() });
-    }
-    return list;
-}
+
 }
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
+    connect(qApp, &QGuiApplication::applicationStateChanged, this, [this](Qt::ApplicationState state) {
+        if (state != Qt::ApplicationActive)
+            clearHeldInput();
+    });
     m_view = new QGraphicsView(this);
     // Deliberately still the default software-raster viewport, not a
     // QOpenGLWidget one - tried and measured, not just assumed either way.
@@ -228,94 +209,145 @@ void MainWindow::loadLevel(const QString &mapPath)
     // the new map.
     QString chapterTitle;
     QFile mapFile(mapPath);
-    if (mapFile.open(QIODevice::ReadOnly))
+    if (mapFile.open(QIODevice::ReadOnly) && mapFile.size() <= 32 * 1024 * 1024)
         chapterTitle = QJsonDocument::fromJson(mapFile.readAll()).object().value("title").toString();
 
     m_loadingOverlay->showLoading(chapterTitle);
 
-    // Disconnect and stop the OLD scene's simulation synchronously, right
-    // now - not after the loading-overlay delay below. See
-    // finishLoadingLevel()'s own comment for the reentrancy hazard this
-    // avoids (this replaces a nested QEventLoop that used to sit between
-    // showLoading() and this point, during which the old scene kept
-    // ticking).
-    if (m_scene) {
-        m_scene->disconnect(); // don't let its now-stale signals reach us on the way out
-        // Stopping the old scene's tick timer *immediately* isn't just
-        // tidy - it's load-bearing. Leaving two GameScenes' 16ms tick
-        // timers running concurrently (each driving its own QJSEngine) for
-        // however briefly reliably corrupted the heap - crashed at process
-        // exit, deep inside QJSEngine/QV4 teardown, only when a *second*
-        // engine had been created+destroyed in the same process. Isolated
-        // with a series of shrinking repros (see conversation/memory)
-        // before finding this fix; the underlying Qt/V4-internal reason two
-        // interleaved engines misbehave like this is still unconfirmed, but
-        // a scene we've already navigated away from has no business still
-        // ticking regardless, so this is correct either way, crash or not.
-        m_scene->stopTicking();
-    }
-
+    // Pause immediately, before the cosmetic delay. Suspension preserves
+    // the old coroutine/queue for rollback without permitting nested JS.
+    if (m_scene)
+        m_scene->pauseSimulation();
     QTimer::singleShot(1000, this, [this, mapPath] { finishLoadingLevel(mapPath); });
+}
+
+void MainWindow::failLoadingLevel(const QString &error)
+{
+    if (m_loadingScene) {
+        m_loadingScene->stopTicking();
+        m_loadingScene->disconnect(this);
+        m_loadingScene->deleteLater();
+        m_loadingScene = nullptr;
+    }
+    m_pendingGameState.reset();
+    m_pendingSnapshot.reset();
+    m_pendingDialogue.reset();
+    m_pendingStatus.clear();
+    m_pendingRedirect.clear();
+    m_levelTransitionPending = false;
+    m_loadingOverlay->hide();
+    m_statusMessages->post(QStringLiteral("Load failed: %1").arg(error), GameScene::StatusKind::Loss);
+    if (m_scene)
+        m_scene->resumeSimulation();
+    refreshMoveIntent();
 }
 
 void MainWindow::finishLoadingLevel(const QString &mapPath)
 {
-    GameScene *oldScene = m_scene;
-
-    m_currentMapPath = mapPath;
-
-    m_scene = new GameScene(&m_gameState, mapPath, this);
-    m_view->setScene(m_scene);
-    connect(m_scene, &GameScene::controlledCharacterMoved, this, &MainWindow::centerViewOn);
-    connect(m_scene, &GameScene::controlledCharacterMoved, this, &MainWindow::updateDebugOverlays);
-    connect(m_scene, &GameScene::dialogueRequested, this, &MainWindow::showDialogue);
-    connect(m_scene, &GameScene::dialogueEnded, this, &MainWindow::hideDialogue);
-    connect(m_scene, &GameScene::levelChangeRequested, this, &MainWindow::loadLevel);
-    connect(m_scene, &GameScene::playerDied, this, &MainWindow::showDeathMenu);
-    connect(m_scene, &GameScene::selectionChanged, this, &MainWindow::showSelectionInfo);
-    connect(m_scene, &GameScene::selectionCleared, this, &MainWindow::hideSelectionInfo);
-    connect(m_scene, &GameScene::statusMessage, m_statusMessages, &StatusMessageWidget::post);
-
-    // Stale key/dialogue/inventory/death-menu state from the old map
-    // shouldn't leak into the new one - a held movement key should still
-    // work (refreshMoveIntent reads m_heldKeys again against the new
-    // controlled character on the next press/release/tick), but nothing
-    // needs carrying across by hand here. The inventory *contents* do
-    // persist (GameState.inventory survives the transition), just not the
-    // menu being open.
-    m_dialogueBox->hide();
-    closeInventory();
-    m_deathMenuOpen = false;
-    m_deathMenuWidget->hide();
-    hideSelectionInfo();
-
-    if (oldScene)
-        QTimer::singleShot(0, this, [oldScene] { delete oldScene; }); // already stopped ticking in loadLevel()
-
-    m_levelTransitionPending = false;
-
-    // See loadGame()'s own comment - queued via singleShot(0) on the NEW
-    // scene, right here right after it's actually constructed, so it still
-    // runs after that scene's own identically-queued onLevelStart() call
-    // (Qt fires queued same-priority callbacks in the order they were
-    // queued) regardless of how long the loading delay above took.
-    if (m_afterNextSceneReady) {
-        auto callback = std::move(m_afterNextSceneReady);
-        m_afterNextSceneReady = nullptr;
-        QTimer::singleShot(0, m_scene, [callback] { callback(); });
+    // Copy after the initiating script call has unwound: code after its
+    // api.loadLevel() may still update story flags in that same JS step.
+    if (!m_pendingGameState)
+        m_pendingGameState = m_gameState;
+    GameScene *candidate = new GameScene(&*m_pendingGameState, mapPath, this);
+    m_loadingScene = candidate;
+    if (!candidate->loadError().isEmpty()) {
+        failLoadingLevel(candidate->loadError());
+        return;
     }
-
-    // The loading vignette used to hide right here, the instant this
-    // (still-empty) GameScene existed - GameScene's own onLevelStart is
-    // deferred to the next event-loop turn (see its constructor's own
-    // comment on why), so the town/maze/hostiles a chapter script spawns
-    // hadn't actually appeared yet: the overlay dropped, revealing a bare
-    // map for a beat, then everything popped in. Deferred one more
-    // singleShot(0) turn - queued last, after onLevelStart's own turn above
-    // and after a pending snapshot restore's turn, if any - so it fires
-    // once the level is genuinely populated, relying on the same same-
-    // priority queue-order guarantee m_afterNextSceneReady already does.
-    QTimer::singleShot(0, this, [this] { m_loadingOverlay->hide(); });
+    connect(candidate, &GameScene::sceneLoadFailed, this, [this, candidate](const QString &error) {
+        if (m_loadingScene == candidate)
+            failLoadingLevel(error);
+    });
+    connect(candidate, &GameScene::controlledCharacterMoved, this, [this, candidate](QPointF position) {
+        if (m_scene == candidate) {
+            centerViewOn(position);
+            updateDebugOverlays(position);
+        }
+    });
+    connect(candidate, &GameScene::dialogueRequested, this, [this, candidate](QString speaker, QString text) {
+        if (m_scene == candidate)
+            showDialogue(speaker, text);
+        else if (m_loadingScene == candidate)
+            m_pendingDialogue = qMakePair(speaker, text);
+    });
+    connect(candidate, &GameScene::dialogueEnded, this, [this, candidate] {
+        if (m_scene == candidate)
+            hideDialogue();
+        else if (m_loadingScene == candidate)
+            m_pendingDialogue.reset();
+    });
+    connect(candidate, &GameScene::levelChangeRequested, this, [this, candidate](const QString &path) {
+        if (m_scene == candidate)
+            loadLevel(path);
+        else if (m_loadingScene == candidate && m_pendingRedirect.isEmpty())
+            m_pendingRedirect = path;
+    });
+    connect(candidate, &GameScene::playerDied, this, [this, candidate] {
+        if (m_scene == candidate)
+            showDeathMenu();
+    });
+    connect(candidate, &GameScene::selectionChanged, this, [this, candidate](const GameScene::SelectionInfo &info) {
+        if (m_scene == candidate)
+            showSelectionInfo(info);
+    });
+    connect(candidate, &GameScene::selectionCleared, this, [this, candidate] {
+        if (m_scene == candidate)
+            hideSelectionInfo();
+    });
+    connect(candidate, &GameScene::statusMessage, this, [this, candidate](const QString &text, GameScene::StatusKind kind) {
+        if (m_scene == candidate)
+            m_statusMessages->post(text, kind);
+        else if (m_loadingScene == candidate)
+            m_pendingStatus.append(qMakePair(text, kind));
+    });
+    connect(candidate, &GameScene::sceneReady, this, [this, candidate, mapPath] {
+        if (m_loadingScene != candidate)
+            return;
+        const bool restored = m_pendingSnapshot.has_value();
+        QString error;
+        if (restored && !candidate->restoreSnapshot(*m_pendingSnapshot, &error)) {
+            failLoadingLevel(error);
+            return;
+        }
+        // Commit only after all sprite decoding and restoration return.
+        GameScene *oldScene = m_scene;
+        if (oldScene) {
+            oldScene->stopTicking();
+            oldScene->disconnect(this);
+            oldScene->deleteLater();
+        }
+        m_gameState = std::move(*m_pendingGameState);
+        candidate->setGameState(&m_gameState);
+        m_pendingGameState.reset();
+        m_pendingSnapshot.reset();
+        m_scene = candidate;
+        m_loadingScene = nullptr;
+        m_currentMapPath = mapPath;
+        m_view->setScene(candidate);
+        m_dialogueBox->hide();
+        closeInventory();
+        m_deathMenuOpen = false;
+        m_deathMenuWidget->hide();
+        hideSelectionInfo();
+        if (m_pendingDialogue)
+            showDialogue(m_pendingDialogue->first, m_pendingDialogue->second);
+        m_pendingDialogue.reset();
+        for (const auto &message : std::as_const(m_pendingStatus))
+            m_statusMessages->post(message.first, message.second);
+        m_pendingStatus.clear();
+        if (restored)
+            m_statusMessages->post(QStringLiteral("Game loaded"), GameScene::StatusKind::Progress);
+        const QString redirect = std::exchange(m_pendingRedirect, QString());
+        m_levelTransitionPending = false;
+        m_loadingOverlay->hide();
+        if (Character *controlled = candidate->controlledCharacter()) {
+            centerViewOn(controlled->feetPos());
+            updateDebugOverlays(controlled->feetPos());
+        }
+        refreshMoveIntent();
+        if (!redirect.isEmpty())
+            loadLevel(redirect);
+    });
 }
 
 void MainWindow::centerViewOn(QPointF scenePos)
@@ -361,12 +393,32 @@ void MainWindow::updateDebugOverlays(QPointF playerPos)
 
 void MainWindow::showDialogue(QString speaker, QString text)
 {
+    closeInventory();
     m_dialogueBox->showMessage(speaker, text);
+    refreshMoveIntent();
 }
 
 void MainWindow::hideDialogue()
 {
     m_dialogueBox->hide();
+}
+
+bool MainWindow::event(QEvent *event)
+{
+    if (event->type() == QEvent::WindowDeactivate)
+        clearHeldInput();
+    return QMainWindow::event(event);
+}
+
+void MainWindow::clearHeldInput()
+{
+    m_heldKeys.clear();
+    if (m_scene) {
+        if (Character *character = m_scene->controlledCharacter()) {
+            character->setRunning(false);
+            character->setVelocity(QPointF(0, 0));
+        }
+    }
 }
 
 bool MainWindow::focusNextPrevChild(bool next)
@@ -516,12 +568,7 @@ void MainWindow::showDeathMenu()
 
 void MainWindow::respawnFromBeginning()
 {
-    m_deathMenuOpen = false;
-    m_deathMenuWidget->hide();
-    // A genuine full restart, not just a fresh scene - clears every story
-    // var and the whole inventory, exactly as if the game had just been
-    // launched.
-    m_gameState = GameState();
+    m_pendingGameState = GameState();
     loadLevel(assetPath(QStringLiteral("/maps/chapter1.json")));
 }
 
@@ -611,110 +658,24 @@ void MainWindow::loadGame()
 {
     if (!m_scene || m_levelTransitionPending)
         return;
-
     QFile file(saveFilePath());
     if (!file.open(QIODevice::ReadOnly)) {
-        m_scene->showInfoMessage(QStringLiteral("Game"), QStringLiteral("No save file found."));
+        m_statusMessages->post(QStringLiteral("No save file found."), GameScene::StatusKind::Loss);
         return;
     }
-
-    // Distinguish "valid JSON with a schema loadGame() doesn't like" from
-    // "not even parseable" - a truncated write (see saveGame()'s own
-    // QSaveFile comment for why that shouldn't happen anymore, but an old
-    // save from before that fix, or a hand-edited/corrupted file, can still
-    // exist on disk) used to silently become an empty QJsonObject and fail
-    // much later and less clearly, at the "map path is missing" check
-    // below.
-    QJsonParseError parseError;
-    const QJsonDocument doc = QJsonDocument::fromJson(file.readAll(), &parseError);
-    if (parseError.error != QJsonParseError::NoError) {
-        qWarning() << "loadGame: save file isn't valid JSON:" << parseError.errorString();
-        m_scene->showInfoMessage(QStringLiteral("Game"), QStringLiteral("Save file is corrupt and can't be read."));
+    if (file.size() > kMaxSaveBytes) {
+        m_statusMessages->post(QStringLiteral("Save file exceeds the 8 MiB limit."), GameScene::StatusKind::Loss);
         return;
     }
-    const QJsonObject root = doc.object();
-
-    // A save with no "saveVersion" at all predates this field - treated as
-    // version 1 (the version this field was introduced at), not rejected;
-    // only a version NEWER than this build understands is actually a
-    // problem (this build is older than whatever wrote the save).
-    const int saveVersion = root.value(QStringLiteral("saveVersion")).toInt(1);
-    if (saveVersion > kCurrentSaveVersion) {
-        qWarning() << "loadGame: save file is from a newer version (" << saveVersion
-                   << ") than this build supports (" << kCurrentSaveVersion << ")";
-        m_scene->showInfoMessage(QStringLiteral("Game"), QStringLiteral("This save was made by a newer version of the game."));
+    LoadedSave saved;
+    QString error;
+    if (!parseSavedGame(file.read(kMaxSaveBytes + 1), saved, error)) {
+        m_statusMessages->post(error, GameScene::StatusKind::Loss);
         return;
     }
-    if (saveVersion < kMinSupportedSaveVersion) {
-        qWarning() << "loadGame: save file is from an incompatible older version (" << saveVersion
-                   << ") - the story-variable format changed; it can't be loaded";
-        m_scene->showInfoMessage(QStringLiteral("Game"), QStringLiteral("This save is from an older, incompatible version of the game and can't be loaded."));
-        return;
-    }
-
-    // "map" (just a filename, resolved against this install's own
-    // assetDir()) is the current format - see saveGame()'s own comment for
-    // why. "mapPath" (a full path, possibly baked from a *different*
-    // install's assetDir()) is kept as a fallback purely so a save written
-    // before this format existed still loads.
-    QString mapPath;
-    const QString mapFileName = root.value(QStringLiteral("map")).toString();
-    if (!mapFileName.isEmpty())
-        mapPath = assetPath(QStringLiteral("/maps/")) + mapFileName;
-    else
-        mapPath = root.value(QStringLiteral("mapPath")).toString();
-
-    if (mapPath.isEmpty() || !QFileInfo::exists(mapPath)) {
-        qWarning() << "loadGame: save file's map is missing or no longer exists:" << mapPath;
-        m_scene->showInfoMessage(QStringLiteral("Game"), QStringLiteral("Save file is corrupt or its map is missing."));
-        return;
-    }
-
-    m_gameState.level = root.value(QStringLiteral("level")).toInt(1);
-    m_gameState.experience = root.value(QStringLiteral("experience")).toInt(0);
-    m_gameState.lastMusicTrack = root.value(QStringLiteral("lastMusicTrack")).toString();
-    m_gameState.itemBonusStrength = root.value(QStringLiteral("itemBonusStrength")).toInt(0);
-    m_gameState.itemBonusIntelligence = root.value(QStringLiteral("itemBonusIntelligence")).toInt(0);
-    m_gameState.itemBonusMaxHp = root.value(QStringLiteral("itemBonusMaxHp")).toInt(0);
-    m_gameState.heroBaseMaxHp = root.value(QStringLiteral("heroBaseMaxHp")).toInt(200);
-
-    m_gameState.vars.clear();
-    const QJsonObject vars = root.value(QStringLiteral("vars")).toObject();
-    for (auto it = vars.constBegin(); it != vars.constEnd(); ++it)
-        m_gameState.vars[it.key()] = it.value().toVariant();
-
-    m_gameState.inventory.clear();
-    const QJsonObject inventory = root.value(QStringLiteral("inventory")).toObject();
-    for (auto it = inventory.constBegin(); it != inventory.constEnd(); ++it)
-        m_gameState.inventory[it.key()] = it.value().toInt();
-
-    const QJsonObject sceneJson = root.value(QStringLiteral("scene")).toObject();
-    GameScene::SceneSnapshot snapshot;
-    snapshot.controlledName = sceneJson.value(QStringLiteral("controlledName")).toString();
-    snapshot.party = characterSnapshotsFromJson(sceneJson.value(QStringLiteral("party")).toArray());
-    snapshot.enemies = characterSnapshotsFromJson(sceneJson.value(QStringLiteral("enemies")).toArray());
-    snapshot.npcs = characterSnapshotsFromJson(sceneJson.value(QStringLiteral("npcs")).toArray());
-    snapshot.items = itemSnapshotsFromJson(sceneJson.value(QStringLiteral("items")).toArray());
-
-    // The new chapter's own onLevelStart() is deferred to the next event
-    // loop iteration (see GameScene's constructor), and it's what
-    // (re)spawns the party/procedurally-guarded content in the first
-    // place - restoring the snapshot has to happen after that or its work
-    // would just get overwritten. loadLevel() itself is no longer
-    // synchronous (the actual scene swap is deferred behind the loading
-    // overlay - see finishLoadingLevel()), so capturing `m_scene` right
-    // after calling it here would grab the OLD scene (or null), not the one
-    // this snapshot is meant for. Instead, hand the continuation to
-    // finishLoadingLevel() via m_afterNextSceneReady - it queues this via
-    // singleShot(0) on the actual new scene right after constructing it,
-    // preserving the same "runs after onLevelStart's own identically-queued
-    // call" ordering guarantee this always relied on, just anchored to the
-    // real construction moment instead of assuming it already happened.
-    m_afterNextSceneReady = [this, snapshot] {
-        m_scene->restoreSnapshot(snapshot);
-        m_scene->showInfoMessage(QStringLiteral("Game"), QStringLiteral("Game loaded."));
-    };
-    loadLevel(mapPath);
+    m_pendingGameState = std::move(saved.state);
+    m_pendingSnapshot = std::move(saved.snapshot);
+    loadLevel(saved.mapPath);
 }
 
 void MainWindow::jumpToNextLevel()

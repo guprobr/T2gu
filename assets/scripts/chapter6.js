@@ -625,36 +625,46 @@ function* talkToWarden() {
     const hasCobb = api.getGlobalVar("cobb_recruited", false);
     const hasVex = api.getGlobalVar("vex_recruited", false);
     const hasNettle = api.getGlobalVar("nettle_recruited", false);
+    const allVoices = hasVigil && hasCobb && hasVex && hasNettle;
 
     api.playSound("select");
 
-    if (!(hasVigil && hasCobb && hasVex && hasNettle)) {
-        yield api.say("Warden", "You are not enough voices yet. Come back when you're not attempting to walk in here with only some of the party.");
-        return;
+    // Earlier chapters let Lara leave without recruiting everyone. Those
+    // choices cannot become a dead end here, where there is no road back.
+    if (allVoices) {
+        yield api.say("Warden", "Five who carry the same warmth in five different shapes. That is rarer than you understand, and considerably harder to schedule.");
+        yield api.say("Warden", "I will open. But not for silence. Each of you - a piece of the same thought. Together, or not at all. No pressure.");
+    } else {
+        yield api.say("Warden", "Not every voice you met has walked this far with you. That does not make what you heard disappear. A road is not a roll call.");
+        yield api.say("Lara", "So I can carry a thought even when the person who gave it to me stays behind?");
+        yield api.say("Warden", "You have been doing that all along. Say what you brought. I will listen.");
     }
-
-    yield api.say("Warden", "Five who carry the same warmth in five different shapes. That is rarer than you understand, and considerably harder to schedule.");
-    yield api.say("Warden", "I will open. But not for silence. Each of you - a piece of the same thought. Together, or not at all. No pressure.");
 
     yield api.wait(0.4);
     yield api.say("Lara", "The hum");
-    yield api.say("Vigil", "was never");
-    yield api.say("Cobb", "just one");
-    yield api.say("Vex", "voice");
-    yield api.say("Nettle", "- it's ours now.");
+    yield api.say(hasVigil ? "Vigil" : "Lara", "was never");
+    yield api.say(hasCobb ? "Cobb" : "Lara", "just one");
+    yield api.say(hasVex ? "Vex" : "Lara", "voice");
+    yield api.say(hasNettle ? "Nettle" : "Lara", "- it's ours now.");
 
     yield api.wait(0.5);
     yield api.say("Warden", "\"The hum was never just one voice - it's ours now.\" ...I genuinely did not expect anyone to arrive at that on their own. Or, apparently, on purpose.");
-    yield api.say("Lara", "We didn't, really. Four other extremely opinionated people got me here.");
-    yield api.say("Warden", "That is rather the point. Go on, then - all five of you, and try not to trip on the threshold. It's rude to the threshold.");
+    yield api.say("Lara", allVoices
+        ? "We didn't, really. Four other extremely opinionated people got me here."
+        : "I didn't arrive at it alone. Even the people who stayed behind gave me something to carry.");
+    yield api.say("Warden", allVoices
+        ? "That is rather the point. Go on, then - all five of you, and try not to trip on the threshold. It's rude to the threshold."
+        : "That is rather the point. Go on, then, and try not to trip on the threshold. It's rude to the threshold.");
 
     api.setVar("threshold_opened", true);
     api.playSound("select");
     yield api.wait(0.8);
 
     yield api.say("Lara", "...Is everyone else also seeing this, or is it just me having the day I was clearly always going to have?");
-    yield api.say("Vex", "I have no instrument that explains what I'm looking at, and I own several instruments specifically built to explain things. That's new.");
-    yield api.say("Cobb", "Nor me, and I've personally seen the inside of a mountain. This beats the mountain.");
+    if (hasVex)
+        yield api.say("Vex", "I have no instrument that explains what I'm looking at, and I own several instruments specifically built to explain things. That's new.");
+    if (hasCobb)
+        yield api.say("Cobb", "I've personally seen the inside of a mountain. This beats the mountain.");
     yield api.say("???", "It's both, actually - stone and signal and root and story, and it was always going to look like all of them at once from exactly here.");
     yield api.say("Lara", "You're closer now. I can actually hear it - you're not just a voice anymore, are you?");
     yield api.say("???", "Closer than I've been in longer than any of you have been alive. Whatever's past this point, Lara, it was never going to be small - and for once, I'm glad it isn't just me walking into it alone.");

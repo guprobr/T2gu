@@ -2,6 +2,8 @@
 
 #include <QDebug>
 #include <QFile>
+#include <QScopedValueRollback>
+#include <QTimer>
 
 ScriptEngine::ScriptEngine(QObject *apiObject, QObject *parent)
     : QObject(parent)
@@ -26,6 +28,7 @@ bool ScriptEngine::loadFile(const QString &path, QString *errorOut)
         return false;
     }
 
+    QScopedValueRollback<bool> executing(m_executing, true);
     const QJSValue result = m_engine.evaluate(QString::fromUtf8(file.readAll()), path);
     if (result.isError()) {
         if (errorOut) {
@@ -39,40 +42,61 @@ bool ScriptEngine::loadFile(const QString &path, QString *errorOut)
 
 void ScriptEngine::callEntryPoint(const QString &name, const QJSValueList &args)
 {
-    if (isBusy()) {
-        // Queued, not dropped - see the class comment and finishEntryPoint().
-        m_pendingCalls.enqueue(PendingCall{ name, args });
+    if (m_stopped)
         return;
-    }
-    startEntryPoint(name, args);
+    m_pendingCalls.enqueue(PendingCall{ name, args });
+    runNextPendingCall();
+}
+
+void ScriptEngine::postEntryPoint(const QString &name, const QJSValueList &args)
+{
+    if (m_stopped)
+        return;
+    m_pendingCalls.enqueue(PendingCall{ name, args });
+    if (m_dispatchScheduled)
+        return;
+    m_dispatchScheduled = true;
+    QTimer::singleShot(0, this, [this] {
+        m_dispatchScheduled = false;
+        runNextPendingCall();
+    });
+}
+
+void ScriptEngine::stop()
+{
+    m_stopped = true;
+    m_pendingCalls.clear();
+    if (!m_executing)
+        finishEntryPoint();
+}
+
+void ScriptEngine::resume()
+{
+    if (m_stopped)
+        return;
+    m_suspended = false;
+    QTimer::singleShot(0, this, [this] { runNextPendingCall(); });
 }
 
 void ScriptEngine::startEntryPoint(const QString &name, const QJSValueList &args)
 {
+    QScopedValueRollback<bool> executing(m_executing, true);
     const QJSValue fn = m_engine.globalObject().property(name);
-    if (!fn.isCallable()) {
-        // An optional missing handler must not strand the gameplay events
-        // queued behind it, leaving isBusy() true with nothing to advance.
-        runNextPendingCall();
+    if (!fn.isCallable())
         return;
-    }
 
     QJSValue result = fn.call(args);
     if (result.isError()) {
         qWarning() << "script error in" << name << ":" << result.toString();
-        runNextPendingCall();
+        emit scriptError(QStringLiteral("%1: %2").arg(name, result.toString()));
         return;
     }
+    if (m_stopped)
+        return;
 
     const QJSValue nextFn = result.property(QStringLiteral("next"));
-    if (!nextFn.isCallable()) {
-        // A plain function, not a generator - already fully done. Still
-        // worth draining the queue: nothing NEW could have been queued
-        // during this synchronous call today, but a plain entry point is
-        // just as much "a slot that just freed up" as a finished coroutine.
-        runNextPendingCall();
+    if (!nextFn.isCallable())
         return;
-    }
 
     m_activeIterator = result;
     m_nextFn = nextFn;
@@ -84,26 +108,39 @@ void ScriptEngine::finishEntryPoint()
     m_activeIterator = QJSValue();
     m_nextFn = QJSValue();
     m_state = State::Idle;
-    runNextPendingCall();
+    m_waitRemaining = 0.0;
 }
 
 void ScriptEngine::runNextPendingCall()
 {
-    if (m_pendingCalls.isEmpty())
+    if (m_stopped || m_suspended || m_drainingCalls || m_executing)
         return;
-    const PendingCall next = m_pendingCalls.dequeue();
-    startEntryPoint(next.name, next.args);
+
+    // Plain/missing handlers can finish synchronously. Drain iteratively,
+    // rather than recursively growing the stack for a burst of events.
+    QScopedValueRollback<bool> draining(m_drainingCalls, true);
+    while (!m_stopped && !m_suspended && m_state == State::Idle && m_activeIterator.isUndefined()
+           && !m_pendingCalls.isEmpty()) {
+        const PendingCall next = m_pendingCalls.dequeue();
+        startEntryPoint(next.name, next.args);
+    }
 }
 
 void ScriptEngine::driveIterator(const QJSValue &resumeArg)
 {
+    QScopedValueRollback<bool> executing(m_executing, true);
     QJSValueList args;
     if (!resumeArg.isUndefined())
         args.append(resumeArg);
 
     const QJSValue step = m_nextFn.callWithInstance(m_activeIterator, args);
+    if (m_stopped) {
+        finishEntryPoint();
+        return;
+    }
     if (step.isError()) {
         qWarning() << "script error resuming coroutine:" << step.toString();
+        emit scriptError(step.toString());
         finishEntryPoint();
         return;
     }
@@ -114,6 +151,8 @@ void ScriptEngine::driveIterator(const QJSValue &resumeArg)
     }
 
     handleYield(step.property(QStringLiteral("value")));
+    if (m_stopped)
+        finishEntryPoint(); // a synchronous dialogue listener retired us
 }
 
 void ScriptEngine::handleYield(const QJSValue &yielded)
@@ -138,22 +177,32 @@ void ScriptEngine::handleYield(const QJSValue &yielded)
 
 void ScriptEngine::onTick(qreal dtSeconds)
 {
-    if (m_state != State::WaitingForTimer)
+    if (m_stopped || m_suspended || m_executing || m_state != State::WaitingForTimer)
         return;
 
     m_waitRemaining -= dtSeconds;
     if (m_waitRemaining <= 0.0) {
         m_state = State::Idle; // driveIterator() sets it again if another wait/say follows
         driveIterator(QJSValue());
+        runNextPendingCall();
     }
 }
 
 void ScriptEngine::advance()
 {
-    if (m_state != State::WaitingForDialogue)
+    if (m_stopped || m_suspended || m_executing || m_state != State::WaitingForDialogue)
         return;
 
     m_state = State::Idle;
-    emit dialogueEnded();
+    {
+        // Signals can also synchronously invoke application callbacks.
+        QScopedValueRollback<bool> executing(m_executing, true);
+        emit dialogueEnded();
+    }
+    if (m_stopped) {
+        finishEntryPoint();
+        return;
+    }
     driveIterator(QJSValue());
+    runNextPendingCall();
 }

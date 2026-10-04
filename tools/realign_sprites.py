@@ -180,6 +180,7 @@ def process_character(json_path: Path, dry_run: bool, out_suffix: str):
     if dry_run:
         out_png = json_path.parent / (json_path.stem + out_suffix + ".png")
         out_json = json_path.parent / (json_path.stem + out_suffix + ".json")
+        new_meta["sheet"] = out_png.name
     else:
         out_png = sheet_path
         out_json = json_path

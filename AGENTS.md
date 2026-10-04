@@ -25,14 +25,18 @@ cmake --build build -j$(nproc)
 ./build/T2gu2
 ```
 
-- Requires Qt6 (Widgets, Qml, Multimedia).
+- Requires Qt 6.9 or newer (Widgets, Qml, Multimedia). For binaries intended
+  for other CPUs, configure with `-DT2GU_NATIVE_CPU=OFF`; local Release builds
+  retain `-march=native` by default, and portable builds retain supported LTO.
 - Assets are found through `assetDir()`/`assetPath()` (`src/AssetPath.h`) —
   never build a path from the `ASSET_DIR` macro directly (`QStringLiteral(ASSET_DIR
   "/x")` was the old pattern and is gone). Resolution order: `$T2GU_ASSET_DIR`,
-  then `<exe dir>/../share/t2gu2/assets` (what `make install` produces, so an
-  installed copy is relocatable), then `ASSET_DIR`, the compile-time absolute
+  then the configured GNUInstallDirs data path (`<exe dir>/../share/t2gu2/assets`
+  by default), then `ASSET_DIR`, the compile-time absolute
   path to the source tree's `assets/` that a run out of `build/` uses. See the
   save-format note below for how saves avoid depending on any of these.
+  Relative bindir/datadir layouts remain relocatable with the whole prefix;
+  explicitly absolute install directories retain the configured data path.
 - **Install (Linux):** `cmake --install build` / `make install` installs the
   binary, all of `assets/` (~1 GB) to `<prefix>/share/t2gu2/assets`, the
   `app_icon_*.png` set as hicolor `t2gu2.png`, and `t2gu2.desktop` (generated
@@ -45,17 +49,25 @@ cmake --build build -j$(nproc)
 - `T2GU_MAP_PATH` env var overrides which map boots first (defaults to
   `chapter1.json`) — use it to jump straight into any map/chapter or the
   sandbox without recompiling or playing through.
-- Headless/CI-style sanity check (no window, no input, but a full scene
-  construction + a few seconds of simulation): `QT_QPA_PLATFORM=offscreen
-  ./build/T2gu2`. This is the actual verification method used throughout
-  this project's history — run it per chapter after any change that
-  touches level generation, combat, or scripting, and check for zero
-  warnings:
+- `T2GU_SAVE_DIR` overrides the quicksave directory (normally
+  `~/.T2gu2`). Use a temporary directory for save/load regression runs so
+  they cannot overwrite the player's slot.
+- Headless/CI-style chapter checks use the opt-in regression executable and
+  the Linux RSS guard below. Each chapter runs in a fresh process, waits for
+  explicit scene readiness, advances the introductory coroutine, reports
+  population counts, simulates for another 2.5 seconds, and exits normally.
+  Run affected chapters after generation, combat or script changes; omit
+  `--chapters` to check all 25. Keep raw logs and investigate diagnostics:
   ```sh
-  for ch in $(seq 1 16); do
-    timeout 8 env QT_QPA_PLATFORM=offscreen T2GU_MAP_PATH="assets/maps/chapter$ch.json" ./build/T2gu2 2>&1 | grep -iE "error|warning|fatal|assert"
-  done
+  cmake -S . -B build-regression -DCMAKE_BUILD_TYPE=Debug -DT2GU_BUILD_TESTS=ON
+  cmake --build build-regression -j2
+  python3 tests/chapter_smoke.py --binary build-regression/T2guRegression --chapters 15
   ```
+  The guard requires Python 3 and Linux `/proc`; it enforces a 3 GiB RSS
+  ceiling and a 60-second deadline. A missing population/completion marker,
+  nonzero exit, timeout, or diagnostic fails the run. See `tests/README.md`
+  for limits and known optional Qt backend diagnostics. An arbitrary
+  `timeout ... | grep ...` is not proof that population finished.
   **Watch memory when testing.** A character's sprite sheet is
   4480×10120 RGBA — ~181 MB decoded — so `SpriteSheet::load()` decodes it
   once, keeps only each frame's non-transparent bounding box
@@ -63,9 +75,10 @@ cmake --build build -j$(nproc)
   per character, ~56 MB mean) and drops the sheet. Measured once settled
   (RSS flat for several seconds — a fixed-time sample catches a chapter
   mid-load and under-reports, which an earlier version of these numbers
-  did): chapter 4 849 MB (was 2,453 MB); `sandbox.json`, which loads the
-  *entire* 115-character roster into the party, 6.4 GB after ~68 s of
-  loading (was ~20 GB). Still enough
+  did): historically chapter 4 849 MB (was 2,453 MB); `sandbox.json`, with
+  the then-current *entire* 115-character roster, 6.4 GB after ~68 s of
+  loading (was ~20 GB). The current roster has 99 characters; those are
+  historical measurements, not a new measurement of today's sandbox. Still enough
   to hurt on a small machine, and to push a 32 GB one into swap and make
   timing measurements meaningless — so never run the sandbox unguarded:
   poll `/proc/<pid>/status` `VmRSS` and kill it past a few GB, and read
@@ -96,9 +109,15 @@ cmake --build build -j$(nproc)
   drawn — the feet anchor, shadow, health bar, selection marker and
   level-up text are all laid out against the cell. Anything needing a
   whole-cell image (the UI portrait) uses `SpriteSheet::paddedFrame()`,
-  which composes it on demand. Verified pixel-identical to the old full-
-  cell path across all 115 characters, every frame, both orientations.
-  There is no unit test suite and no live-input test framework. Verifying
+  which composes it on demand. The historical 115-character audit verified
+  every frame and both orientations pixel-identical to the old full-cell path.
+  Focused regression checks are opt-in: configure with
+  `-DT2GU_BUILD_TESTS=ON`, build, and run `ctest --test-dir build
+  --output-on-failure`. These cover script reentry/queues, combat callbacks
+  that spawn enemies, scene readiness/restoration, and (when Node is
+  installed) chapter 6 progression across recruitment combinations. They
+  use tiny temporary assets, not the full roster. There is no live-input
+  test framework. Verifying
   actual keyboard/mouse interaction requires a real (or nested) X11
   display and synthetic input (XTest) — this has proven flaky in sandboxed
   environments (unpredictable input delivery, occasional `BadMatch` on
@@ -121,8 +140,8 @@ assets/
                 ghosting) in several dozen, some regenerated via Codex,
                 the rest removed and substituted for in every quest that
                 referenced them), each a sprite sheet PNG + JSON sidecar;
-                stats.json and sounds.json are flat catalogs keyed by
-                roster name
+                stats.json and sounds.json contain "stats" and "sounds"
+                wrapper objects, respectively, keyed by roster name
   props/        props.json catalog (nested under a "props" key, not flat)
                 + one PNG per entry; borders.json/walls.json map a
                 tileset/wallTheme name to a border prop list
@@ -171,6 +190,10 @@ scene-graph or entity-component system layered on top.
   internal C++ API.
 - **`AudioManager`** — thin wrapper over `QMediaPlayer`/`QAudioOutput` for
   music (looped, cross-fadeable) and one-shot sfx.
+  Scene music starts with an ambient intro and then a shuffled playlist.
+  An early intro end cancels its two-minute fade deadline. Script music or
+  silence cancels automatic playback for that scene; replacement/stop
+  also cancels pending fades. Retiring a scene stops its music.
 
 ## Scripting system
 
@@ -194,6 +217,11 @@ before touching `ScriptEngine`/`ScriptBridge`:
   that happened during the wait. If you ever see `ScriptEngine::callEntryPoint`
   short-circuit on `m_state != Idle` without enqueuing, that's a
   regression — see `m_pendingCalls`/`runNextPendingCall()`.
+  Ordinary functions and synchronous generator steps are protected too
+  (`m_executing`); nested Qt event processing must not reenter JavaScript.
+  Combat and pickup callbacks use `postEntryPoint()` so entity iteration
+  finishes before handlers can spawn entities. They count as busy as soon
+  as posted, preserve queue order, and are canceled when a scene retires.
 - Level generation (`buildBranchingMaze`, `scatterOrganic`, `mulberry32`)
   is copy-pasted verbatim into every chapter script rather than shared via
   a module, because scripts can't `import`/`require` each other in this
@@ -238,19 +266,19 @@ Room); 17–25 are the second, nine places along "the Quiet Road".
 | 1 | Fernhollow | grass_water | sunrise | → | Wren, order-of-three riddle, fox/deer riddle, hostage, glowing acorn; a river with one ford |
 | 7 | The Frostmarket | dirt_snow | sunrise | ← | herd three stray horses to the pasture gate |
 | 8 | Lanternside | dirty_plate_asphalt | torch | → | three permit chips for the checkpoint warden |
-| 9 | Highgate Toll | grass_stone | sunset | ← | five troll kills clear the toll bar |
+| 9 | Highgate Toll | grass_stone | sunset | ← | optional bounty for five troll kills |
 | 10 | The Mourning Fair | haunted_grass_cobble | mystical | → | a rite whose order (moon, sun, storm) is taught by a riddle in town |
 | 11 | The Bramble Bazaar | grass_dirt | none | ← | alchemist trade: three ingredients for the bramble crown (no gate) |
 | 12 | Cinderport | stone_grass | torch | → | boss hunt: a 260 hp golem holds the crucible gate; 3-tile corridors |
 | 13 | The Undertrack | asphalt_dirty_plate | cavern | ← | relay chain: each relay wakes only after the one upstream |
-| 14 | Mirrorwater Ford | grass_water | mystical | → | a toll of three valuables, paid in town, opens the ford gate |
-| 15 | The Vigil Lights | snow_grass | sunset | ← | wave defense: three waves at the Vigil Light |
+| 14 | Mirrorwater Ford | grass_water | mystical | → | optional toll of three valuables paid in town; ford already passable |
+| 15 | The Vigil Lights | snow_grass | sunset | ← | optional three-wave hunt: clear each pack and return to the Vigil Light to begin the next |
 | 16 | The Long Room | dirt_grass | sunrise | → | hostage + relic "chord" check + boss; hands off to 17 |
 | 17 | Hushgate | dirt_snow | torch | ← | lost property: three things found in the maze go back to their owners; the Clerk then stamps the road |
-| 18 | The Keepwalk | haunted_cobble_grass | cavern | → | keys and doors: the maze is built as **three consecutive stages**, a Doorward and a locked door in each seam |
+| 18 | The Keepwalk | haunted_cobble_grass | cavern | → | **three consecutive maze stages**; optional keys for two Doorwards, with both doorways already passable |
 | 19 | Gildmere | grass_dirt | mystical | ← | cursed treasure: each of four heirlooms springs an ambush when picked up; all four go back to the Reeve |
-| 20 | Sluicegate | grass_water | sunset | → | **unbroken river**: three sluice parts found in town let the Lockkeeper drain the ford with `api.setTile` |
-| 21 | The Rival Quarter | stone_grass | sunrise | ← | two guilds each want two goods; serving either opens the gate, serving both makes peace (ending changes) |
+| 20 | Sluicegate | grass_water | sunset | → | map file has an unbroken river; script drains the ford on every start; three sluice parts earn an optional reward |
+| 21 | The Rival Quarter | stone_grass | sunrise | ← | two guilds each want two goods for optional rewards; serving both makes peace (ending changes) |
 | 22 | The Barter Mile | dirty_plate_asphalt | sunset | → | a three-trade chain (Tinker → Mystic → Gate-drone), each swap needs the previous item |
 | 23 | Cartographers' Rest | snow_grass | none | ← | three surveyors read out exact tile coordinates; the hero navigates with the built-in compass item |
 | 24 | The Inquest | haunted_grass_cobble | torch | → | deduction: three statements, exactly one liar; accuse with a warrant (an innocent turns hostile) |
@@ -264,7 +292,8 @@ Room); 17–25 are the second, nine places along "the Quiet Road".
   map's `"layout"` field and repeated as constants (`W`, `H`, `DIR`, `MID`,
   `TOWN_U`, `MAZE_WEST/EAST/NORTH/SOUTH`, `POCKET_U0/U1`) at the top of each
   script. Change a spec and the script constants must follow. Running it
-  with no arguments reproduces every shipped map byte for byte.
+  with no arguments reproduces every shipped generated chapter map byte for
+  byte; it does not generate the hand-authored chapter 2–6 or sandbox/test maps.
   A spec with `ford=False` (chapter 20) is an unbroken river; `--drain N` prints
   the `[col, row, tileName]` edits that turn it into the map with a ford (they
   are pasted into that script as its `DRAIN` constant, bank-blend tiles included).
@@ -289,9 +318,10 @@ Room); 17–25 are the second, nine places along "the Quiet Road".
   generated no-ring maps, which span the maze over the whole height) would
   leave the top and bottom rows as a free corridor around the maze, so chapters
   4 and 5 also seal rows 0 and H-1 with `mzedge_north`/`mzedge_south` barriers.
-- A quest that gates progress does it with `setExitGate(id, exitRows,
-  blocked)` (a 2×2 barrier across the maze exit; chapter 14 gates the river
-  ford instead) and lifts it with `api.setBarrier(id, 0, 0, 1, 1, false)`.
+- Physical quest gates remain in chapters 12, 16 and 25. They use
+  `setExitGate(id, exitRows, blocked)` across the maze exit and lift it with
+  `api.setBarrier(id, 0, 0, 1, 1, false)`. Other quests deliberately offer
+  optional rewards; do not restore gates removed in commit `c4777d8`.
   Spawn-once guard vars protect hostiles, loot and bosses from respawning;
   NPCs are respawned on every level start. Hostile roster keys must not
   collide with an NPC or companion key in the same scene (`dark_knight`,
@@ -300,6 +330,9 @@ Room); 17–25 are the second, nine places along "the Quiet Road".
   and `loadLevel("chapter{n+1}.json")`; chapter 6 hands off to 7 and 16 to 17.
   Chapter 25 sets `chapter` to 26 and stops on the open door — there is no
   chapter 26 — so it is the one that loads nothing.
+  Earlier companion recruitment is optional in chapters 2–4. Chapter 6's
+  Warden must accept incomplete parties and adapt its dialogue; never make
+  a past optional recruit mandatory after the player can no longer return.
 - **Mechanics worth knowing before adding a chapter** (all in `assets/scripts`):
   a gate can sit mid-maze only if the maze is built in stages (cutting one random
   maze with a wall strands fragments of the near side — the static check
@@ -404,6 +437,14 @@ other tileset's index-9 terrain is purely decorative.
   standing at a slightly greater Y can never visually swallow an item
   sitting on a nearby (but tile-distinct) open cell — this is a real bug
   that made at least one chapter's key item invisible before the fix.
+  `SceneLayers.h` defines top-level bands: ground-Y scenery/characters,
+  pickups, projectiles, lighting, then notifications. Pickups and fireballs
+  receive world lighting; level-up captions remain readable above it.
+  Prop shadows are owned child items with independent bounds, leaving the
+  prop's full-art `boundingRect()` and all placement/footprint calculations
+  unchanged. Level-up captions are scene-owned top-level items that follow
+  their original character; `beforeEntityDestroyed()` cancels them before
+  that anchor is deleted.
 - Every `props.json` catalog `width` was bumped again (2026-09-27, separate
   from the one-time 2x bake above) — ~9% across the board, ~18% for 16
   building-flavored entries (cottages, chapels, towers, the windmill, the
@@ -436,6 +477,10 @@ other tileset's index-9 terrain is purely decorative.
   as the **rejoin fallback** when no trail point is reachable (after a
   fight, a control switch, or a barrier across the trail). Don't delete
   them.
+  Failed searches obey the same retry cooldown as successful searches.
+  Stuck detection measures accumulated progress over its time window, not
+  an 8px requirement per frame; changing waypoints resets that baseline.
+  A reachable slow-moving character must never blacklist its own path.
 - Once the leader has stood still for `kPartyCrowdSettleSeconds`,
   followers that can see it and are inside the crowd area stop lining up
   and `shuffleInCrowd()` idles them in a loose crowd: short random steps
@@ -515,6 +560,20 @@ other tileset's index-9 terrain is purely decorative.
   instant it's ready, every tick, before the player can ever press
   anything — the manual key then always lands on "already on cooldown"
   and reads as a broken button. Keep this split if the system grows.
+  Fireballs are guaranteed targeted spells: flight time is fixed at launch,
+  while the visual follows the original target until impact. A control
+  switch never redirects a bolt. `GameScene` advances flight, damage and
+  impact fade with simulation time, so scene suspension pauses them
+  together. Target removal and snapshot restoration cancel pending bolts
+  and their visuals; caster removal does not cancel an already launched spell.
+
+Enemy-defeat handlers may accept `(name, worldX, worldY)`: the extra world-pixel
+feet coordinates are copied when defeat is awarded, so they remain valid after
+corpse cleanup and while the event waits behind another coroutine. Existing
+name-only handlers continue to work. Chapter 25 uses `spawnEnemyAtWorld` for
+each following form at that exact point; `spawnItemAtWorld` places its potion
+nearby using the normal pickup nudge rules. These methods reject nonfinite or
+out-of-map anchors. Tile-based spawns retain their existing behavior.
 
 ## Performance findings (2026-09-19)
 
@@ -524,8 +583,19 @@ per-category paint time, and item counts; never committed). **Collision is
 not the cost:** `TileMap::isWalkable` + `BlockingGrid::containsPoint` run at
 35–85 ns per call (well under 1 µs per tick), and every part of `onTick`
 (AI, character ticks, camera pan, input) totals about 0.1–0.2 ms. Blocking
-footprints are never thin enough to tunnel (smallest side 28.8 px vs a
-25.6 px worst-case step at run speed with the 50 ms dt clamp).
+footprint size versus the dt clamp alone does not prove collision safety:
+run, buff, level and catch-up multipliers can cross a 28.8 px footprint in
+one tick. `Character::tick()` now sweeps each axis continuously through
+the blocking grid and every crossed terrain/object cell, retaining wall
+sliding and feet-point collision. The timings above describe the earlier
+point-query measurements, not a new benchmark of the sweep implementation.
+World bounds are checked before converting points to tile coordinates.
+Tileset swaps commit validated replacement sheets before advancing the map's
+tileset revision; `TileMapItem` observes that revision to clear cached variants
+and refresh the water index. Failed replacements retain the current sheet.
+Dialogue arrival closes inventory immediately. Window/application
+deactivation clears held direction/Shift keys and stops the controlled
+character; synthetic Qt events verify those handlers, not desktop delivery.
 
 **Frame time is paint time, and it scales with props in view.** Chapter 1
 at 2560×1440: 43 props in view = 4 ms/frame, ~150 = 11 ms, ~170–200 =
@@ -574,10 +644,17 @@ not saved. Do not replace an active dialogue with a save/refusal message
 or defer that save to a different scene. F8 and gameplay input are also
 ignored during level transitions.
 `GameState` (vars/inventory/level/experience/stat bonuses) plus a full
-`GameScene::SceneSnapshot` (exact party/enemy/NPC/item positions and HP)
+`GameScene::SceneSnapshot` (exact party/enemy/NPC/item positions, HP, and
+temporary stat bonuses with remaining simulation durations)
 round-trip through JSON — a chapter's own `*_spawned` guard vars alone can
 only block re-spawning a whole batch outright, never track which
 *individual* members survived, hence the separate snapshot.
+World item snapshots use the actual ground anchor after any spawn nudge;
+restoration places them exactly and removed props release their occupancy
+reservations. Chapter 15 preserves active-wave counters during population
+because quickload restores the surviving wave enemies afterward.
+Temporary buffs survive quickload but expire on normal chapter transitions.
+Maximum-HP boosts refill living members; dead members stay at zero HP.
 
 - Written via `QSaveFile` (atomic: writes to a temp file, replaces the
   real one only on a successful `commit()`) — never regress this back to
@@ -585,13 +662,17 @@ only block re-spawning a whole batch outright, never track which
 - Loaded with an explicit `QJsonParseError` check — a corrupt/truncated
   file must produce a clear "save is corrupt" message, not silently
   become an empty `QJsonObject` that fails confusingly later.
-- Carries a `"saveVersion"` field (current: `1`). A missing version is
-  treated as `1` (pre-dates the field); a version *newer* than
-  `kCurrentSaveVersion` is rejected with a message rather than
-  partially-loaded. Bump this when the save JSON's *shape* changes in a
-  way that needs a migration decision — not for every new field, since
-  every field is already read as individually optional
-  (`QJsonValue::toX(default)`).
+- Carries a `"saveVersion"` field (current: `2`). A missing version is
+  treated as `1`; version 1 is rejected because its quest variables were
+  not namespaced by chapter. Versions newer than `kCurrentSaveVersion`
+  are also rejected. Optional temporary-buff fields default to no bonus,
+  so earlier version 2 saves still load. Bump the version when the shape
+  changes in a way that needs a migration decision — not for every new field.
+  Optional fields retain defaults; provided fields are validated by
+  `SaveData`. Saves are capped at 8 MiB. Counts/stats, scalar story variables,
+  actor/item references, feet positions, health and buffs must be valid.
+  Party composition and maximum health must match the reconstructed chapter.
+  Parsing and restoration operate on a candidate, never on live state.
 - Stores the map as **just its filename** (`"map": "chapter4.json"`),
   resolved against this install's own `ASSET_DIR` on load — not the full
   `m_currentMapPath`, which is normally built from the compile-time
@@ -627,20 +708,30 @@ concurrently during a transition (see the historical comment on
 `GameScene::stopTicking()`); a nested event loop here was another route to
 that same failure mode.
 
-The current shape: `loadLevel()` synchronously disconnects and stops the
-*old* scene's ticking immediately (not after any delay), then schedules
-the actual scene swap via a plain `QTimer::singleShot(1000, ...)` calling
-`finishLoadingLevel()` — a real deferred callback through Qt's own event
-loop, never a second nested loop on top of it. `m_levelTransitionPending`
-guards against a second `loadLevel()` call landing mid-transition.
-Anything that needs to run *after* the new scene's own deferred
-`onLevelStart()` (which `GameScene`'s constructor itself queues via
-`singleShot(0)`) — currently only `loadGame()`'s snapshot restore — can no
-longer just capture `m_scene` right after calling `loadLevel()`, since
-that call now returns before the swap happens. Use
-`m_afterNextSceneReady` (a `std::function<void()>` consumed exactly once
-by `finishLoadingLevel()` right after constructing the new scene) instead
-of any new ad hoc synchronous-completion assumption.
+The current shape: `loadLevel()` synchronously pauses the old scene's tick
+and suspends its script engine before any delay. A plain
+`QTimer::singleShot(1000, ...)` calls `finishLoadingLevel()` through Qt's own
+loop, never a second nested loop. `m_levelTransitionPending` prevents
+stacked transitions. The old scene and its UI remain intact while a fresh
+candidate uses `m_pendingGameState`; save loads also carry `m_pendingSnapshot`.
+`m_loadingScene` remains separate from `m_scene` until commit.
+
+The candidate's first `onLevelStart()` step populates before its first yield.
+Its `sceneReady` handler restores any snapshot synchronously, then commits
+state, rebinds the scene to the persistent `GameState`, swaps the view, retires
+the old scene, and hides the overlay. Candidate dialogue/status signals are
+buffered until commit. Missing/invalid maps or scripts, first-step exceptions,
+and restoration failures discard the candidate and resume the old scene's
+coroutine, queued events and tick without counting loading time as simulation.
+No partial candidate state may escape into the live game. A failed initial
+boot with no previous scene reports failure without starting an empty scene.
+Terminal `stopTicking()`/`ScriptEngine::stop()` still cancel all pending work;
+reversible transition suspension must not use those terminal methods.
+
+Do not infer readiness from the order of two `singleShot(0)` calls: sprite
+loading pumps Qt events and can run the second callback before the first
+finishes. Both old and candidate simulation remain stopped through population
+and restoration. Later script-driven loads retain tick/execution guards.
 
 **The loading overlay must stay up until the level is actually populated,
 not just until `GameScene` exists** (2026-09-27 fix). Constructing
@@ -648,11 +739,10 @@ not just until `GameScene` exists** (2026-09-27 fix). Constructing
 `onLevelStart`, deferred to the *next* event-loop turn (same
 `singleShot(0)` above). Hiding the overlay synchronously right after
 `new GameScene(...)`, as it used to, revealed a bare map for a beat before
-`onLevelStart` actually populated it. `finishLoadingLevel()` now hides it
-from its own `singleShot(0)`, queued *after* both `onLevelStart`'s turn
-and (if a save is loading) `m_afterNextSceneReady`'s turn — same
-same-priority FIFO queue-ordering guarantee `m_afterNextSceneReady` itself
-already relies on, just one link further down the chain.
+`onLevelStart` actually populated it. `finishLoadingLevel()` now connects
+to `sceneReady`, restores any snapshot synchronously, and only then hides
+the overlay and enables input. A first-step script redirect is held until
+this readiness boundary, then starts a normal transition.
 
 **A session's first level load can be slow enough to trip the OS's
 "Not Responding" state, and there's a narrow, deliberate exception to
@@ -666,16 +756,15 @@ in between to repaint or answer a window-manager ping - every later
 transition mostly hits the warm cache and doesn't show this.
 `SpriteSheet::load()` now calls
 `QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents)`
-once per fresh decode. This is safe specifically because, unlike the
-`loadLevel()` hazard above: user input is excluded; no `GameScene`'s tick
-timer is running yet at this point in *any* level's load (a new scene's
-own timer only starts at the very end of its constructor, and the old
-scene's was already stopped before this one exists); and if anything did
-still manage to trigger a duplicate `onLevelStart`, `ScriptEngine`'s own
-`callEntryPoint` guard (see *Scripting system* above) queues it rather
-than reentering. Don't add a bare `processEvents()` call anywhere else in
-this codebase on the strength of this precedent alone - re-check all
-three conditions for the new call site first.
+once per fresh decode. User input is excluded; initial population and
+snapshot restoration run before the new scene's timer starts, and the old
+scene is suspended until commit (or retired afterward). Later script-driven decoding is protected by
+`GameScene`'s tick/execution guards and `ScriptEngine::m_executing` for
+ordinary functions as well as generator steps. The former assumption
+that no timer ran during population was incorrect: the constructor used
+to start it before the deferred `onLevelStart` call. Don't add a bare
+`processEvents()` call elsewhere on the strength of this exception alone;
+check timers, queued callbacks, and script execution at that call site.
 
 ## Known limitation, not yet worth fixing
 

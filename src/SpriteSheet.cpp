@@ -79,13 +79,11 @@ bool SpriteSheet::load(const QString &jsonPath, QString *errorOut)
     // (every later transition mostly hits the process-lifetime cache above
     // it in GameScene.cpp and skips this entirely). Pumping the queue here
     // - once per genuinely new sheet, not per frame - lets the window
-    // repaint/ack WM pings between characters without reopening the
-    // reentrancy hazard AGENTS.md documents: user input is excluded, no
-    // GameScene's tick timer is running yet at this point in a level's
-    // load (the new scene's own m_tickTimer only starts at the very end of
-    // its constructor, and the old scene's was already stopped before this
-    // one exists), and a stray duplicate onLevelStart call is queued, not
-    // reentered, by ScriptEngine's own callEntryPoint guard.
+    // repaint/ack WM pings between characters. GameScene keeps simulation
+    // stopped until its initial script step and sceneReady callbacks have
+    // returned; later loads are protected by its tick/execution guards.
+    // ScriptEngine also guards ordinary calls as well as generator steps.
+    // Excluding user input alone would not stop timers/queued callbacks.
     QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
 
     // Scanned as raw bytes: alpha is byte 3 of each pixel for RGBA8888 (in

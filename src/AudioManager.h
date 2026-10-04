@@ -55,6 +55,8 @@ signals:
     void musicFinished();
 
 private:
+    friend class EngineRegressionAccess;
+    void cancelMusicFade();
     QSoundEffect *effectFor(const QString &name);
 
     QHash<QString, QSoundEffect *> m_effects;
@@ -65,4 +67,5 @@ private:
     // and discard the stale one instead of leaving it to finish later and
     // clobber whatever's playing by then.
     QPropertyAnimation *m_fadeAnimation = nullptr;
+    bool m_musicActive = false;
 };

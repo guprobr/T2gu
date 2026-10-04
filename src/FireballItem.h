@@ -1,22 +1,16 @@
 #pragma once
 
-#include <QElapsedTimer>
 #include <QGraphicsItem>
 #include <QObject>
 #include <QPointF>
-#include <QTimer>
 
 class QGraphicsScene;
 
 // A traveling bolt of fire cast by a sufficiently intelligent Character -
-// see GameScene::castFireball(). Purely a visual effect: it animates its
-// own position/fade on an internal timer and self-removes once done, the
-// same "self-contained, parentless-so-it-can-travel-in-scene-space, always
-// deletes itself" pattern LevelUpTextItem uses for its own animation. The
-// actual damage and hit timing are owned separately by GameScene's own
-// tick-driven bookkeeping (see PendingFireballHit) so gameplay never
-// depends on this item's timer firing in perfect lockstep - a dropped
-// frame here only ever costs a little visual smoothness, never a hit.
+// see GameScene::castFireball(). GameScene advances this visual and its
+// damage together using simulation time. The endpoint follows the original
+// target until impact, then stays fixed while the flash fades. Scene
+// ownership handles teardown; GameScene removes completed/cancelled bolts.
 class FireballItem : public QObject, public QGraphicsItem
 {
     Q_OBJECT
@@ -30,6 +24,10 @@ public:
     // numerically so.
     FireballItem(QGraphicsScene *scene, QPointF start, QPointF end, qreal durationSeconds, int intelligence);
 
+    void setTargetPosition(QPointF end);
+    void tick(qreal dtSeconds);
+    bool isFinished() const { return m_elapsedMs >= m_durationMs + m_impactDurationMs; }
+
     QRectF boundingRect() const override;
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
 
@@ -39,6 +37,5 @@ private:
     qreal m_impactDurationMs;
     qreal m_glowRadius;
     int m_coreAlpha;
-    QElapsedTimer m_clock;
-    QTimer m_timer;
+    qreal m_elapsedMs = 0.0;
 };

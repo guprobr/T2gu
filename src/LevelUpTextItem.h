@@ -7,11 +7,10 @@
 
 // A transient "Level Up!" caption that rises up from just above a
 // character's head and fades out over a little over a second, then removes
-// itself - see GameScene::showLevelUpEffect(). Constructed as a CHILD of
-// the character it's celebrating (parent = that Character), so it tracks
-// the character's position automatically via Qt's normal parent/child
-// item transform, the same trick Character's own health bar rect items
-// use for themselves.
+// itself - see GameScene::showLevelUpEffect(). A scene-owned top-level item
+// so its notification layer can sit above unrelated scenery and lighting.
+// GameScene cancels it before deleting its anchor; the animation timer
+// follows that anchor's head position while the caption rises and fades.
 class LevelUpTextItem : public QObject, public QGraphicsItem
 {
     Q_OBJECT
@@ -19,9 +18,11 @@ class LevelUpTextItem : public QObject, public QGraphicsItem
 
 public:
     // headTopY is where the character's visible content starts, in the
-    // parent's own coordinates (Character::headTopY()) - the caption
+    // anchor's own coordinates (Character::headTopY()) - the caption
     // anchors a fixed distance above that, clear of the health bar.
-    LevelUpTextItem(QGraphicsItem *parent, qreal headTopY);
+    LevelUpTextItem(QGraphicsItem *anchor, qreal headTopY);
+    QGraphicsItem *anchorItem() const { return m_anchor; }
+    void updateAnchorPosition();
 
     QRectF boundingRect() const override;
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
@@ -29,4 +30,6 @@ public:
 private:
     QElapsedTimer m_clock;
     QTimer m_timer;
+    QGraphicsItem *m_anchor;
+    QPointF m_localAnchor;
 };

@@ -13,10 +13,9 @@
 
 namespace {
 // Held on screen for a fixed minimum duration below, same reasoning as
-// MainWindow::blockFor() for level transitions - MainWindow's own
-// construction (which synchronously loads the first chapter) is fast
-// enough that without an artificial pause, this would flash and vanish
-// before anyone could read it.
+// level-transition overlay: a warm start can finish quickly enough that
+// the splash would flash before anyone could read it. Cold sprite decoding
+// can take much longer; chapter loading has its own readiness-bound overlay.
 constexpr int kSplashMinDurationMs = 1200;
 
 QPixmap buildSplashPixmap()

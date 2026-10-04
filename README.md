@@ -2,7 +2,7 @@
 
 ![ShadowShine screenshot](screenshot.png)
 
-v0.7.3
+v0.7.4
 
 > *A 100-chapter isometric RPG. Twenty-five chapters are done. The other seventy-five are, uh, "in the pipeline."*
 
@@ -18,7 +18,7 @@ v0.7.3
 
 ## Building
 
-You need CMake, a C++20 compiler and Qt6 (Widgets, Qml, Multimedia).
+You need CMake, a C++20 compiler and Qt 6.9 or newer (Widgets, Qml, Multimedia).
 
 ```sh
 cmake -S . -B build
@@ -27,6 +27,10 @@ cmake --build build -j$(nproc)
 ```
 
 It builds Release by default (`-O3`, `-march=native`, LTO), because we once lost an afternoon to an accidentally unoptimized build and we do not talk about it.
+
+For a Release binary intended for other CPUs, configure with
+`cmake -S . -B build-portable -DT2GU_NATIVE_CPU=OFF`. This disables
+`-march=native` while keeping Release optimization and supported LTO.
 
 **Want to skip to a specific chapter?** Set `T2GU_MAP_PATH`:
 
@@ -47,6 +51,12 @@ cmake --install build                                     # `make install` works
 That puts `T2gu2` in `<prefix>/bin`, the app icons in the hicolor icon theme, a `t2gu2.desktop` launcher in `<prefix>/share/applications` (so it shows up in your app menu as *ShadowShine*), and the whole `assets/` tree in `<prefix>/share/t2gu2/assets`. Fair warning: that last part is about 1 GB, because every character is a 4480×10120 sprite sheet and we have opinions about frames.
 
 The installed game finds its assets on its own, next to the binary, so you can delete the source tree afterwards. Set `T2GU_ASSET_DIR` to point it somewhere else. Pick the prefix when you configure, not with `--prefix` at install time: the launcher's `Exec=` line is written from it. To uninstall, `xargs rm < build/install_manifest.txt` (it leaves some empty directories behind, which is between you and them).
+
+Custom relative `CMAKE_INSTALL_BINDIR` and `CMAKE_INSTALL_DATADIR` layouts
+also work: asset lookup follows the configured path relative to the executable,
+even after moving the whole prefix. Explicitly absolute install directories
+retain their fixed configured data path. The generated desktop launcher's
+`Exec=` and `TryExec=` remain tied to the configure-time binary directory.
 
 ## Controls
 

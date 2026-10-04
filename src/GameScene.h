@@ -5,6 +5,7 @@
 #include <QHash>
 #include <QJsonObject>
 #include <QPoint>
+#include <QPointer>
 #include <QRectF>
 #include <QSet>
 #include <QStringList>
@@ -23,6 +24,8 @@
 class QGraphicsRectItem;
 class QGraphicsSceneMouseEvent;
 class LightingOverlayItem;
+class LevelUpTextItem;
+class FireballItem;
 class Prop;
 class TileMapItem;
 
@@ -37,6 +40,12 @@ public:
     // boot; this scene itself, via scriptLoadLevel(), for later
     // transitions) - see kDefaultMapPath's old role, now gone from here.
     explicit GameScene(GameState *state, const QString &mapPath, QObject *parent = nullptr);
+
+    // Initial onLevelStart step completed; the scene can be restored or
+    // shown, even if its introductory coroutine is waiting for dialogue.
+    bool isReady() const { return m_sceneReady; }
+    QString loadError() const { return m_loadError; }
+    void setGameState(GameState *state) { m_state = state; }
 
     Character *controlledCharacter() const;
 
@@ -207,6 +216,7 @@ public:
         qreal y = 0.0;
         int hp = 0;
         int maxHp = 0;
+        Character::TemporaryBuffs temporaryBuffs;
     };
     struct ItemSnapshot
     {
@@ -233,7 +243,9 @@ public:
     // for why that needs a deferred call, not an immediate one) - calling
     // it any earlier would just have its work overwritten or duplicated
     // once onLevelStart actually runs.
-    void restoreSnapshot(const SceneSnapshot &snapshot);
+    // Returns false on inconsistent party state or a failed dependency.
+    // The caller must discard a candidate that cannot fully restore.
+    bool restoreSnapshot(const SceneSnapshot &snapshot, QString *errorOut = nullptr);
     // Shows a message through the same dialogue box a script's say() uses,
     // but engine-triggered rather than script-triggered (e.g. a built-in
     // item effect like the compass) - isDialogueActive()/advanceDialogue()
@@ -242,16 +254,19 @@ public:
     void showInfoMessage(const QString &speaker, const QString &text);
 
     // Stops the tick timer for good - called by MainWindow right when
-    // transitioning away from this scene, before deferring its actual
+    // committing a transition (or discarding a failed candidate), before its
     // deletion, so it isn't still driving its own ScriptEngine/AI/audio
     // for however long the deferred delete takes to fire.
     void stopTicking();
+    void pauseSimulation();
+    void resumeSimulation();
 
     // The `api.*` surface a running script actually calls into - see
     // ScriptBridge, which is a thin pass-through to these. Public because
     // ScriptBridge needs to call them, not because anything else should.
     void scriptSpawnCharacter(const QString &name, int tileCol, int tileRow, int hp);
     void scriptSpawnEnemy(const QString &name, int tileCol, int tileRow, int hp);
+    void scriptSpawnEnemyAtWorld(const QString &name, qreal worldX, qreal worldY, int hp);
     // A non-hostile, non-controllable character just standing/idling in the
     // world - a friend/guide to talk to. Never added to m_party or
     // m_enemies, never given a health bar (createCharacterAt only creates
@@ -270,6 +285,7 @@ public:
     // world, fires onItemCollected(id)) once the player walks near it -
     // see onTick(). No key needed, unlike NPCs.
     void scriptSpawnItem(const QString &itemId, int tileCol, int tileRow);
+    void scriptSpawnItemAtWorld(const QString &itemId, qreal worldX, qreal worldY);
     void scriptSetTileset(const QString &relativePath);
     void scriptSetTile(const QString &tileName, int tileCol, int tileRow);
     // A rectangular, invisible, named movement barrier spanning tileCol/Row
@@ -335,6 +351,11 @@ public:
     void scriptLoadLevel(const QString &relativePath);
 
 signals:
+    // Emitted after the first onLevelStart step returns, before ticking
+    // begins. Consumers may restore a snapshot synchronously here.
+    void sceneReady();
+    void sceneLoadFailed(QString message);
+
     // Emitted each tick so the view can keep the camera centered on the
     // controlled character - the scene owns the tick loop, the view (owned
     // by MainWindow) owns the camera, so this is how the two stay in sync.
@@ -377,6 +398,7 @@ private slots:
     void onTick();
 
 private:
+    friend class EngineRegressionAccess;
     // A hostile Character plus its own small amount of AI state. AI has no
     // real "state machine" - each tick it just reacts to the current
     // distance to the controlled character (idle / chase / attack), which
@@ -416,6 +438,7 @@ private:
         Character *target = nullptr;
         bool targetIsEnemy = false; // which side awardEnemyDefeatRewards() should look it up on, if it dies
         int damage = 0;
+        QPointer<FireballItem> visual;
     };
 
     // A following/chasing party member's current grid path - see
@@ -436,7 +459,7 @@ private:
         // moveAlongPath() throws the path away and forces an immediate
         // repath rather than leaving the character parked against
         // whatever it hit.
-        qreal lastWaypointDistance = -1.0; // -1 = no reading yet
+        qreal lastWaypointDistance = -1.0; // progress baseline, retained across ticks
         qreal stuckTimer = 0.0;
 
         // Trail-follow state (see followTrail()). While > 0 the trail is
@@ -476,10 +499,10 @@ private:
     // itself finishes - an arbitrary track, but never the same one that was
     // just playing, so "alternate" reads as "keep it varied," not "let it
     // sometimes repeat by chance." Each track plays once (not looped) and
-    // re-connects AudioManager::musicFinished to itself (single-shot) so the
-    // level keeps shuffling through the whole playlist indefinitely, rather
-    // than picking one track and looping just that one forever.
+    // the automatic music connection advances the playlist until a script
+    // explicitly takes control or the scene is retired.
     void playRandomLevelTrack();
+    void cancelAutomaticMusic();
     // Selects `target` (a party/enemy/NPC Character, or an item pickup's
     // Prop) and shows its info panel - unless `target` is already the
     // current selection, in which case this deselects instead (the
@@ -492,6 +515,7 @@ private:
     // the "clicking empty ground / a decorative prop" half of the toggle.
     // No-op if nothing is selected.
     void deselectCurrent();
+    void refreshSelectionInfo();
     // All individual enemy/NPC/pickup deletions go through this path after
     // removal from their population container. Qt owns the entity's child
     // items; beforeEntityDestroyed drops every remaining external pointer.
@@ -593,7 +617,8 @@ private:
     // Shared tail of scriptSpawnItem()/dropRandomLoot() - places itemId's
     // visual at an exact world position rather than a tile (a dropped-loot
     // position is wherever the enemy died, not necessarily tile-centered).
-    void spawnItemInWorld(const QString &itemId, qreal worldX, qreal worldY);
+    void spawnItemInWorld(const QString &itemId, qreal worldX, qreal worldY,
+                          bool resolveCollision = true);
     // Resolves an items.json catalog entry's icon path - "image" preferred,
     // "prop" as the older placeholder fallback. Shared by spawnItemInWorld()
     // and inventoryEntries().
@@ -675,10 +700,12 @@ private:
     // directly with resolveCollision=false to place a restored character
     // at its exact saved position rather than a tile center.
     Character *createCharacterAtWorldFeet(const QString &name, QPointF worldFeetPos, int hp, bool resolveCollision);
+    bool isInsideMap(QPointF point) const;
     // Shared tail of every prop placement (showcase grid, markers,
     // spawnPropAt): position by ground-contact point, Y-sort, register as a
     // solid blocker if applicable.
-    void placeProp(Prop *prop, qreal worldGroundX, qreal worldGroundY, bool blocksMovement);
+    void placeProp(Prop *prop, qreal worldGroundX, qreal worldGroundY, bool blocksMovement,
+                   bool resolveCollision = true);
 
     GameState *m_state; // owned by MainWindow, outlives this scene - see GameState.h
     QString m_mapPath; // this scene's own map file, for resolving relative script/tileset/loadLevel paths
@@ -752,6 +779,8 @@ private:
     QHash<QPoint, qreal> m_temporarilyBlockedCells;
     QVector<Enemy> m_enemies;
     QVector<PendingFireballHit> m_pendingFireballHits; // see castFireball()/updatePendingFireballHits()
+    QVector<QPointer<FireballItem>> m_fireballVisuals;
+    QVector<QPointer<LevelUpTextItem>> m_levelUpEffects;
     QVector<Npc> m_npcs; // see scriptSpawnNpc()/interactWithNearby()
     QVector<WorldItem> m_worldItems; // see scriptSpawnItem()/updateItemPickups()
     QHash<QString, Character *> m_charactersByName; // for scriptGiveControl() and interactWithNearby()
@@ -759,11 +788,12 @@ private:
     // Persistent spatial-hash occupancy for resolveSpawnCollision() - see
     // its own comment for why these are kept across every spawn rather
     // than rebuilt from m_party/m_enemies/m_npcs or m_props/m_worldItems
-    // each time. Separate sets since a character standing where a prop's
+    // each time. Separate caches since a character standing where a prop's
     // ground anchor sits (extremely common - most props are walked past or
     // stood next to) is normal and shouldn't nudge either one.
     QSet<qint64> m_occupiedCharacterCells;
-    QSet<qint64> m_occupiedPropCells;
+    QHash<qint64, int> m_occupiedPropCells; // counts also cover exact restored overlaps
+    QHash<Prop *, qint64> m_propReservations;
     QJsonObject m_propsCatalog; // "props" object from props.json, kept around for spawnPropAt()
     QJsonObject m_itemsCatalog; // "items" object from items.json, kept around for scriptSpawnItem()
     QStringList m_lootPool; // every non-keyItem catalog id - see dropRandomLoot()
@@ -799,14 +829,24 @@ private:
     // selected. Compared against on every click to decide "select this
     // new thing" vs "clicking the current selection again, deselect."
     QGraphicsItem *m_selectedItem = nullptr;
+    SelectionInfo m_selectionInfo;
     bool m_playerDeathNotified = false; // guards onPlayerDied firing more than once
     bool m_engineMessageActive = false; // see showInfoMessage() - an engine-triggered dialogue box, not a script one
     HealthBarDisplay m_healthBarDisplay = HealthBarDisplay::HeroOnly;
     QGraphicsRectItem *m_selectionMarker = nullptr;
     QTimer m_tickTimer;
+    bool m_sceneReady = false;
+    QString m_loadError;
+    bool m_simulationPaused = false;
+    bool m_tickStopped = false;
+    bool m_tickInProgress = false;
     QElapsedTimer m_clock;
     qint64 m_lastElapsedMs = 0;
     AudioManager m_audio;
+    QTimer m_ambientIntroTimer;
+    QMetaObject::Connection m_autoMusicConnection;
+    bool m_automaticMusic = true;
+    bool m_ambientIntroActive = true;
 
     // Declaration order matters here: the bridge must exist before the
     // engine, which installs it as the script-global `api` object.

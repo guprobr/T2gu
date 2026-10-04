@@ -17,7 +17,21 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Widgets Qml Multimedia)
+# TileMapItem uses QImage::flipped(), introduced in Qt 6.9.
+find_package(Qt6 6.9 REQUIRED COMPONENTS Widgets Qml Multimedia)
+
+include(GNUInstallDirs)
+# Relative GNUInstallDirs layouts follow a relocated install prefix. An
+# explicitly absolute directory keeps its configured, fixed location.
+if (IS_ABSOLUTE "${CMAKE_INSTALL_BINDIR}" OR IS_ABSOLUTE "${CMAKE_INSTALL_DATADIR}")
+    set(T2GU_INSTALL_ASSET_PATH "${CMAKE_INSTALL_FULL_DATADIR}/t2gu2/assets")
+else()
+    file(RELATIVE_PATH T2GU_INSTALL_ASSET_PATH
+         "${CMAKE_INSTALL_FULL_BINDIR}" "${CMAKE_INSTALL_FULL_DATADIR}/t2gu2/assets")
+endif()
+set(T2GU_ASSET_DEFINITIONS
+    ASSET_DIR="${CMAKE_SOURCE_DIR}/assets"
+    T2GU_INSTALL_ASSET_PATH="${T2GU_INSTALL_ASSET_PATH}")
 
 add_executable(T2gu2
     src/main.cpp
@@ -62,13 +76,61 @@ add_executable(T2gu2
     src/StatusMessageWidget.cpp
     src/StatusMessageWidget.h
     src/GameState.h
+    src/SceneLayers.h
+    src/SaveData.cpp
+    src/SaveData.h
     src/Version.h
     src/AssetPath.cpp
     src/AssetPath.h
 )
 
 target_link_libraries(T2gu2 PRIVATE Qt6::Widgets Qt6::Qml Qt6::Multimedia)
-target_compile_definitions(T2gu2 PRIVATE ASSET_DIR="${CMAKE_SOURCE_DIR}/assets")
+target_compile_definitions(T2gu2 PRIVATE ${T2GU_ASSET_DEFINITIONS})
+
+# Small opt-in regressions for script dispatch, scene readiness and story
+# progression. Normal builds retain their existing dependencies/targets.
+option(T2GU_BUILD_TESTS "Build engine regression checks" OFF)
+if (T2GU_BUILD_TESTS)
+    enable_testing()
+    get_target_property(T2GU_ENGINE_SOURCES T2gu2 SOURCES)
+    list(REMOVE_ITEM T2GU_ENGINE_SOURCES src/main.cpp)
+    add_executable(T2guRegression tests/EngineRegression.cpp ${T2GU_ENGINE_SOURCES})
+    target_include_directories(T2guRegression PRIVATE src)
+    target_link_libraries(T2guRegression PRIVATE Qt6::Widgets Qt6::Qml Qt6::Multimedia)
+    target_compile_definitions(T2guRegression PRIVATE ${T2GU_ASSET_DEFINITIONS})
+    add_test(NAME engine_regressions COMMAND T2guRegression)
+    set_tests_properties(engine_regressions PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 60)
+    add_executable(T2guAssetProbe tests/AssetPathProbe.cpp src/AssetPath.cpp)
+    target_include_directories(T2guAssetProbe PRIVATE src)
+    target_link_libraries(T2guAssetProbe PRIVATE Qt6::Core)
+    target_compile_definitions(T2guAssetProbe PRIVATE ${T2GU_ASSET_DEFINITIONS})
+    find_package(Python3 QUIET COMPONENTS Interpreter)
+    if (Python3_Interpreter_FOUND)
+        add_test(NAME asset_paths
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/asset_path_regression.py
+                    --probe $<TARGET_FILE:T2guAssetProbe>
+                    --install-path "${T2GU_INSTALL_ASSET_PATH}"
+                    --bindir "${CMAKE_INSTALL_BINDIR}"
+                    --datadir "${CMAKE_INSTALL_DATADIR}"
+                    --source-assets "${CMAKE_SOURCE_DIR}/assets")
+        set_tests_properties(asset_paths PROPERTIES TIMEOUT 30)
+        if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+            add_test(NAME chapter_smoke_guard
+                COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/chapter_smoke_regression.py)
+            set_tests_properties(chapter_smoke_guard PROPERTIES TIMEOUT 30)
+        endif()
+    endif()
+    find_program(T2GU_NODE_EXECUTABLE node)
+    if (T2GU_NODE_EXECUTABLE)
+        add_test(NAME chapter6_progression
+                 COMMAND ${T2GU_NODE_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/chapter6_regression.js)
+        add_test(NAME chapter15_reload
+                 COMMAND ${T2GU_NODE_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/chapter15_regression.js)
+        add_test(NAME chapter25_boss
+                 COMMAND ${T2GU_NODE_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/chapter25_regression.js)
+    endif()
+endif()
 
 # Already builds Release/-O3 by default (see CMAKE_BUILD_TYPE) - these go a
 # step further: -march=native lets the compiler use whatever instruction
@@ -80,11 +142,14 @@ target_compile_definitions(T2gu2 PRIVATE ASSET_DIR="${CMAKE_SOURCE_DIR}/assets")
 # - -march=native ties the binary to this build machine's specific CPU, a
 # fine tradeoff for a locally-built desktop game never redistributed to a
 # different machine, but wrong for anything that would be.
+option(T2GU_NATIVE_CPU "Optimize Release builds for the build machine's CPU" ON)
 if (CMAKE_BUILD_TYPE STREQUAL "Release")
-    include(CheckCXXCompilerFlag)
-    check_cxx_compiler_flag("-march=native" T2GU_HAS_MARCH_NATIVE)
-    if (T2GU_HAS_MARCH_NATIVE)
-        target_compile_options(T2gu2 PRIVATE -march=native)
+    if (T2GU_NATIVE_CPU)
+        include(CheckCXXCompilerFlag)
+        check_cxx_compiler_flag("-march=native" T2GU_HAS_MARCH_NATIVE)
+        if (T2GU_HAS_MARCH_NATIVE)
+            target_compile_options(T2gu2 PRIVATE -march=native)
+        endif()
     endif()
     include(CheckIPOSupported)
     check_ipo_supported(RESULT T2GU_IPO_SUPPORTED)
@@ -100,12 +165,11 @@ endif()
 #   cmake --build build && cmake --install build              # sudo for /usr/local
 #
 # Installs the binary, the whole assets/ tree (~1 GB), the app icons and the
-# launcher entry. The binary finds its assets at <prefix>/share/t2gu2/assets
+# launcher entry. The binary finds its assets at the configured data directory
 # on its own (see src/AssetPath.h), so the install does not depend on the
 # source tree staying where it was built. Set the prefix when configuring:
 # the launcher's Exec= line is filled in from it here, at configure time.
-# (-march=native above ties a Release binary to the CPU it was built on.)
-include(GNUInstallDirs)
+# (Use -DT2GU_NATIVE_CPU=OFF when distributing to other CPUs.)
 
 install(TARGETS T2gu2 RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(DIRECTORY assets/ DESTINATION ${CMAKE_INSTALL_DATADIR}/t2gu2/assets)

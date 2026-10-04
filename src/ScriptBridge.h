@@ -28,6 +28,9 @@ public:
     // something meant to progress the same way).
     Q_INVOKABLE void spawnCharacter(const QString &name, int col, int row, int hp = 0);
     Q_INVOKABLE void spawnEnemy(const QString &name, int col, int row, int hp = 40);
+    // Exact world-pixel feet position, including a defeated boss's captured
+    // location. Unlike tile spawning, this does not nudge occupied cells.
+    Q_INVOKABLE void spawnEnemyAtWorld(const QString &name, double worldX, double worldY, int hp = 40);
     // A non-hostile, non-controllable character to talk to - see onTalkTo.
     Q_INVOKABLE void spawnNpc(const QString &name, int col, int row);
     // Removes a previously-spawned NPC (e.g. once "recruited" into the
@@ -37,6 +40,8 @@ public:
     // A world pickup (assets/items/items.json) - auto-collected when the
     // player walks near it. See onItemCollected.
     Q_INVOKABLE void spawnItem(const QString &itemId, int col, int row);
+    // World-pixel ground anchor; normal pickup collision nudging applies.
+    Q_INVOKABLE void spawnItemAtWorld(const QString &itemId, double worldX, double worldY);
     Q_INVOKABLE void setTileset(const QString &relativePath);
     Q_INVOKABLE void setTile(const QString &tileName, int col, int row);
     // An invisible rectangular movement barrier (tile-based, `width`x`height`

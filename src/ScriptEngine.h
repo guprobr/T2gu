@@ -53,6 +53,16 @@ public:
     // optional). See class comment for the generator-vs-plain-function split.
     void callEntryPoint(const QString &name, const QJSValueList &args = {});
 
+    // Records a gameplay event immediately (including for isBusy()), but
+    // dispatches it after the current entity iteration has unwound.
+    void postEntryPoint(const QString &name, const QJSValueList &args = {});
+
+    // Retires this scene's script execution, including deferred events.
+    void stop();
+    // Reversible transition pause: preserves coroutine and queued events.
+    void suspend() { m_suspended = true; }
+    void resume();
+
     // Counts down an active wait() and resumes the coroutine once it elapses.
     void onTick(qreal dtSeconds);
 
@@ -61,20 +71,19 @@ public:
     void advance();
 
     bool isPausedOnDialogue() const { return m_state == State::WaitingForDialogue; }
-    // True whenever any coroutine is running or paused (dialogue or a
-    // wait()) - broader than isPausedOnDialogue(), which only covers one of
-    // the two paused states. Useful for anything that needs to wait out an
-    // entire script step, including queued calls, rather than just a
-    // visible dialogue box. The iterator also covers synchronous signals
-    // emitted between leaving a wait state and resuming its next step.
+    // True during ordinary calls, generator execution/waits/dialogue, and
+    // while events await dispatch. A handler remains busy even when a
+    // sprite load processes Qt events inside its synchronous execution.
     bool isBusy() const
     {
-        return m_state != State::Idle || !m_activeIterator.isUndefined() || !m_pendingCalls.isEmpty();
+        return m_executing || m_state != State::Idle || !m_activeIterator.isUndefined() || !m_pendingCalls.isEmpty();
     }
+    bool isExecuting() const { return m_executing; }
 
 signals:
     void dialogueRequested(QString speaker, QString text);
     void dialogueEnded();
+    void scriptError(QString message);
 
 private:
     enum class State { Idle, WaitingForTimer, WaitingForDialogue };
@@ -92,8 +101,8 @@ private:
     // runNextPendingCall() can reuse it exactly rather than duplicating it.
     void startEntryPoint(const QString &name, const QJSValueList &args);
     // Common "this coroutine (or plain-function entry point) is done" path -
-    // clears the iterator state, goes Idle, then immediately dequeues and
-    // starts the next pending call if one is waiting.
+    // clears the iterator state and goes Idle. Dispatch resumes only after
+    // the executing JS call has unwound.
     void finishEntryPoint();
     void runNextPendingCall();
     void driveIterator(const QJSValue &resumeArg);
@@ -104,6 +113,11 @@ private:
     QJSValue m_nextFn; // cached iterator.next - only valid while m_activeIterator is
     State m_state = State::Idle;
     qreal m_waitRemaining = 0.0;
+    bool m_executing = false;
+    bool m_drainingCalls = false;
+    bool m_dispatchScheduled = false;
+    bool m_stopped = false;
+    bool m_suspended = false;
     // See the class comment above - a callEntryPoint() that arrives while
     // m_state != Idle waits here instead of being dropped.
     QQueue<PendingCall> m_pendingCalls;

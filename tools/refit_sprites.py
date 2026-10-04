@@ -336,6 +336,7 @@ def process_character(name: str, column_margin_fraction: float, row_margin_fract
     if dry_run:
         out_png = dst_json.parent / (dst_json.stem + out_suffix + ".png")
         out_json = dst_json.parent / (dst_json.stem + out_suffix + ".json")
+        new_meta["sheet"] = out_png.name
     else:
         out_png = dst_json.parent / dst_meta["sheet"]
         out_json = dst_json

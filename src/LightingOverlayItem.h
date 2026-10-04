@@ -8,10 +8,9 @@
 // A single translucent, full-map overlay that tints the whole scene to
 // suggest ambient light - a warm sunrise/sunset gradient, flickering
 // torchlight, a cool cavern vignette, or a slow shifting mystical glow.
-// GameScene adds at most one of these per map (see kLightingOverlayZValue
-// in GameScene.cpp), at a Z value far above every prop/character (which are
-// Z-sorted by world Y, so always well under it), so it paints last and
-// tints everything already drawn beneath it - unlike TileMapItem's water
+// GameScene adds at most one per map in SceneLayers::Lighting, above
+// ground-Y scenery/characters, pickups and projectiles. Notification text
+// sits above this wash. It tints everything drawn beneath it, unlike TileMapItem's water
 // ripple, which only ever needed to affect the water tile itself.
 //
 // This is deliberately NOT per-pixel QImage manipulation - a translucent

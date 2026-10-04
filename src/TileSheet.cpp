@@ -7,6 +7,7 @@
 #include <QJsonObject>
 
 #include <QJsonValue>
+#include <utility>
 
 bool TileSheet::load(const QString &jsonPath, QString *errorOut)
 {
@@ -26,35 +27,57 @@ bool TileSheet::load(const QString &jsonPath, QString *errorOut)
     }
 
     const QJsonObject root = doc.object();
-    m_tileWidth = root.value("tileWidth").toInt();
-    m_tileHeight = root.value("tileHeight").toInt();
-    m_columns = root.value("columns").toInt(1);
+    const int tileWidth = root.value("tileWidth").toInt();
+    const int tileHeight = root.value("tileHeight").toInt();
+    const int columns = root.value("columns").toInt(1);
 
-    const QString sheetFile = root.value("sheet").toString();
-    const QString sheetPath = QFileInfo(jsonPath).dir().filePath(sheetFile);
-    if (!m_sheet.load(sheetPath)) {
-        if (errorOut)
-            *errorOut = QStringLiteral("cannot load tileset image %1").arg(sheetPath);
-        return false;
-    }
-
-    if (m_tileWidth <= 0 || m_tileHeight <= 0 || m_columns <= 0) {
+    if (tileWidth <= 0 || tileHeight <= 0 || columns <= 0) {
         if (errorOut)
             *errorOut = QStringLiteral("incomplete tileset metadata in %1").arg(jsonPath);
         return false;
     }
 
-    m_namedTiles.clear();
+    const QString sheetFile = root.value("sheet").toString();
+    const QString sheetPath = QFileInfo(jsonPath).dir().filePath(sheetFile);
+    QPixmap sheet;
+    if (!sheet.load(sheetPath)) {
+        if (errorOut)
+            *errorOut = QStringLiteral("cannot load tileset image %1").arg(sheetPath);
+        return false;
+    }
+
+    if (sheet.width() % tileWidth != 0 || sheet.height() % tileHeight != 0
+            || sheet.width() / tileWidth != columns) {
+        if (errorOut)
+            *errorOut = QStringLiteral("tileset image dimensions disagree with metadata in %1").arg(jsonPath);
+        return false;
+    }
+
+    QHash<QString, int> names;
+    const qint64 tileCount = qint64(columns) * (sheet.height() / tileHeight);
     const QJsonObject namedTiles = root.value("tiles").toObject();
-    for (auto it = namedTiles.constBegin(); it != namedTiles.constEnd(); ++it)
-        m_namedTiles.insert(it.key(), it.value().toInt());
+    for (auto it = namedTiles.constBegin(); it != namedTiles.constEnd(); ++it) {
+        const int index = it.value().toInt(-1);
+        if (index < 0 || index >= tileCount) {
+            if (errorOut)
+                *errorOut = QStringLiteral("invalid named tile %1 in %2").arg(it.key(), jsonPath);
+            return false;
+        }
+        names.insert(it.key(), index);
+    }
+
+    m_tileWidth = tileWidth;
+    m_tileHeight = tileHeight;
+    m_columns = columns;
+    m_sheet = std::move(sheet);
+    m_namedTiles = std::move(names);
 
     return true;
 }
 
 QPixmap TileSheet::tile(int index) const
 {
-    if (index < 0)
+    if (index < 0 || index >= tileCount())
         return {};
 
     const int col = index % m_columns;

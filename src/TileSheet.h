@@ -17,6 +17,7 @@ public:
     QPixmap tile(int index) const;
     int tileWidth() const { return m_tileWidth; }
     int tileHeight() const { return m_tileHeight; }
+    int tileCount() const { return m_tileHeight > 0 ? m_columns * (m_sheet.height() / m_tileHeight) : 0; }
 
     // Returns -1 if no tile has this name.
     int indexByName(const QString &name) const { return m_namedTiles.value(name, -1); }

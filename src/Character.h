@@ -68,10 +68,10 @@ public:
     // Combat participation is opt-in: a Character never called with
     // setMaxHp() (e.g. the showcase-grid roster, which isn't part of combat
     // at all) has no health bar and can't be damaged. Calling it (re)fills
-    // current HP to the new max and creates the on-screen bar the first time.
+    // living characters to the new max; dead characters stay at zero HP.
     void setMaxHp(int hp);
-    // Overrides current HP after setMaxHp() already ran (which always
-    // fills to full) - for restoring a save's exact, possibly-damaged HP
+    // Overrides current HP after setMaxHp() already ran - for restoring
+    // a save's exact, possibly-damaged HP
     // without replaying whatever damage caused it. Clamped to [0, maxHp];
     // a no-op if this character was never given combat stats at all. No
     // death/hit animation or sound - a silent state fixup, not a combat
@@ -238,21 +238,20 @@ public:
     // that same stat was already running rather than stacking with it (so
     // chain-drinking the same potion refreshes the timer instead of
     // compounding without limit); ticks down and clears itself in tick().
-    void applyTemporarySpeedBuff(int amount, qreal durationSeconds)
+    struct TemporaryBuffs
     {
-        m_tempBonusSpeed = amount;
-        m_tempSpeedRemaining = durationSeconds;
-    }
-    void applyTemporaryIntelligenceBuff(int amount, qreal durationSeconds)
-    {
-        m_tempBonusIntelligence = amount;
-        m_tempIntelligenceRemaining = durationSeconds;
-    }
-    void applyTemporaryStrengthBuff(int amount, qreal durationSeconds)
-    {
-        m_tempBonusStrength = amount;
-        m_tempStrengthRemaining = durationSeconds;
-    }
+        int strength = 0;
+        qreal strengthRemaining = 0.0;
+        int intelligence = 0;
+        qreal intelligenceRemaining = 0.0;
+        int speed = 0;
+        qreal speedRemaining = 0.0;
+    };
+    void applyTemporarySpeedBuff(int amount, qreal durationSeconds);
+    void applyTemporaryIntelligenceBuff(int amount, qreal durationSeconds);
+    void applyTemporaryStrengthBuff(int amount, qreal durationSeconds);
+    TemporaryBuffs temporaryBuffs() const;
+    void restoreTemporaryBuffs(const TemporaryBuffs &buffs);
 
     // The "> 0 ? ... : 0" guard preserves the existing "0 means no
     // stats.json entry, use the caller's flat fallback" contract - without
@@ -295,6 +294,7 @@ private:
     void tickIdleWander(qreal dtSeconds);
     QPointF feetOffset() const;
     bool isBlocked(qreal worldX, qreal worldY) const;
+    bool isMoveBlocked(QPointF from, QPointF to) const;
 
     SpriteSheet m_sheet;
     QPointF m_velocity;

@@ -12,6 +12,7 @@
 #include <QJsonObject>
 #include <QPen>
 #include <QRandomGenerator>
+#include <QScopedValueRollback>
 #include <QSet>
 #include <algorithm>
 #include <cmath>
@@ -20,6 +21,7 @@
 #include <vector>
 
 #include "FireballItem.h"
+#include "SceneLayers.h"
 #include "LevelUpTextItem.h"
 #include "LightingOverlayItem.h"
 #include "Prop.h"
@@ -27,22 +29,11 @@
 
 namespace {
 constexpr int kTickIntervalMs = 16; // ~60Hz
-// Caps the per-tick delta time fed into movement integration. Character::
-// tick() moves by `velocity * dt` and only checks collision at the
-// resulting final position - correct and cheap at a normal ~16ms dt, but
-// if any single tick's *wall-clock* gap spikes (a GC pause, the OS
-// scheduling this process out for a moment, a slow frame for any reason),
-// the raw dt reflects that entire gap, and a fast-enough character can
-// move further in that one step than a wall is thick - "tunneling"
-// straight through it, since the only checked point is the far side.
-// Clamping dt bounds the worst-case single-tick displacement regardless
-// of how long the real-world gap was; the simulation just quietly treats
-// a stalled interval as one slightly-longer-than-usual tick instead of
-// integrating the full, potentially huge, elapsed time in one jump. This
-// is what "the player starts to walk through solid [...] during that
-// period" was actually caused by - a genuine stutter existing at all
-// doesn't have to mean movement breaks, if the step size it produces stays
-// bounded.
+// Caps simulation time after an OS stall, GC pause, or slow frame instead
+// of integrating the whole elapsed gap in one jump. This bounds movement
+// at a given speed, but boosted/run/catch-up speeds can still exceed a
+// footprint's width. Character checks the entire feet-point movement on
+// each axis; collision safety does not depend on this time-step cap.
 constexpr qreal kMaxTickDtSeconds = 0.05; // ~3 nominal ticks' worth
 
 // Loading a sprite sheet means reading+parsing its JSON sidecar and
@@ -96,7 +87,7 @@ qint64 collisionCellKey(QPointF pos)
 }
 
 // Nudges `pos` away until its cell isn't already marked occupied in
-// `occupiedCells`, then marks the resolved cell occupied - see
+// `occupiedCells`; the caller reserves the resolved cell - see
 // createCharacterAt()/placeProp() for why: whatever the cause (a scripted
 // overlap, or a genuine spawn-logic bug), two objects sharing one
 // coordinate are visually indistinguishable from a single object and stay
@@ -111,18 +102,15 @@ qint64 collisionCellKey(QPointF pos)
 // with maps running to several thousand props, re-scanning every existing
 // object on every single placement turned a one-time O(n) map load into an
 // O(n^2) one (measured: chapter6's onLevelStart went from well under a
-// second to ~7.8s over its ~7000 props). A cell only ever occupied by an
-// object that's since been removed (a despawned NPC, say) stays marked -
-// slightly over-cautious, but cheap and never wrong in the direction that
-// matters (it would at most nudge a future spawn that didn't strictly need
-// it, never fail to nudge one that did).
-QPointF resolveSpawnCollision(QPointF pos, QSet<qint64> &occupiedCells)
+// second to ~7.8s over its ~7000 props). Prop reservations are released
+// when destroyed; character reservations retain their spawn history.
+template <typename OccupiedCells>
+QPointF resolveSpawnCollision(QPointF pos, const OccupiedCells &occupiedCells)
 {
     constexpr qreal kCollisionNudgeStep = 48.0; // world px per nudge
     constexpr int kMaxNudges = 64; // far more than any real spawn cluster needs
     for (int guard = 0; guard < kMaxNudges && occupiedCells.contains(collisionCellKey(pos)); ++guard)
         pos += QPointF(kCollisionNudgeStep, kCollisionNudgeStep);
-    occupiedCells.insert(collisionCellKey(pos));
     return pos;
 }
 
@@ -142,7 +130,7 @@ QPointF resolveSpawnCollision(QPointF pos, QSet<qint64> &occupiedCells)
 // existing map), so an item pickup's own zValue() += this guarantees it
 // always draws on top of ordinary scenery instead of relying on precise
 // Y-sort math that a big prop's own art can already violate.
-constexpr qreal kItemZBoost = 1'000'000.0;
+constexpr qreal kItemZBoost = SceneLayers::Pickups;
 
 constexpr int kEnemyHp = 40;
 // All world-pixel distance/speed constants in this file were doubled
@@ -386,7 +374,7 @@ constexpr qreal kPartyWaypointArriveRadius = 40.0;  // px - close enough to a wa
 // as bad and force an immediate repath instead of leaving the character
 // parked against whatever it hit (see PartyPath::stuckTimer).
 constexpr qreal kPartyStuckSeconds = 0.8;
-constexpr qreal kPartyStuckProgressThreshold = 8.0; // px - less progress than this per check counts as "not moving"
+constexpr qreal kPartyStuckProgressThreshold = 8.0; // px - minimum accumulated progress before the stuck deadline
 
 // How long a stuck-recovery repath's unreachable waypoint cell stays
 // blacklisted in m_temporarilyBlockedCells - long enough to force findPath()
@@ -468,8 +456,9 @@ constexpr qreal kItemPickupRadius = 100.0; // px - how close to auto-collect a w
 // their own world Y position - see Character::updatePixmap()/placeProp() -
 // so this only ever needs to clear "the map's pixel height", not literally
 // any value), guaranteeing the lighting overlay (see the "lighting" map
-// field below) paints dead last, over every tile/prop/character alike.
-constexpr qreal kLightingOverlayZValue = 1'000'000.0;
+// field below) tints world items and projectiles too. Notifications sit
+// above this wash so their text remains readable.
+constexpr qreal kLightingOverlayZValue = SceneLayers::Lighting;
 // Anything else in a map's "lighting" field is treated as "no lighting" -
 // see LightingOverlayItem::paint() for what each one actually looks like.
 const QSet<QString> kRecognizedLightingModes = { QStringLiteral("sunrise"), QStringLiteral("sunset"),
@@ -531,24 +520,33 @@ GameScene::GameScene(GameState *state, const QString &mapPath, QObject *parent)
     connect(&m_scriptEngine, &ScriptEngine::dialogueRequested, this, &GameScene::dialogueRequested);
     connect(&m_scriptEngine, &ScriptEngine::dialogueEnded, this, &GameScene::dialogueEnded);
 
-    // Every level's entrance now opens on the same non-looping ambient
-    // intro rather than jumping straight into the level's own (randomized)
-    // music - see playRandomLevelTrack() for what plays once this actually
-    // finishes. ambient.ogg itself runs 5 minutes, far longer than an
-    // entrance intro should hold the level's own music off, so it's cut
-    // short with a 2-second fade-out at the 2:00 mark rather than left to
-    // play in full - see AudioManager::fadeOutMusic(). The plain
-    // musicFinished() connection stays too, as a fallback: if ambient.ogg
-    // is ever swapped for something under 2 minutes, it reaches its own
-    // natural end first and this fires normally instead. Both paths lead
-    // to the same playRandomLevelTrack() (each only reachable once - the
-    // fade path via QMediaPlayer::stop() rather than natural EndOfMedia,
-    // and the timer is one-shot itself, so there is no double-fire to
-    // guard against here).
-    m_audio.playMusic(QStringLiteral("ambient"), false);
-    connect(&m_audio, &AudioManager::musicFinished, this, &GameScene::playRandomLevelTrack,
-            Qt::SingleShotConnection);
-    QTimer::singleShot(120000, this, [this] { m_audio.fadeOutMusic(2000); });
+    connect(&m_scriptEngine, &ScriptEngine::scriptError, this, [this](const QString &error) {
+        if (!m_sceneReady)
+            m_loadError = error;
+    });
+    if (!m_map.load(m_mapPath, &m_loadError)) {
+        stopTicking();
+        return;
+    }
+
+    // Automatic entrance music remains active until a script takes control.
+    // Cancel the intro deadline when the source ends naturally, so that
+    // deadline cannot fade whichever playlist track replaces it.
+    m_ambientIntroTimer.setSingleShot(true);
+    m_ambientIntroTimer.setInterval(120000);
+    connect(&m_ambientIntroTimer, &QTimer::timeout, this, [this] {
+        if (m_automaticMusic && m_ambientIntroActive && !m_tickStopped) {
+            m_ambientIntroActive = false;
+            m_audio.fadeOutMusic(2000);
+        }
+    });
+    m_autoMusicConnection = connect(&m_audio, &AudioManager::musicFinished, this, [this] {
+        if (!m_automaticMusic || m_tickStopped)
+            return;
+        m_ambientIntroActive = false;
+        m_ambientIntroTimer.stop();
+        playRandomLevelTrack();
+    });
 
     // Back to NoIndex - re-checked directly, twice now, not assumed either
     // time. Originally kept over BspTreeIndex because BspTreeIndex once
@@ -573,10 +571,6 @@ GameScene::GameScene(GameState *state, const QString &mapPath, QObject *parent)
     // safe only for a single controlled character, not yet against
     // several independently-moving party members).
     setItemIndexMethod(QGraphicsScene::NoIndex);
-
-    QString mapError;
-    if (!m_map.load(m_mapPath, &mapError))
-        qWarning() << "Failed to load map:" << mapError;
 
     setSceneRect(0, 0, m_map.pixelWidth(), m_map.pixelHeight());
 
@@ -796,22 +790,40 @@ GameScene::GameScene(GameState *state, const QString &mapPath, QObject *parent)
         const QString scriptPath = QFileInfo(m_mapPath).dir().filePath(scriptRelPath);
         QString scriptError;
         if (!m_scriptEngine.loadFile(scriptPath, &scriptError)) {
-            qWarning() << "Failed to load level script:" << scriptError;
-        } else {
-            // Deferred to the next event-loop turn rather than called
-            // right here: onLevelStart can emit dialogueRequested
-            // (immediately, via a `say` as its very first yield), and
-            // this constructor is still running - whoever is
-            // constructing us (MainWindow) hasn't connected to our
-            // signals yet, so an immediate call's emission would fire
-            // into a signal with no listeners and be silently lost.
-            QTimer::singleShot(0, this, [this] { m_scriptEngine.callEntryPoint(QStringLiteral("onLevelStart")); });
+            m_loadError = scriptError;
+            stopTicking();
+            return;
         }
     }
 
     connect(&m_tickTimer, &QTimer::timeout, this, &GameScene::onTick);
-    m_clock.start();
-    m_tickTimer.start(kTickIntervalMs);
+    // Listeners are connected after construction. Keep simulation stopped
+    // throughout initial population and synchronous readiness callbacks:
+    // decoding a new sprite may pump events, so queued callback order alone
+    // cannot establish that initialization has completed.
+    QTimer::singleShot(0, this, [this] {
+        if (m_tickStopped)
+            return;
+        m_scriptEngine.callEntryPoint(QStringLiteral("onLevelStart"));
+        if (!m_loadError.isEmpty()) {
+            stopTicking();
+            emit sceneLoadFailed(m_loadError);
+            return;
+        }
+        if (m_tickStopped)
+            return;
+        if (m_automaticMusic) {
+            m_audio.playMusic(QStringLiteral("ambient"), false);
+            m_ambientIntroTimer.start();
+        }
+        m_sceneReady = true;
+        emit sceneReady();
+        if (m_tickStopped || m_simulationPaused)
+            return;
+        m_clock.start();
+        m_lastElapsedMs = 0;
+        m_tickTimer.start(kTickIntervalMs);
+    });
 }
 
 void GameScene::playRandomLevelTrack()
@@ -826,14 +838,15 @@ void GameScene::playRandomLevelTrack()
         musicChoices = kLevelMusicTracks;
     const QString chosenTrack = musicChoices.at(QRandomGenerator::global()->bounded(musicChoices.size()));
     m_state->lastMusicTrack = chosenTrack;
-    // Not looped: this is one song in an ongoing shuffle, not the level's
-    // single permanent track. Re-arming musicFinished (single-shot, same as
-    // the ambient-intro handoff above) each time this track ends is what
-    // turns "play one random track" into an actual jukebox - without this,
-    // the chosen track would just loop itself forever via QMediaPlayer.
     m_audio.playMusic(chosenTrack, /*loop=*/false);
-    connect(&m_audio, &AudioManager::musicFinished, this, &GameScene::playRandomLevelTrack,
-            Qt::SingleShotConnection);
+}
+
+void GameScene::cancelAutomaticMusic()
+{
+    m_automaticMusic = false;
+    m_ambientIntroActive = false;
+    m_ambientIntroTimer.stop();
+    disconnect(m_autoMusicConnection);
 }
 
 Character *GameScene::createCharacterAt(const QString &name, int tileCol, int tileRow, int hp)
@@ -849,6 +862,8 @@ Character *GameScene::createCharacterAtWorldFeet(const QString &name, QPointF wo
     const QString jsonPath = charactersDir.filePath(name + QStringLiteral("/") + name + QStringLiteral(".json"));
     if (!QFileInfo::exists(jsonPath)) {
         qWarning() << "Character sprite sheet missing for" << name << "at" << jsonPath;
+        if (!m_sceneReady)
+            m_loadError = QStringLiteral("Character sprite sheet is missing: %1").arg(jsonPath);
         return nullptr;
     }
 
@@ -859,6 +874,8 @@ Character *GameScene::createCharacterAtWorldFeet(const QString &name, QPointF wo
         QString spriteError;
         if (!sheet.load(jsonPath, &spriteError)) {
             qWarning() << "Failed to load sprite sheet for" << name << ":" << spriteError;
+            if (!m_sceneReady)
+                m_loadError = spriteError;
             return nullptr;
         }
         cacheIt = cache.insert(name, sheet);
@@ -896,13 +913,16 @@ Character *GameScene::createCharacterAtWorldFeet(const QString &name, QPointF wo
     const QPointF resolvedFeet = resolveCollision
             ? resolveSpawnCollision(worldFeetPos, m_occupiedCharacterCells)
             : worldFeetPos;
+    if (resolveCollision)
+        m_occupiedCharacterCells.insert(collisionCellKey(resolvedFeet));
 
     character->setPos(resolvedFeet.x() - feetOffset.x(), resolvedFeet.y() - feetOffset.y());
     addItem(character);
     return character;
 }
 
-void GameScene::placeProp(Prop *prop, qreal worldGroundX, qreal worldGroundY, bool blocksMovement)
+void GameScene::placeProp(Prop *prop, qreal worldGroundX, qreal worldGroundY, bool blocksMovement,
+                          bool resolveCollision)
 {
     // See resolveSpawnCollision()'s own comment - two props (a world item
     // counts as one too, see spawnItemInWorld()) placed at the exact same
@@ -910,7 +930,12 @@ void GameScene::placeProp(Prop *prop, qreal worldGroundX, qreal worldGroundY, bo
     // forever, reading as one object. The cell size is tight enough that
     // deliberately close placements (a scatterOrganic() clump, item-atop-
     // scenery) are never affected - only a genuine same-point coincidence.
-    const QPointF resolvedGround = resolveSpawnCollision(QPointF(worldGroundX, worldGroundY), m_occupiedPropCells);
+    const QPointF requestedGround(worldGroundX, worldGroundY);
+    const QPointF resolvedGround = resolveCollision
+            ? resolveSpawnCollision(requestedGround, m_occupiedPropCells) : requestedGround;
+    const qint64 reservedCell = collisionCellKey(resolvedGround);
+    ++m_occupiedPropCells[reservedCell];
+    m_propReservations.insert(prop, reservedCell);
     worldGroundX = resolvedGround.x();
     worldGroundY = resolvedGround.y();
 
@@ -1200,7 +1225,7 @@ void GameScene::notifyPlayerDeathIfNeeded()
     if (m_playerDeathNotified || !controlled || !controlled->isDead())
         return;
     m_playerDeathNotified = true;
-    m_scriptEngine.callEntryPoint(QStringLiteral("onPlayerDied"));
+    m_scriptEngine.postEntryPoint(QStringLiteral("onPlayerDied"));
     // Rings at ~2x the normal loudness (see AudioManager::playSound's
     // volume>1.0 behavior) - this is meant to be an unmistakable "you
     // died" beat, not just another sfx among many.
@@ -1225,10 +1250,14 @@ void GameScene::awardEnemyDefeatRewards(Enemy &enemy)
         return;
     enemy.scriptNotified = true;
     enemy.corpseTimeRemaining = kCorpseLifetimeSeconds;
+    const QPointF deathFeet = enemy.character->feetPos();
     emit statusMessage(QStringLiteral("%1 defeated").arg(prettifyRosterName(enemy.name)), StatusKind::Victory);
     awardExperience(xpForDefeatingEnemy(enemy.character->maxHp()));
-    dropRandomLoot(enemy.character->feetPos().x(), enemy.character->feetPos().y());
-    m_scriptEngine.callEntryPoint(QStringLiteral("onEnemyDefeated"), { QJSValue(enemy.name) });
+    dropRandomLoot(deathFeet.x(), deathFeet.y());
+    // A defeat handler can spawn a new boss form or party member. Run it
+    // only after the combat loop releases its container references.
+    m_scriptEngine.postEntryPoint(QStringLiteral("onEnemyDefeated"),
+                                 { QJSValue(enemy.name), QJSValue(deathFeet.x()), QJSValue(deathFeet.y()) });
 }
 
 void GameScene::updateCorpseCleanup(qreal dtSeconds)
@@ -1699,7 +1728,7 @@ void GameScene::shuffleInCrowd(Character *character, PartyPath &pathState, QPoin
 void GameScene::moveAlongPath(Character *character, PartyPath &pathState, QPointF targetWorld, qreal speed, qreal dtSeconds)
 {
     if (pathState.repathCooldown > 0.0)
-        pathState.repathCooldown -= dtSeconds;
+        pathState.repathCooldown = std::max(0.0, pathState.repathCooldown - dtSeconds);
 
     const QPointF selfFeet = character->feetPos();
     const QPointF targetDelta = targetWorld - pathState.targetWorld;
@@ -1709,13 +1738,16 @@ void GameScene::moveAlongPath(Character *character, PartyPath &pathState, QPoint
     if (!pathState.waypoints.isEmpty()) {
         const QPointF delta = pathState.waypoints.first() - selfFeet;
         const qreal distanceToWaypoint = std::hypot(delta.x(), delta.y());
-        if (pathState.lastWaypointDistance >= 0.0
-            && distanceToWaypoint > pathState.lastWaypointDistance - kPartyStuckProgressThreshold) {
-            pathState.stuckTimer += dtSeconds;
-        } else {
+        // Accumulate progress across ticks. Normal walking advances fewer
+        // than eight pixels per frame, but makes that much progress long
+        // before the stuck deadline expires.
+        if (pathState.lastWaypointDistance < 0.0
+                || distanceToWaypoint <= pathState.lastWaypointDistance - kPartyStuckProgressThreshold) {
+            pathState.lastWaypointDistance = distanceToWaypoint;
             pathState.stuckTimer = 0.0;
+        } else {
+            pathState.stuckTimer += dtSeconds;
         }
-        pathState.lastWaypointDistance = distanceToWaypoint;
         if (pathState.stuckTimer > kPartyStuckSeconds) {
             forceRepath = true;
             pathState.stuckTimer = 0.0;
@@ -1738,10 +1770,12 @@ void GameScene::moveAlongPath(Character *character, PartyPath &pathState, QPoint
         }
     }
 
-    if (forceRepath || pathState.waypoints.isEmpty() || (pathState.repathCooldown <= 0.0 && targetMovedFar)) {
+    if (forceRepath || (pathState.repathCooldown <= 0.0 && (pathState.waypoints.isEmpty() || targetMovedFar))) {
         pathState.waypoints = findPath(selfFeet, targetWorld);
         pathState.targetWorld = targetWorld;
         pathState.repathCooldown = kPartyRepathInterval;
+        pathState.lastWaypointDistance = -1.0;
+        pathState.stuckTimer = 0.0;
     }
 
     // Drop any waypoints already reached - both a fresh path's leading
@@ -1752,6 +1786,8 @@ void GameScene::moveAlongPath(Character *character, PartyPath &pathState, QPoint
         if (std::hypot(delta.x(), delta.y()) > kPartyWaypointArriveRadius)
             break;
         pathState.waypoints.removeFirst();
+        pathState.lastWaypointDistance = -1.0;
+        pathState.stuckTimer = 0.0;
     }
 
     // No path found (unreachable, or the search hit its node cap) - a
@@ -2046,23 +2082,23 @@ void GameScene::castFireball(Character *caster, Character *target, bool targetIs
     const QPointF localFeet = caster->feetPos() - caster->pos();
     const qreal frameMidY = caster->boundingRect().height() / 2.0;
     const QPointF start = caster->pos() + QPointF(localFeet.x(), (localFeet.y() + frameMidY) / 2.0);
-    // Snapshotting the target's position now rather than re-tracking a
-    // moving target over the flight - the bolt is fast and the flight is
-    // short (see kFireballSpeed), so a target that ran a few steps in that
-    // window reading as "just barely dodged it" is the intended feel, not
-    // a bug to compensate for.
+    // Targeted spell: flight time is fixed at launch, while the visual
+    // follows this same target until damage lands. Switching control does
+    // not redirect an already launched bolt to another party member.
     const QPointF end = target->feetPos();
     const qreal distance = std::hypot(end.x() - start.x(), end.y() - start.y());
     const qreal duration = std::max(0.12, distance / kFireballSpeed);
     const int intelligence = caster->intelligence();
 
-    new FireballItem(this, start, end, duration, intelligence); // self-removing - see its own header
+    auto *visual = new FireballItem(this, start, end, duration, intelligence);
+    m_fireballVisuals.append(visual);
 
     PendingFireballHit hit;
     hit.timeRemaining = duration;
     hit.target = target;
     hit.targetIsEnemy = targetIsEnemy;
     hit.damage = fireballDamageFor(intelligence);
+    hit.visual = visual;
     m_pendingFireballHits.append(hit);
 }
 
@@ -2070,6 +2106,8 @@ void GameScene::updatePendingFireballHits(qreal dtSeconds)
 {
     for (int i = m_pendingFireballHits.size() - 1; i >= 0; --i) {
         PendingFireballHit &hit = m_pendingFireballHits[i];
+        if (hit.visual)
+            hit.visual->setTargetPosition(hit.target->feetPos());
         hit.timeRemaining -= dtSeconds;
         if (hit.timeRemaining > 0.0)
             continue;
@@ -2094,6 +2132,16 @@ void GameScene::updatePendingFireballHits(qreal dtSeconds)
             }
         }
         m_pendingFireballHits.removeAt(i);
+    }
+
+    for (int i = m_fireballVisuals.size() - 1; i >= 0; --i) {
+        FireballItem *visual = m_fireballVisuals.at(i);
+        if (visual)
+            visual->tick(dtSeconds);
+        if (!visual || visual->isFinished()) {
+            delete visual;
+            m_fireballVisuals.removeAt(i);
+        }
     }
 }
 
@@ -2184,9 +2232,34 @@ bool GameScene::isScriptBusy() const
     return m_scriptEngine.isBusy();
 }
 
+void GameScene::pauseSimulation()
+{
+    m_simulationPaused = true;
+    m_tickTimer.stop();
+    m_scriptEngine.suspend();
+}
+
+void GameScene::resumeSimulation()
+{
+    if (m_tickStopped)
+        return;
+    m_simulationPaused = false;
+    m_scriptEngine.resume();
+    // Exclude the loading interval from simulation time on rollback.
+    if (!m_clock.isValid())
+        m_clock.start();
+    m_lastElapsedMs = m_clock.elapsed();
+    if (m_sceneReady)
+        m_tickTimer.start(kTickIntervalMs);
+}
+
 void GameScene::stopTicking()
 {
+    m_tickStopped = true;
     m_tickTimer.stop();
+    m_scriptEngine.stop();
+    cancelAutomaticMusic();
+    m_audio.stopMusic();
 }
 
 void GameScene::interactWithNearby()
@@ -2287,6 +2360,29 @@ void GameScene::scriptSpawnEnemy(const QString &name, int tileCol, int tileRow, 
     applyHealthBarDisplay();
 }
 
+bool GameScene::isInsideMap(QPointF point) const
+{
+    return std::isfinite(point.x()) && std::isfinite(point.y())
+        && point.x() >= 0 && point.y() >= 0
+        && point.x() < qreal(m_map.widthInTiles()) * m_map.tileWidth()
+        && point.y() < qreal(m_map.heightInTiles()) * m_map.tileHeight();
+}
+
+void GameScene::scriptSpawnEnemyAtWorld(const QString &name, qreal worldX, qreal worldY, int hp)
+{
+    const QPointF feet(worldX, worldY);
+    if (!isInsideMap(feet)) {
+        qWarning() << "spawnEnemyAtWorld: invalid feet position" << name << feet;
+        return;
+    }
+    Character *character = createCharacterAtWorldFeet(name, feet, hp, false);
+    if (!character)
+        return;
+    m_enemies.append(Enemy{ character, name, 0.0, false });
+    m_charactersByName.insert(name, character);
+    applyHealthBarDisplay();
+}
+
 void GameScene::scriptSpawnNpc(const QString &name, int tileCol, int tileRow)
 {
     // See the identical guard in scriptSpawnCharacter() for why - NPCs are
@@ -2323,6 +2419,15 @@ void GameScene::scriptSpawnItem(const QString &itemId, int tileCol, int tileRow)
 {
     const qreal worldX = (tileCol + 0.5) * m_map.tileWidth();
     const qreal worldY = (tileRow + 0.5) * m_map.tileHeight();
+    spawnItemInWorld(itemId, worldX, worldY);
+}
+
+void GameScene::scriptSpawnItemAtWorld(const QString &itemId, qreal worldX, qreal worldY)
+{
+    if (!isInsideMap(QPointF(worldX, worldY))) {
+        qWarning() << "spawnItemAtWorld: invalid anchor" << itemId << QPointF(worldX, worldY);
+        return;
+    }
     spawnItemInWorld(itemId, worldX, worldY);
 }
 
@@ -2377,7 +2482,7 @@ GameScene::SceneSnapshot GameScene::captureSnapshot() const
 
     for (Character *character : std::as_const(m_party))
         snapshot.party.append(CharacterSnapshot{ character->name(), character->pos().x(), character->pos().y(),
-                                                  character->hp(), character->maxHp() });
+                                                  character->hp(), character->maxHp(), character->temporaryBuffs() });
     if (Character *controlled = controlledCharacter())
         snapshot.controlledName = controlled->name();
 
@@ -2385,11 +2490,11 @@ GameScene::SceneSnapshot GameScene::captureSnapshot() const
         if (enemy.character->isDead())
             continue; // corpses aren't meaningful state to restore - see the struct's own comment
         snapshot.enemies.append(CharacterSnapshot{ enemy.name, enemy.character->pos().x(), enemy.character->pos().y(),
-                                                     enemy.character->hp(), enemy.character->maxHp() });
+                                                     enemy.character->hp(), enemy.character->maxHp(), enemy.character->temporaryBuffs() });
     }
 
     for (const Npc &npc : std::as_const(m_npcs))
-        snapshot.npcs.append(CharacterSnapshot{ npc.name, npc.character->pos().x(), npc.character->pos().y(), 0, 0 });
+        snapshot.npcs.append(CharacterSnapshot{ npc.name, npc.character->pos().x(), npc.character->pos().y(), 0, 0, {} });
 
     for (const WorldItem &item : std::as_const(m_worldItems))
         snapshot.items.append(ItemSnapshot{ item.itemId, item.worldX, item.worldY });
@@ -2397,8 +2502,31 @@ GameScene::SceneSnapshot GameScene::captureSnapshot() const
     return snapshot;
 }
 
-void GameScene::restoreSnapshot(const SceneSnapshot &snapshot)
+bool GameScene::restoreSnapshot(const SceneSnapshot &snapshot, QString *errorOut)
 {
+    auto fail = [errorOut](const QString &error) {
+        if (errorOut)
+            *errorOut = error;
+        return false;
+    };
+    // A snapshot must agree with the party reconstructed from its story
+    // flags. Otherwise silently ignoring a missing recruit corrupts saves.
+    if (snapshot.party.size() != m_party.size())
+        return fail(QStringLiteral("Saved party does not match this chapter's story state."));
+    QSet<QString> names;
+    for (const auto &saved : snapshot.party) {
+        Character *member = nullptr;
+        for (Character *character : std::as_const(m_party)) {
+            if (character->name() == saved.name) {
+                member = character;
+                break;
+            }
+        }
+        if (!member || names.contains(saved.name) || member->maxHp() != saved.maxHp)
+            return fail(QStringLiteral("Saved party or maximum health is inconsistent: %1").arg(saved.name));
+        names.insert(saved.name);
+    }
+
     // Party composition (who's even recruited) is already correct by this
     // point via GameState's *_recruited vars driving respawnCompanions() -
     // this only fixes up where each of them stands and how hurt they are,
@@ -2409,6 +2537,7 @@ void GameScene::restoreSnapshot(const SceneSnapshot &snapshot)
                 continue;
             character->setPos(saved.x, saved.y);
             character->setCurrentHp(saved.hp);
+            character->restoreTemporaryBuffs(saved.temporaryBuffs);
             break;
         }
     }
@@ -2429,6 +2558,9 @@ void GameScene::restoreSnapshot(const SceneSnapshot &snapshot)
     // including attacks against party members who survive restoration.
     // Per-entity pointer cleanup is handled separately by destroyEntity().
     m_pendingFireballHits.clear();
+    for (const auto &visual : std::as_const(m_fireballVisuals))
+        delete visual.data();
+    m_fireballVisuals.clear();
     m_fireballCooldowns.clear();
 
     // Every chapter's own dynamic spawns (hostiles/NPCs/loot) are gated
@@ -2450,9 +2582,10 @@ void GameScene::restoreSnapshot(const SceneSnapshot &snapshot)
         // here is a placeholder, not a real placement.
         Character *character = createCharacterAtWorldFeet(saved.name, QPointF(0, 0), saved.maxHp, false);
         if (!character)
-            continue;
+            return fail(QStringLiteral("Could not restore character: %1").arg(saved.name));
         character->setPos(saved.x, saved.y);
         character->setCurrentHp(saved.hp);
+        character->restoreTemporaryBuffs(saved.temporaryBuffs);
         m_enemies.append(Enemy{ character, saved.name, 0.0, false });
         m_charactersByName.insert(saved.name, character);
     }
@@ -2460,17 +2593,22 @@ void GameScene::restoreSnapshot(const SceneSnapshot &snapshot)
     for (const CharacterSnapshot &saved : snapshot.npcs) {
         Character *character = createCharacterAtWorldFeet(saved.name, QPointF(0, 0), 0, false);
         if (!character)
-            continue;
+            return fail(QStringLiteral("Could not restore character: %1").arg(saved.name));
         character->setPos(saved.x, saved.y);
         character->setWanderEnabled(true);
         m_npcs.append(Npc{ character, saved.name });
         m_charactersByName.insert(saved.name, character);
     }
 
-    for (const ItemSnapshot &saved : snapshot.items)
-        spawnItemInWorld(saved.itemId, saved.x, saved.y);
+    for (const ItemSnapshot &saved : snapshot.items) {
+        const qsizetype before = m_worldItems.size();
+        spawnItemInWorld(saved.itemId, saved.x, saved.y, false);
+        if (m_worldItems.size() != before + 1)
+            return fail(QStringLiteral("Could not restore item: %1").arg(saved.itemId));
+    }
 
     applyHealthBarDisplay();
+    return true;
 }
 
 void GameScene::useItem(const QString &itemId)
@@ -2530,7 +2668,7 @@ void GameScene::useItem(const QString &itemId)
                 member->applyTemporaryStrengthBuff(amount, duration);
         }
         showInfoMessage(catalogEntry.value("name").toString(),
-                         QStringLiteral("The whole party feels it - it'll fade in %1 seconds.").arg(int(duration)));
+                         QStringLiteral("The whole party feels it for %1 seconds, or until the next chapter.").arg(int(duration)));
         if (consumeOnUse)
             scriptRemoveItem(itemId, 1);
     } else if (effectType == QStringLiteral("permanentBoost")) {
@@ -2565,7 +2703,7 @@ void GameScene::useItem(const QString &itemId)
     }
 }
 
-void GameScene::spawnItemInWorld(const QString &itemId, qreal worldX, qreal worldY)
+void GameScene::spawnItemInWorld(const QString &itemId, qreal worldX, qreal worldY, bool resolveCollision)
 {
     const QJsonObject entry = m_itemsCatalog.value(itemId).toObject();
     if (entry.isEmpty()) {
@@ -2580,9 +2718,30 @@ void GameScene::spawnItemInWorld(const QString &itemId, qreal worldX, qreal worl
         return;
     }
 
+    // Preserve scripted placements, but a duplicate-anchor nudge must not
+    // put a pickup in water, outside the map, or inside a solid footprint.
+    // Snapshot restoration bypasses nudging altogether.
+    if (resolveCollision && m_occupiedPropCells.contains(collisionCellKey(QPointF(worldX, worldY)))) {
+        bool found = false;
+        for (int attempt = 0; attempt < 64; ++attempt) {
+            worldX += 48.0;
+            worldY += 48.0;
+            if (!m_occupiedPropCells.contains(collisionCellKey(QPointF(worldX, worldY)))
+                    && m_map.isWalkable(worldX, worldY)
+                    && !m_blockingAreas.containsPoint(worldX, worldY)) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            qWarning() << "No clear pickup position for" << itemId;
+            return;
+        }
+    }
+
     auto *prop = new Prop(imagePath, targetWidth);
     prop->setShadowOffset(m_shadowOffset);
-    placeProp(prop, worldX, worldY, false); // items never block movement
+    placeProp(prop, worldX, worldY, false, false); // resolved above, or exact saved anchor
     prop->setZValue(prop->zValue() + kItemZBoost); // see kItemZBoost's own comment
 
     m_worldItems.append(WorldItem{ prop, itemId, worldX, worldY });
@@ -2643,7 +2802,7 @@ void GameScene::showLevelUpEffect()
     Character *player = controlledCharacter();
     if (!player)
         return;
-    new LevelUpTextItem(player, player->headTopY()); // self-removing (see its own header) - no pointer to keep
+    m_levelUpEffects.append(new LevelUpTextItem(player, player->headTopY()));
 }
 
 void GameScene::updateItemPickups()
@@ -2676,7 +2835,7 @@ void GameScene::updateItemPickups()
         // works for every chapter already written without touching them.
         if (m_itemsCatalog.value(itemId).toObject().value("keyItem").toBool(false))
             awardExperience(kKeyItemTaskExperience);
-        m_scriptEngine.callEntryPoint(QStringLiteral("onItemCollected"), { QJSValue(itemId) });
+        m_scriptEngine.postEntryPoint(QStringLiteral("onItemCollected"), { QJSValue(itemId) });
         return; // one pickup per tick is plenty, and the vector just shifted
     }
 }
@@ -2688,7 +2847,7 @@ void GameScene::scriptSetTileset(const QString &relativePath)
         qWarning() << "script setTileset failed:" << error;
         return;
     }
-    update(); // repaint - TileMapItem reads straight from m_map, no cached pixmap of its own
+    update(); // TileMapItem observes the committed revision and refreshes its variants/water metadata.
 }
 
 void GameScene::scriptSetTile(const QString &tileName, int tileCol, int tileRow)
@@ -2805,11 +2964,13 @@ void GameScene::scriptPlaySound(const QString &name)
 
 void GameScene::scriptPlayMusic(const QString &name, bool loop)
 {
+    cancelAutomaticMusic();
     m_audio.playMusic(name, loop);
 }
 
 void GameScene::scriptStopMusic()
 {
+    cancelAutomaticMusic();
     m_audio.stopMusic();
 }
 
@@ -2849,6 +3010,7 @@ void GameScene::trySelect(QGraphicsItem *target, const SelectionInfo &info, int 
     }
 
     m_selectedItem = target;
+    m_selectionInfo = info;
     m_selectedIndex = partyIndex;
     m_audio.playSound(QStringLiteral("select"));
 
@@ -2877,14 +3039,54 @@ void GameScene::deselectCurrent()
     if (!m_selectedItem)
         return;
     m_selectedItem = nullptr;
+    m_selectionInfo = {};
     m_selectedIndex = -1;
     if (m_selectionMarker)
         m_selectionMarker->hide();
     emit selectionCleared();
 }
 
+void GameScene::refreshSelectionInfo()
+{
+    auto *character = dynamic_cast<Character *>(m_selectedItem);
+    if (!character)
+        return;
+    const bool hasHp = character->maxHp() > 0;
+    const bool hasLevel = m_party.contains(character);
+    const int level = hasLevel ? m_state->level : m_selectionInfo.level;
+    if (m_selectionInfo.hp == character->hp()
+        && m_selectionInfo.maxHp == character->maxHp()
+        && m_selectionInfo.hasHp == hasHp && m_selectionInfo.hasLevel == hasLevel
+        && m_selectionInfo.level == level)
+        return;
+    // Keep the original portrait; rebuilding a padded sprite every tick
+    // would add allocation work even when only an HP number changes.
+    m_selectionInfo.hp = character->hp();
+    m_selectionInfo.maxHp = character->maxHp();
+    m_selectionInfo.hasHp = hasHp;
+    m_selectionInfo.hasLevel = hasLevel;
+    m_selectionInfo.level = level;
+    emit selectionChanged(m_selectionInfo);
+}
+
 void GameScene::beforeEntityDestroyed(QGraphicsItem *entity)
 {
+    for (int i = m_levelUpEffects.size() - 1; i >= 0; --i) {
+        LevelUpTextItem *effect = m_levelUpEffects.at(i);
+        if (!effect || effect->anchorItem() == entity) {
+            delete effect;
+            m_levelUpEffects.removeAt(i);
+        }
+    }
+    if (auto *prop = dynamic_cast<Prop *>(entity)) {
+        const auto reservation = m_propReservations.find(prop);
+        if (reservation != m_propReservations.end()) {
+            const auto cell = m_occupiedPropCells.find(reservation.value());
+            if (cell != m_occupiedPropCells.end() && --cell.value() == 0)
+                m_occupiedPropCells.erase(cell);
+            m_propReservations.erase(reservation);
+        }
+    }
     // Deselecting only hides the marker: it is still a child of the old
     // target, even though m_selectedItem is already null. Qt deletes that
     // child with its parent, so invalidate it independently of selection.
@@ -2904,13 +3106,16 @@ void GameScene::beforeEntityDestroyed(QGraphicsItem *entity)
             m_leaderTrail.clear();
         }
         for (int i = m_pendingFireballHits.size() - 1; i >= 0; --i) {
-            if (m_pendingFireballHits.at(i).target == character)
+            if (m_pendingFireballHits.at(i).target == character) {
+                delete m_pendingFireballHits.at(i).visual.data();
                 m_pendingFireballHits.removeAt(i);
+            }
         }
     }
 
     if (m_selectedItem == entity) {
         m_selectedItem = nullptr;
+        m_selectionInfo = {};
         m_selectedIndex = -1;
         emit selectionCleared();
     }
@@ -2966,6 +3171,11 @@ void GameScene::mousePressEvent(QGraphicsSceneMouseEvent *event)
 
 void GameScene::onTick()
 {
+    // Sprite decoding can process Qt events inside a later script step as
+    // well as during initial population. Never reenter the simulation.
+    if (!m_sceneReady || m_tickStopped || m_simulationPaused || m_tickInProgress || m_scriptEngine.isExecuting())
+        return;
+    QScopedValueRollback<bool> ticking(m_tickInProgress, true);
     const qint64 nowMs = m_clock.elapsed();
     const qreal dt = std::min((nowMs - m_lastElapsedMs) / 1000.0, kMaxTickDtSeconds);
     m_lastElapsedMs = nowMs;
@@ -3001,6 +3211,8 @@ void GameScene::onTick()
     }
 
     m_scriptEngine.onTick(dt);
+    if (m_tickStopped || m_simulationPaused)
+        return; // the script requested a level transition
     updateEnemyAI(dt);
     updatePartyAI(dt);
     // After both melee AI passes, so a character that already started a
@@ -3025,6 +3237,15 @@ void GameScene::onTick()
         npc.character->tick(dt);
         if (npc.character->consumeWhistlePending())
             playCreatureSound(npc.name, QStringLiteral("whistle"));
+    }
+
+    refreshSelectionInfo();
+
+    for (int i = m_levelUpEffects.size() - 1; i >= 0; --i) {
+        if (m_levelUpEffects.at(i))
+            m_levelUpEffects.at(i)->updateAnchorPosition();
+        else
+            m_levelUpEffects.removeAt(i);
     }
 
     // feetPos(), not pos() + boundingRect().center() - the latter is the

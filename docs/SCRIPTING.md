@@ -26,14 +26,15 @@ itself (same convention as `"tileset"`):
 A map without a `"script"` field behaves exactly as before - scripting is
 opt-in per map.
 
-**Two maps ship with the engine, for two different purposes:**
+**The engine ships 25 chapter maps, plus sandbox and test maps:**
 
 - `assets/maps/chapter1.json` / `assets/scripts/chapter1.js` - the real
   adventure's actual entry point (`GameScene`'s default map). Start here for
   a template of what a real chapter looks like: spawn the hero, spawn an
-  NPC, a few props, tell a small story.
+  NPC, a few props, tell a small story. Chapters 2–25 each have their own
+  map/script pair; progression loads the next map rather than expanding a hub.
 - `assets/maps/sandbox.json` / `assets/scripts/sandbox.js` - the original
-  engine-development proof of concept (full 135-character roster showcase
+  engine-development proof of concept (full current roster showcase
   grid, full props showcase grid, hand-authored village/nature areas, 4
   fixed enemies). Opts into all of that legacy auto-spawn behavior via a
   `"sandbox": true` field in its map JSON - **no real chapter should ever set
@@ -88,6 +89,12 @@ sake - reusing a mode across chapters that share a mood is fine. Current
 example: `chapter1` (Fernhollow, the story's literal morning start) uses
 `"sunrise"`.
 
+Scenery and characters sort by ground Y. Pickups draw above that scenery,
+then projectiles, then the lighting wash. Level-up captions are top-level
+notifications above the wash so their text stays readable. Prop shadows have
+their own child-item bounds; the full-art rectangle still determines prop
+anchors, collision footprints and border transforms.
+
 **`title`** is an optional, purely cosmetic map field - a display name shown
 on the black "Loading" screen (see `MainWindow::loadLevel()`) during a
 transition into that map, under the word "Loading" in smaller text:
@@ -116,11 +123,13 @@ outside a generator - no `yield` needed.
 |---|---|
 | `api.spawnCharacter(name, col, row, hp = 0)` | Spawns a new **party-controllable** character at tile `(col, row)`. Added to the Tab/click-to-select roster. Strength/Speed (see below) come along automatically. `hp <= 0` (the default - omit it) means "use `GameState::heroBaseMaxHp`" (200 for a new game, persists across level transitions/saves) rather than a fixed number - every chapter's own `lara_cyber` spawn call relies on this so her max HP can actually progress instead of being reset to a literal every chapter. A companion should still pass its own explicit `hp` (its fixed archetype toughness), same as every existing one does. |
 | `api.spawnEnemy(name, col, row, hp = 40)` | Spawns a hostile character at tile `(col, row)` with simple chase/attack AI (see `GameScene::updateEnemyAI`). Strength/Speed (see below) come along automatically. |
+| `api.spawnEnemyAtWorld(name, worldX, worldY, hp = 40)` | Spawns a hostile at the exact world-pixel feet position. Does not nudge occupied cells; useful for a new boss form at a defeated form's location. Coordinates must be finite and inside the map. |
 | `api.spawnNpc(name, col, row)` | Spawns a non-hostile, non-controllable character just standing/idling in the world - a friend or guide to talk to (see `onTalkTo` below and the **E** key). Never gets a health bar and can't be attacked. |
 | `api.despawnNpc(name)` | Removes a previously-spawned NPC - e.g. right after "recruiting" them into the party with `spawnCharacter`, so the same person doesn't stand around twice. No-op if no NPC with that name exists. |
 | `api.spawnProp(name, col, row)` | Places a prop (from `assets/props/props.json`) at tile `(col, row)`. Width and whether it blocks movement come from the props catalog, same as every other prop. Pressing **E** near it (and no NPC closer - see `onTalkTo` below) shows its catalog `name`/`description` as an examine message - purely data-driven, engine-handled via `showInfoMessage()`, no script entry point involved. Every prop in the catalog has both fields; a hand-added prop missing them just won't show anything on examine. |
 | `api.spawnItem(itemId, col, row)` | Places a world pickup (from `assets/items/items.json`) at tile `(col, row)`. Auto-collected - added to the inventory, removed from the world, `onItemCollected(itemId)` fired - the instant the player walks within pickup range. No key needed. |
-| `api.setTileset(relativePath)` | Re-skins the *entire current map* with a different tileset (path relative to the map's own directory), keeping the base/obj grid layout as-is. Only safe because every generated tileset shares the same index convention (grass = index 0, a `"water"`-named tile always exists, etc). |
+| `api.spawnItemAtWorld(itemId, worldX, worldY)` | Places a pickup using a world-pixel ground anchor. Coordinates must be finite and inside the map. Normal blocker/occupied-prop nudging still applies, so loot requested at a boss's feet can move to a nearby clear anchor. |
+| `api.setTileset(relativePath)` | Re-skins the *entire current map* with a different tileset (path relative to the map's own directory), keeping the base/obj grids as-is. Preserve the existing index convention (pure terrains at 0/9, directional blends at 1–8). Art cell size is independent of map spacing: shipped sheets use 256 px cells on a 128 px map grid. Successful swaps refresh cached variants and water animation/collision rules; only an index named `"water"` blocks movement. A failed load retains the current sheet and rules. |
 | `api.setTile(tileName, col, row)` | Overwrites a single base-layer cell with the named tile from the *current* tileset. |
 | `api.setBarrier(id, col, row, width, height, blocked)` | An invisible rectangular movement barrier, `width`x`height` tiles starting at `(col, row)` - for physically gating a path behind a story beat (not just under-decorating it - see below). Call again with the same `id` and `blocked=false` to lift exactly that barrier later; a second `true` call with an id already up is a no-op, not a duplicate. |
 | `api.giveControl(name)` | Switches player control to the named living party character (must have been spawned as a character, not an enemy/NPC). No-op if the name isn't found, is dead, or isn't controllable. |
@@ -133,8 +142,8 @@ outside a generator - no `yield` needed.
 | `api.getItemCount(itemId)` | Returns how many of an item are held (`0` if none). |
 | `api.hasItem(itemId)` | Shorthand for `getItemCount(itemId) > 0`. |
 | `api.playSound(name)` | Plays a one-shot SFX from `assets/audio/sfx/<name>.wav` (e.g. `"attack"`, `"hit"`, `"death"`, `"select"`). Fine to call several times in quick succession - each plays independently. |
-| `api.playMusic(name, loop = true)` | Starts background music from `assets/audio/music/<name>.ogg`, replacing whatever was playing. Loops by default. |
-| `api.stopMusic()` | Stops the current background music. |
+| `api.playMusic(name, loop = true)` | Starts background music from `assets/audio/music/<name>.ogg`, replacing whatever was playing and canceling automatic music for this scene. Loops by default. |
+| `api.stopMusic()` | Stops background music and cancels automatic playback and pending fades for this scene. |
 | `api.loadLevel(relativePath)` | **Tears down the current scene and loads a new map** (path relative to the current map's own directory, same convention as `setTileset`). See "Level transitions" below - this is how a chapter moves the story to a genuinely different location. |
 
 **`setBarrier` vs. just gating content in `onTalkTo`:** if a path leads
@@ -163,8 +172,8 @@ will only ever reach whichever was spawned last).
 ## Character stats
 
 Every roster character (`assets/characters/<name>/`) has three stats defined
-in `assets/characters/stats.json` - a flat catalog keyed by roster name,
-`{"str": N, "int": N, "spd": N}`, covering all 135 characters (unlike
+in `assets/characters/stats.json` - a `"stats"` wrapper object keyed by roster
+name, with `{"str": N, "int": N, "spd": N}` entries for all 99 characters (unlike
 `sounds.json`, this one is not sparse - every character has an entry).
 There's no `api.*` call for these; they're applied automatically the moment
 a character is spawned (`spawnCharacter`/`spawnEnemy`/`spawnNpc`), by
@@ -179,7 +188,7 @@ looking up the roster key in that catalog - nothing for a script to do.
   player-controlled character this is the walk speed keys move it at
   (`MainWindow::refreshMoveIntent()`); for an enemy it's how fast it closes
   the distance while chasing (`updateEnemyAI()`).
-- **Intelligence** drives the automatic fireball system - see "Magic:
+- **Intelligence** drives manual player and automatic AI fireballs - see "Magic:
   fireballs" below. Below a threshold it does nothing at all, which is most
   of the roster; above it, more Intelligence means faster, stronger,
   brighter fireballs.
@@ -243,6 +252,12 @@ range just fights normally; fireballs are for whenever a valid target is
 in range (out to the same distance the melee AI would even notice them at)
 but not close enough to swing at yet. A hostile caster only ever targets
 the controlled character, the same restriction the melee AI already has.
+
+Fireballs are targeted spells: the bolt follows its original target until
+impact, even if that target moves or the player switches control. Flight
+animation, impact damage and the fading flash use the same simulation clock;
+pausing scene simulation also pauses an in-flight spell. Removing a target
+cancels its in-flight bolts. A target already dead at impact takes no damage.
 
 ### Leveling up
 
@@ -342,7 +357,9 @@ which reads that item's `items.json` entry for a `"onUse"` field:
   time/amount rather than stacking with it. See `stamina_draught`/
   `sealed_vial_of_mist` (speed), `mana_potion`/`elixir_of_clarity`
   (intelligence), and `whetstone`/`woven_talisman` (attack) in
-  `items.json`.
+  `items.json`. Quicksave/quickload preserves each active bonus and its
+  remaining simulation time. A normal chapter transition cancels temporary
+  buffs; the item-use message states that limit.
 - **`{"type": "permanentBoost", "stat": "attack"|"maxHp"|"intelligence", "amount": N}`**:
   built-in - permanently raises that stat for the whole party, including a
   companion who joins later (see `GameScene::scriptSpawnCharacter()`). The
@@ -354,6 +371,9 @@ which reads that item's `items.json` entry for a `"onUse"` field:
   `small_ingot`/`ore_chunk` (attack), `round_shield`/`gemstone_cluster`
   (maxHp), and `humming_crystal`/`sealed_scroll` (intelligence) in
   `items.json`.
+
+  A maximum-HP boost heals living members to their new maximum; dead
+  members gain the maximum but remain dead at zero HP.
 
 For any of the four built-in types, a separate top-level `"consumeOnUse": true/false`
 on the item controls whether `useItem()` also decrements the inventory
@@ -369,10 +389,12 @@ it should be consumed.
 
 ## Level transitions
 
-`api.loadLevel(relativePath)` destroys the current scene (map, party,
-enemies, NPCs, world items - everything) and constructs a fresh one for the
-target map, running that map's own script from scratch (`onLevelStart`
-fires again, for the new map). **The inventory survives, and so does
+`api.loadLevel(relativePath)` pauses the current scene and prepares a fresh
+one for the target map, running that map's script from scratch
+(`onLevelStart` fires again). Once initial population succeeds, it replaces
+the old scene (map, party, enemies, NPCs and world items). A missing/invalid
+map or script, or an exception in that first script step, leaves the old
+scene and its script continuation intact and reports a load failure. **The inventory survives, and so does
 everything stored via `setVar`/`setGlobalVar`** - everything else does not.
 This means the new map's `onLevelStart` is responsible for re-spawning the
 hero (and any companions recruited so far, if the story wants them to keep
@@ -404,13 +426,12 @@ the same way chapter N left it? If yes, it's global; if the name is really
 just "guard so I don't do this thing twice within my own chapter," it's
 local (plain `setVar`/`getVar`, the default).
 
-Use this only when the story is moving somewhere **genuinely disjoint** -
-Chapters 1-2 share one hub map that just got wider instead of using this,
-because they're geographically continuous (see
-`project_umbraloom_adventure.md` memory for the reasoning). Chapter 3 is the
-first real use of `loadLevel` - a stone-tileset location with no walking
-path connecting it to Chapter 1-2's forest, reached the instant the Echo
-Seed is collected.
+Every chapter has its own map and scene. Chapter 1's glowing-acorn pickup
+loads `chapter2.json`; chapter 2's Echo Seed loads `chapter3.json`. The same
+pattern continues through chapter 24. Chapter 25 sets the global chapter
+counter to 26 and ends at the open door without calling `loadLevel`, because
+no chapter 26 map ships yet. Many quests are optional rewards rather than
+physical progression gates; chapters 12, 16 and 25 retain their exit barriers.
 
 ### Pausing commands - only meaningful with `yield`
 
@@ -420,13 +441,13 @@ no-op (you just get an object back and discard it). **They only work inside a
 
 | Call | Effect when `yield`-ed |
 |---|---|
-| `yield api.wait(seconds)` | Pauses the script for `seconds` real seconds, then continues. |
+| `yield api.wait(seconds)` | Pauses the script for `seconds` of scene simulation time, then continues; pausing the scene also pauses the wait. |
 | `yield api.say(speaker, text)` | Shows the dialogue box with `speaker`'s name and `text`, and pauses until the player presses **Enter** to advance it. |
 
 ```js
 function* onLevelStart() {
     api.spawnEnemy("goblin", 10, 5);         // immediate - runs right away
-    yield api.wait(2.0);                      // pauses 2 real seconds
+    yield api.wait(2.0);                      // pauses 2 simulation seconds
     yield api.say("lara_cyber", "Hello!");    // pauses until the player advances
     api.setTileset("grass_dirt");             // runs once resumed
 }
@@ -441,18 +462,38 @@ function onLevelStart() {
 }
 ```
 
-**Only one script coroutine runs at a time.** If a second entry point fires
-while one is already running or paused (mid-`wait`/`say`), the new call is
-queued and runs after it finishes. A missing optional handler is skipped
-without blocking later calls in the queue. `ScriptEngine::isBusy()` remains
-true while a coroutine or queued entry point is unfinished.
+**Only one script entry point runs at a time**, including ordinary functions
+and generator steps. If a second entry point fires while one is executing
+or paused (mid-`wait`/`say`), it is queued and runs after the first finishes.
+A missing optional handler is skipped without blocking later calls.
+`ScriptEngine::isBusy()` also stays true for events awaiting dispatch.
+
+Combat defeat/death and item-collection handlers are dispatched after the
+current gameplay operation returns to the event loop. Their event arguments
+are captured when the event occurs; they can safely spawn more entities
+without invalidating the engine's combat iteration. Events remain FIFO and
+wait behind an active coroutine. Retiring a scene cancels its outstanding
+script events and continuation. Transition preparation suspends that work
+reversibly; a failed load resumes it, and only a successful replacement
+retires it.
+
+Populate the initial chapter in `onLevelStart()` **before its first yield**.
+The engine keeps simulation stopped during that initial step. Once it
+returns or first yields, the C++ `GameScene::sceneReady` signal permits
+snapshot restoration; simulation starts after those readiness callbacks
+return. Introductory waits/dialogue continue normally afterward. A script
+can still spawn entities after later yields for staged narrative events.
 
 **Quicksave (F5)** is ignored while a script, dialogue, or level transition
 is active, and while the death menu is open. The save contains GameState
 and a scene snapshot, but no script continuation. The request is not queued;
 press F5 again after the sequence finishes. A refused save leaves the current
 dialogue and existing save untouched. **Quickload (F8)** is also ignored
-during a level transition.
+during a level transition. Save loads validate data before preparing a
+candidate scene. Invalid fields, missing assets, inconsistent party state,
+or a restoration failure leave the current scene and persistent state
+unchanged. Existing version 2 saves retain defaults for optional fields,
+including absent temporary buffs. Successful loads report a status message.
 
 ## Audio
 
@@ -462,24 +503,23 @@ testing that `QSoundEffect` fails to decode `.ogg` at all on this setup
 as anything else); music lives in `assets/audio/music/<name>.ogg` instead
 (a separate player, `QMediaPlayer`, handles compressed formats fine).
 `name` in `playSound`/`playMusic` is just that filename without the
-extension either way. Background music
-starts automatically on every level load - `GameScene` picks one arbitrarily
-from a 34-track pool (`theme` plus `music01`-`music38` minus a handful of
-retired numbers - `music04`/`07`/`09`/`10`/`11`/`12` were removed by
-explicit request, 2026-09-10, and their numbers were retired rather than
-reused - all of the user's own tracks, see `kLevelMusicTracks` in
-`GameScene.cpp` for the exact current list; never repeating whichever one
-was just playing) rather than always defaulting to `theme` - scripts only
-need to call `playMusic`/`stopMusic` themselves to *override* that pick
-(e.g. a boss fight cueing specific music instead of the arbitrary level
-track). SFX are short one-shots (`QSoundEffect`, low latency, fine to
+extension either way. Background music starts with the non-looping
+`ambient` intro on each level load. After two minutes it fades out over two
+seconds; an earlier natural end cancels that deadline. The scene then
+shuffles a 34-track pool (`theme` plus `music01`-`music38` excluding retired
+`04`/`07`/`09`/`10`/`11`/`12`), never repeating the immediately previous
+track. See `kLevelMusicTracks` in `GameScene.cpp` for the exact list.
+Calling `playMusic` or `stopMusic` cancels automatic playback for the rest of
+that scene, including pending intro timers and fades. An explicitly selected
+non-looping track ends in silence. A new level starts the automatic policy
+again. SFX are short one-shots (`QSoundEffect`, low latency, fine to
 overlap); music is a separate streamed player (`QMediaPlayer`) - don't try
 to loop a long track through `playSound`.
 
 **Creature whistle/roar sounds** are purely data/engine-driven - nothing
-script-facing to call. `assets/characters/sounds.json` is a sparse, flat
-`{roster key: {whistle, roar}}` catalog (same convention as
-`props.json`/`items.json`); most of the 135-character roster has no entry
+script-facing to call. `assets/characters/sounds.json` contains a sparse
+`"sounds"` wrapper object with `{roster key: {whistle, roar}}` entries
+(like the `"props"`/`"items"` wrappers); most of the 99-character roster has no entry
 at all. `whistle` is a rare (~20-45s, randomized per character) idle
 ambient sound `GameScene` plays automatically for any spawned character
 that has one - no entry means that character simply never whistles, there
@@ -509,14 +549,14 @@ can be a plain `function` or a `function*`.
 
 | Name | Called when | Arguments |
 |---|---|---|
-| `onLevelStart()` | Once, after the map/characters/props finish loading (deferred to the next event-loop turn so signal listeners like the dialogue box are already connected). | none |
+| `onLevelStart()` | Once, after map setup, deferred so signal listeners are connected. Initial script population runs before simulation; finish it before the first yield. | none |
 | `onTalkTo(name)` | When the player presses **E** while standing near a spawned NPC (see `api.spawnNpc`). | `name` - the roster key of the NPC talked to |
-| `onItemCollected(itemId)` | The instant the player walks near enough to a world item (see `api.spawnItem`) to auto-collect it. | `itemId` - the collected item's catalog key |
+| `onItemCollected(itemId)` | Queued after a world item is collected (see `api.spawnItem`), dispatched after the gameplay operation returns. | `itemId` - the collected item's catalog key |
 | `onItemUsed(itemId)` | When the player activates a held item from the inventory menu (**I**, Enter) whose `items.json` entry has no `onUse.type`, or an unrecognized one - see "Items and inventory" below. | `itemId` - the used item's catalog key |
-| `onEnemyDefeated(name)` | Once per enemy, the moment a player attack kills it. | `name` - the roster key of the enemy that died |
-| `onPlayerDied()` | Once, the moment the controlled character's HP reaches 0 from an enemy attack. | none |
+| `onEnemyDefeated(name, worldX, worldY)` | Queued once per defeated enemy, including party melee and fireballs; dispatched after the combat operation returns. | `name` is the roster key; `worldX`/`worldY` are its exact world-pixel feet position captured at defeat, before corpse removal or queued dispatch. Existing handlers accepting only `name` continue to work. |
+| `onPlayerDied()` | Queued once when the currently controlled character dies; the engine's death menu signal is immediate. | none |
 
-`onTalkTo` fires for whichever NPC is within range (~60px) of the player when
+`onTalkTo` fires for whichever NPC is within range (120px) of the player when
 E is pressed - it's normal for a script to switch on `name` if a chapter has
 more than one NPC, and to track how many times a given NPC's been talked to
 via `api.getVar`/`setVar` for multi-stage conversations (see
@@ -563,7 +603,7 @@ For anyone changing the engine side rather than writing scripts:
 - `src/MainWindow.cpp` (`loadLevel()`) - actually performs a level
   transition: constructs the new `GameScene`, swaps it into the
   `QGraphicsView`, and tears down the old one. **Stops the old scene's tick
-  timer before deferring its deletion** - skipping that reliably corrupted
+  timer before preparing the candidate and deferring deletion after commit** - skipping that reliably corrupted
   the heap (crashed at process exit, only once a *second* `QJSEngine` had
   ever existed in the process) during development; the exact Qt/V4-internal
   mechanism was never fully confirmed, but a scene that's been navigated

@@ -456,11 +456,10 @@ function pocketCols() {
 // night, then the Lanternway - a maze of frozen lanes strung with them - and
 // at its far end the Vigil Light itself.
 //
-// QUEST (wave defense): since the hum, the lanterns draw things in. The
-// Lamplighter asks Lara to hold the vigil at the Vigil Light: three waves
-// come for the flame. Hold all three and the light steadies and the Lanternway's
-// exit gate lifts. (Talk to the Light once for the briefing, again to begin;
-// the waves then follow one another on their own.)
+// QUEST (three-wave hunt): the Light calls three packs into the Lanternway.
+// Clear each pack, then return and speak to the Light to begin the next.
+// Completing all three steadies the flame and earns an optional reward;
+// there is no exit barrier or damageable defense objective.
 // ----------------------------------------------------------------------------
 const TOWN = [
     ["bush", 3, 23],
@@ -542,9 +541,8 @@ function* onLevelStart() {
     api.giveControl("lara_cyber");
     respawnCompanions();
 
-    // A reload mid-vigil leaves no enemies behind, so an unfinished wave simply starts over on the next talk.
-    api.setVar("vigil_active", false);
-    api.setVar("vigil_alive", 0);
+    // Quickload restores surviving wave enemies and the saved counters.
+    // Fresh visits use getVar defaults; rebuilding scenery must not reset a wave.
 
     buildTown();
     buildMaze();
@@ -636,15 +634,15 @@ function* talkToLamplighter() {
         yield api.say("Lamplighter", "Every lantern in the village steadied at once. I was on a ladder at the time. I nearly cried, then I very nearly fell off the ladder. Go on through. Take the lantern, please, before I get emotional again.");
     } else if (n === 0) {
         yield api.say("Lamplighter", "A hundred lanterns, on the longest night, kept lit entirely by hand. Oldest custom we have. The hum got into them this year, and now they gutter, and they call.");
-        yield api.say("Lamplighter", "Things come to a light that calls. Wolves, mostly. Worse, later in the night. They all head straight for the Vigil Light - the great one, at the far end of the Lanternway, west of here.");
-        yield api.say("Lara", "So somebody has to stand at it.");
-        yield api.say("Lamplighter", "Somebody has to stand at it. Three waves, they say. Hold all three and the light steadies, along with every lantern in the village. I'd go myself, but I'm eighty and I currently have a ladder to deal with.");
+        yield api.say("Lamplighter", "Things come to a light that calls. Wolves, mostly. Worse, later in the night. They gather along the Lanternway, drawn by the Vigil Light - the great one at the far end, west of here.");
+        yield api.say("Lara", "So somebody has to go out and find them.");
+        yield api.say("Lamplighter", "Three waves, they say. Clear each pack from the Lanternway, then return to the Light and speak to it when you're ready for the next. Finish all three and every lantern in the village steadies. I'd go myself, but I'm eighty and I currently have a ladder to deal with.");
     } else {
         yield api.say("Lamplighter", "The Vigil Light, at the end of the Lanternway. Talk to it once and it'll tell you what's coming. Twice, and it begins. Bring healing. A great deal of healing.");
     }
 }
 
-// The vigil: waves follow one another on their own once the Light has been asked to begin.
+// Each wave begins only when the player returns and asks the Light.
 function* talkToVigilLight() {
     api.playSound("select");
     if (api.getVar("vigil_held", false)) {
@@ -652,13 +650,13 @@ function* talkToVigilLight() {
         return;
     }
     if (api.getVar("vigil_active", false)) {
-        yield api.say("Vigil Light", "*the flame leans, straining* They're still coming. Please, keep them from me. This is not a good time for small talk.");
+        yield api.say("Vigil Light", "*the flame leans, straining* There are still creatures out along the Lanternway. Find the rest of this pack, then come back to me. This is not a good time for small talk.");
         return;
     }
     if (!api.getVar("vigil_briefed", false)) {
         api.setVar("vigil_briefed", true);
         yield api.say("Vigil Light", "*a warm, wavering glow, like a candle that's been running for far too long* You've come to keep the watch. Three waves come for me, each worse than the last. They aren't cruel. They're only drawn to the light, same as anything else.");
-        yield api.say("Vigil Light", "Stand near me. Heal when you need to. When you're ready, speak to me again and the first wave will arrive, whether either of us likes it.");
+        yield api.say("Vigil Light", "They gather out along the Lanternway; you'll have to find them. Heal when you need to, and return to speak with me between waves. Speak to me again when you're ready to call the first pack.");
         return;
     }
     const wave = api.getVar("vigil_wave", 0);

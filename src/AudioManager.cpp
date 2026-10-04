@@ -2,14 +2,29 @@
 #include "AssetPath.h"
 
 #include <QUrl>
+#include <utility>
 
 AudioManager::AudioManager(QObject *parent)
     : QObject(parent)
 {
     m_musicPlayer.setAudioOutput(&m_musicOutput);
     connect(&m_musicPlayer, &QMediaPlayer::mediaStatusChanged, this, [this](QMediaPlayer::MediaStatus status) {
-        if (status == QMediaPlayer::EndOfMedia && m_musicPlayer.loops() != QMediaPlayer::Infinite)
+        if (m_musicActive && status == QMediaPlayer::EndOfMedia
+                && m_musicPlayer.mediaStatus() == status && m_musicPlayer.loops() != QMediaPlayer::Infinite) {
+            m_musicActive = false;
+            cancelMusicFade();
+            m_musicOutput.setVolume(1.0f);
             emit musicFinished();
+        }
+    });
+    connect(&m_musicPlayer, &QMediaPlayer::errorOccurred, this, [this](QMediaPlayer::Error error) {
+        if (error == QMediaPlayer::NoError || m_musicPlayer.error() != error)
+            return;
+        // A failed request is not a completed track. Cancel its fade so
+        // the intro deadline cannot later turn the failure into completion.
+        m_musicActive = false;
+        cancelMusicFade();
+        m_musicOutput.setVolume(1.0f);
     });
 }
 
@@ -74,40 +89,54 @@ void AudioManager::playMusic(const QString &name, bool loop)
     // finish later on top of this new one - silence it well before that,
     // and skip the volume/stop/musicFinished tail it would have run (this
     // fresh play() already supersedes all of that).
-    if (m_fadeAnimation) {
-        m_fadeAnimation->stop();
-        m_fadeAnimation->deleteLater();
-        m_fadeAnimation = nullptr;
-    }
+    m_musicActive = false;
+    cancelMusicFade();
     m_musicOutput.setVolume(1.0f);
 
     m_musicPlayer.setSource(QUrl::fromLocalFile(assetPath(QStringLiteral("/audio/music/%1.ogg")).arg(name)));
     m_musicPlayer.setLoops(loop ? QMediaPlayer::Infinite : 1);
+    m_musicActive = true;
     m_musicPlayer.play();
+    if (m_musicPlayer.mediaStatus() == QMediaPlayer::InvalidMedia)
+        m_musicActive = false;
+}
+
+void AudioManager::cancelMusicFade()
+{
+    if (!m_fadeAnimation)
+        return;
+    auto *fade = std::exchange(m_fadeAnimation, nullptr);
+    // Disconnect before stopping: a stale completion must not stop a
+    // replacement track or request automatic playback.
+    disconnect(fade, nullptr, this, nullptr);
+    fade->stop();
+    fade->deleteLater();
 }
 
 void AudioManager::stopMusic()
 {
+    m_musicActive = false;
+    cancelMusicFade();
     m_musicPlayer.stop();
+    m_musicOutput.setVolume(1.0f);
 }
 
 void AudioManager::fadeOutMusic(int durationMs)
 {
-    if (m_fadeAnimation) {
-        m_fadeAnimation->stop();
-        m_fadeAnimation->deleteLater();
-    }
+    cancelMusicFade();
+    if (!m_musicActive)
+        return;
 
     auto *fade = new QPropertyAnimation(&m_musicOutput, "volume", this);
-    fade->setDuration(durationMs);
+    fade->setDuration(qMax(0, durationMs));
     fade->setStartValue(m_musicOutput.volume());
     fade->setEndValue(0.0f);
     connect(fade, &QPropertyAnimation::finished, this, [this, fade]() {
-        stopMusic();
-        m_musicOutput.setVolume(1.0f); // so the next playMusic() isn't silently inherited at 0
-        if (m_fadeAnimation == fade)
-            m_fadeAnimation = nullptr;
+        if (m_fadeAnimation != fade || !m_musicActive)
+            return;
+        m_fadeAnimation = nullptr;
         fade->deleteLater();
+        stopMusic();
         emit musicFinished();
     });
     m_fadeAnimation = fade;

@@ -52,17 +52,17 @@ public:
     void setName(const QString &name) { m_name = name; }
     const QString &name() const { return m_name; }
 
-    // Which way this prop's soft ground shadow (see paint()) leans, in
+    // Which way this prop's soft ground shadow leans, in
     // item-local pixels from groundAnchorOffset() - same convention and
     // same setter-caller (GameScene, from the map's ambient lighting mode)
     // as Character::setShadowOffset().
-    void setShadowOffset(QPointF offset) { m_shadowOffset = offset; }
-
-    void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
+    void setShadowOffset(QPointF offset);
 
 private:
     QString m_name;
-    QPointF m_shadowOffset = QPointF(0, 18);
+    // Child ownership keeps the shadow in this prop's stacking group,
+    // with separate bounds for culling outside the full-art rectangle.
+    QGraphicsPixmapItem *m_shadow = nullptr;
     QSizeF m_fullSize; // the full scaled art size boundingRect() reports
 
     // Real ground-contact point of this prop's own art, as a fraction of its

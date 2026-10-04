@@ -18,6 +18,11 @@ void ScriptBridge::spawnEnemy(const QString &name, int col, int row, int hp)
     m_scene->scriptSpawnEnemy(name, col, row, hp);
 }
 
+void ScriptBridge::spawnEnemyAtWorld(const QString &name, double worldX, double worldY, int hp)
+{
+    m_scene->scriptSpawnEnemyAtWorld(name, worldX, worldY, hp);
+}
+
 void ScriptBridge::spawnNpc(const QString &name, int col, int row)
 {
     m_scene->scriptSpawnNpc(name, col, row);
@@ -36,6 +41,11 @@ void ScriptBridge::spawnProp(const QString &name, int col, int row)
 void ScriptBridge::spawnItem(const QString &itemId, int col, int row)
 {
     m_scene->scriptSpawnItem(itemId, col, row);
+}
+
+void ScriptBridge::spawnItemAtWorld(const QString &itemId, double worldX, double worldY)
+{
+    m_scene->scriptSpawnItemAtWorld(itemId, worldX, worldY);
 }
 
 void ScriptBridge::setTileset(const QString &relativePath)

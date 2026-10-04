@@ -59,6 +59,7 @@ public:
     void tick();
 
 private:
+    void syncTileset();
     void paintRippledWaterTile(QPainter *painter, const QPixmap &tile, qreal worldX, qreal worldY) const;
     // Returns the mirrored variant of `index` (which must be a pure tile,
     // i.e. 0 or 9) picked for (col, row), computing and caching all 4
@@ -67,6 +68,7 @@ private:
 
     const TileMap &m_map;
     int m_waterTileIndex = -1;
+    quint64 m_tilesetRevision = 0;
     QElapsedTimer m_clock;
     qint64 m_lastUpdateMs = 0;
     QHash<int, std::array<QPixmap, 4>> m_variantCache;

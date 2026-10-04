@@ -182,6 +182,12 @@ bool Character::isBlocked(qreal worldX, qreal worldY) const
     return false;
 }
 
+bool Character::isMoveBlocked(QPointF from, QPointF to) const
+{
+    return (m_tileMap && !m_tileMap->isAxisMoveWalkable(from, to))
+            || (m_blockingAreas && m_blockingAreas->blocksAxisMove(from, to));
+}
+
 bool Character::isWithinMeleeReach(QPointF targetFeetPos, qreal reach) const
 {
     const QPointF delta = targetFeetPos - feetPos();
@@ -281,7 +287,7 @@ void Character::tickIdleWander(qreal dtSeconds)
 void Character::setMaxHp(int hp)
 {
     m_maxHp = hp;
-    m_hp = hp;
+    m_hp = m_dead ? 0 : hp;
     ensureHealthBar();
     updateHealthBar();
 }
@@ -384,6 +390,37 @@ void Character::tickAction(qreal dtSeconds)
     }
 }
 
+void Character::applyTemporarySpeedBuff(int amount, qreal durationSeconds)
+{
+    m_tempSpeedRemaining = std::isfinite(durationSeconds) && durationSeconds > 0.0 ? durationSeconds : 0.0;
+    m_tempBonusSpeed = m_tempSpeedRemaining > 0.0 ? amount : 0;
+}
+
+void Character::applyTemporaryIntelligenceBuff(int amount, qreal durationSeconds)
+{
+    m_tempIntelligenceRemaining = std::isfinite(durationSeconds) && durationSeconds > 0.0 ? durationSeconds : 0.0;
+    m_tempBonusIntelligence = m_tempIntelligenceRemaining > 0.0 ? amount : 0;
+}
+
+void Character::applyTemporaryStrengthBuff(int amount, qreal durationSeconds)
+{
+    m_tempStrengthRemaining = std::isfinite(durationSeconds) && durationSeconds > 0.0 ? durationSeconds : 0.0;
+    m_tempBonusStrength = m_tempStrengthRemaining > 0.0 ? amount : 0;
+}
+
+Character::TemporaryBuffs Character::temporaryBuffs() const
+{
+    return {m_tempBonusStrength, m_tempStrengthRemaining, m_tempBonusIntelligence,
+            m_tempIntelligenceRemaining, m_tempBonusSpeed, m_tempSpeedRemaining};
+}
+
+void Character::restoreTemporaryBuffs(const TemporaryBuffs &buffs)
+{
+    applyTemporaryStrengthBuff(buffs.strength, buffs.strengthRemaining);
+    applyTemporaryIntelligenceBuff(buffs.intelligence, buffs.intelligenceRemaining);
+    applyTemporarySpeedBuff(buffs.speed, buffs.speedRemaining);
+}
+
 void Character::tick(qreal dtSeconds)
 {
     // Ticked unconditionally - even mid-action or dead - so a buff never
@@ -439,9 +476,9 @@ void Character::tick(qreal dtSeconds)
         qreal newX = x() + delta.x();
         qreal newY = y() + delta.y();
 
-        if (isBlocked(newX + feet.x(), y() + feet.y()))
+        if (isMoveBlocked(feetPos(), QPointF(newX + feet.x(), y() + feet.y())))
             newX = x();
-        if (isBlocked(newX + feet.x(), newY + feet.y()))
+        if (isMoveBlocked(QPointF(newX + feet.x(), y() + feet.y()), QPointF(newX + feet.x(), newY + feet.y())))
             newY = y();
 
         setPos(newX, newY);

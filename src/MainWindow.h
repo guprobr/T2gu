@@ -4,7 +4,7 @@
 #include <QMainWindow>
 #include <QSet>
 
-#include <functional>
+#include <optional>
 
 #include "Character.h"
 #include "GameScene.h"
@@ -27,6 +27,7 @@ public:
     explicit MainWindow(QWidget *parent = nullptr);
 
 protected:
+    bool event(QEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
     void keyReleaseEvent(QKeyEvent *event) override;
     // Tab is a game key here (switch controlled character), not focus
@@ -45,9 +46,9 @@ private slots:
     // centerViewOn() uses) - keeps the always-on position readout and, if
     // toggled on, the treasure readout current every tick.
     void updateDebugOverlays(QPointF playerPos);
-    // Tears down the current GameScene and constructs a new one for
-    // `mapPath` - GameState (see GameState.h) survives, everything scene-
-    // local does not. Connected to the current scene's
+    // Prepares a fresh scene/state, commits on readiness, and preserves
+    // the old playable scene on failure. GameState survives successful
+    // transitions; scene-local entities are replaced. Connected to the current scene's
     // GameScene::levelChangeRequested (see GameScene::scriptLoadLevel);
     // also called directly, once, to boot the very first map.
     void loadLevel(const QString &mapPath);
@@ -63,33 +64,17 @@ private slots:
     void hideSelectionInfo();
 
 private:
+    friend class EngineRegressionAccess;
+    void clearHeldInput();
     void refreshMoveIntent();
     void repositionDialogueBox();
     void repositionInventoryWidget();
     void repositionDeathMenuWidget();
     void repositionLoadingOverlay();
-    // The actual scene swap for loadLevel(), deferred ~1s so the loading
-    // overlay stays on screen for a minimum readable duration (scene
-    // construction itself is fast enough not to need it otherwise). This
-    // used to be a nested QEventLoop (QDialog::exec()-style blocking) run
-    // BEFORE the old scene stopped ticking - which meant the old GameScene's
-    // 16ms tick timer, and the QJSEngine it drives, could keep firing for
-    // that whole second while already several stack frames deep inside a
-    // script callback (loadLevel() is very often called FROM a script's
-    // api.loadLevel(), i.e. from inside GameScene::onTick() ->
-    // ScriptEngine::onTick() -> the JS call itself). A nested event loop at
-    // that point can deliver the old tick timer's timeout and reenter the
-    // very same QJSEngine call that's still suspended on the C++ stack -
-    // this project has already hit real heap corruption from two QJSEngines
-    // active at once during a transition (see the old scene's own
-    // stopTicking() comment in loadLevel()); a nested event loop here was
-    // another route to that exact failure mode, not a safe way to hold the
-    // overlay open. Now: the old scene's disconnect()/stopTicking() happen
-    // synchronously, immediately, inside loadLevel() itself, and this
-    // function - a plain QTimer::singleShot() callback, not a nested loop -
-    // does the actual scene replacement once the delay elapses. No event
-    // loop is ever entered that Qt wasn't already going to run on its own.
+    // Deferred preparation keeps the old scene suspended until the
+    // candidate's first script step and optional restore have succeeded.
     void finishLoadingLevel(const QString &mapPath);
+    void failLoadingLevel(const QString &error);
     // Opens/refreshes the inventory menu and pauses movement/attack while
     // it's up; closing just hides it. See m_inventoryOpen and the
     // isDialogueActive()-style guard in refreshMoveIntent().
@@ -118,16 +103,18 @@ private:
     GameState m_gameState; // persists across loadLevel() calls - owns story vars/inventory
     GameScene *m_scene = nullptr;
     // True from the moment loadLevel() starts a transition until
-    // finishLoadingLevel() actually swaps m_scene - guards against a second
-    // loadLevel() call (another script race, a dev-key mash) landing mid-
+    // the new scene finishes its initial population and snapshot restore.
+    // Guards against a second loadLevel() call (another script race, a
+    // dev-key mash) landing mid-
     // transition and stacking a second overlay/timer/scene-swap on top of
     // the first.
     bool m_levelTransitionPending = false;
-    // Set by loadGame() right before calling loadLevel(), consumed exactly
-    // once by finishLoadingLevel() right after the new scene is constructed
-    // - see loadGame()'s own comment for why this replaced capturing
-    // `m_scene` right after a (no longer synchronous) loadLevel() call.
-    std::function<void()> m_afterNextSceneReady;
+    GameScene *m_loadingScene = nullptr;
+    std::optional<GameState> m_pendingGameState;
+    std::optional<GameScene::SceneSnapshot> m_pendingSnapshot;
+    std::optional<QPair<QString, QString>> m_pendingDialogue;
+    QVector<QPair<QString, GameScene::StatusKind>> m_pendingStatus;
+    QString m_pendingRedirect;
     QGraphicsView *m_view = nullptr;
     DialogueBoxWidget *m_dialogueBox = nullptr;
     InventoryWidget *m_inventoryWidget = nullptr;

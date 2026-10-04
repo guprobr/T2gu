@@ -1,6 +1,8 @@
 #include "LevelUpTextItem.h"
+#include "SceneLayers.h"
 
 #include <QFont>
+#include <QGraphicsScene>
 #include <QPainter>
 #include <algorithm>
 
@@ -20,9 +22,11 @@ constexpr qreal kGapAboveHeadPx = 85.0;
 constexpr qreal kTextHalfHeightPx = 20.0;
 }
 
-LevelUpTextItem::LevelUpTextItem(QGraphicsItem *parent, qreal headTopY)
-    : QObject(nullptr)
-    , QGraphicsItem(parent)
+LevelUpTextItem::LevelUpTextItem(QGraphicsItem *anchor, qreal headTopY)
+    : QObject(anchor->scene())
+    , QGraphicsItem()
+    , m_anchor(anchor)
+    , m_localAnchor(anchor->boundingRect().center().x(), headTopY - kGapAboveHeadPx)
 {
     // Anchored at the horizontal center of the character's own sprite,
     // just above its head - "emerging from the top of the player." This
@@ -32,19 +36,26 @@ LevelUpTextItem::LevelUpTextItem(QGraphicsItem *parent, qreal headTopY)
     // top of the screen. paint() moves it further up from here over time
     // rather than this item's own pos() changing, so a single elapsed-time
     // read drives both the rise and the fade consistently.
-    setPos(parent->boundingRect().center().x(), headTopY - kGapAboveHeadPx);
-    setZValue(1'000'000.0); // always drawn on top, regardless of anything else going on
+    updateAnchorPosition();
+    setZValue(SceneLayers::Notifications);
+    anchor->scene()->addItem(this);
 
     m_clock.start();
     connect(&m_timer, &QTimer::timeout, this, [this] {
         if (m_clock.elapsed() >= kDurationMs) {
             m_timer.stop();
-            deleteLater(); // detaches from the parent Character and the scene along with it
+            deleteLater();
             return;
         }
+        updateAnchorPosition();
         update();
     });
     m_timer.start(kAnimIntervalMs);
+}
+
+void LevelUpTextItem::updateAnchorPosition()
+{
+    setPos(m_anchor->mapToScene(m_localAnchor));
 }
 
 QRectF LevelUpTextItem::boundingRect() const

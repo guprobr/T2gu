@@ -71,7 +71,7 @@ qreal measureFeetFraction(const QPixmap &pixmap)
     return 0.95; // fully transparent image (shouldn't happen) - keep the old guess
 }
 
-// The soft ground shadow (see Prop::paint()) is the same picture for every
+// The soft ground shadow is the same picture for every
 // prop with the same radius - a black radial gradient squashed into a flat
 // ellipse - yet it used to be re-rasterized per prop, per frame (an
 // antialiased gradient fill plus a painter save/restore), which at a few
@@ -163,6 +163,13 @@ Prop::Prop(const QString &imagePath, qreal targetWidth, QGraphicsItem *parent)
     setOffset(it.value().offset);
     m_fullSize = it.value().fullSize;
     m_feetFraction = it.value().feetFraction;
+    const qreal shadowRadius = std::min(m_fullSize.width() * 0.22, 60.0);
+    const QPixmap &shadow = shadowPixmapFor(shadowRadius);
+    m_shadow = new QGraphicsPixmapItem(shadow, this);
+    m_shadow->setOffset(-shadow.width() / 2.0, -shadow.height() / 2.0);
+    m_shadow->setFlag(QGraphicsItem::ItemStacksBehindParent);
+    m_shadow->setAcceptedMouseButtons(Qt::NoButton);
+    setShadowOffset(QPointF(0, 18));
 }
 
 QRectF Prop::boundingRect() const
@@ -170,29 +177,9 @@ QRectF Prop::boundingRect() const
     return QRectF(QPointF(0, 0), m_fullSize);
 }
 
-void Prop::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget)
+void Prop::setShadowOffset(QPointF offset)
 {
-    // Same look as Character::paint()'s shadow (a soft flat ellipse), but
-    // drawn from a cached pixmap - see shadowPixmapFor() above for why not
-    // a gradient fill per prop per frame. Sized a little smaller relative
-    // to width than Character's (0.22 vs 0.28) - most props are wider
-    // relative to their own "footprint" than a character sprite is, so the
-    // same fraction would read as oversized.
-    const QPointF anchor = groundAnchorOffset();
-    // Capped, not just scaled - the widest props (the horizon-art
-    // backdrops placed along a map's edges) would otherwise get a shadow
-    // blob completely out of scale with the rest of the scene. The cap is
-    // doubled along with the 2x asset scale (see tools/upscale_2x.py,
-    // which doubled every catalog "width") - boundingRect().width() auto-
-    // scales with that, but a stale cap would clamp nearly every normal
-    // prop's shadow down to its old, now-way-too-small pixel size.
-    const qreal shadowRadius = std::min(boundingRect().width() * 0.22, 60.0);
-
-    const QPixmap &shadow = shadowPixmapFor(shadowRadius);
-    const QPointF shadowCenter = anchor + m_shadowOffset;
-    painter->drawPixmap(QPointF(shadowCenter.x() - shadow.width() / 2.0, shadowCenter.y() - shadow.height() / 2.0), shadow);
-
-    QGraphicsPixmapItem::paint(painter, option, widget);
+    m_shadow->setPos(groundAnchorOffset() + offset);
 }
 
 QPointF Prop::groundAnchorOffset() const

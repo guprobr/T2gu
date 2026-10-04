@@ -10,7 +10,10 @@ QString resolveAssetDir()
     if (!fromEnv.isEmpty() && QDir(fromEnv).exists())
         return QDir::cleanPath(fromEnv);
 
-    const QString installed = QDir::cleanPath(QCoreApplication::applicationDirPath() + QStringLiteral("/../share/t2gu2/assets"));
+    const QString configured = QStringLiteral(T2GU_INSTALL_ASSET_PATH);
+    const QString installed = QDir::cleanPath(QDir::isAbsolutePath(configured)
+        ? configured
+        : QDir(QCoreApplication::applicationDirPath()).absoluteFilePath(configured));
     if (QDir(installed).exists())
         return installed;
 

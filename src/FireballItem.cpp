@@ -1,4 +1,5 @@
 #include "FireballItem.h"
+#include "SceneLayers.h"
 
 #include <QGraphicsScene>
 #include <QPainter>
@@ -7,7 +8,6 @@
 #include <cmath>
 
 namespace {
-constexpr int kAnimIntervalMs = 16;
 constexpr qreal kImpactDurationMs = 220.0;
 constexpr qreal kBaseGlowRadius = 44.0;
 constexpr qreal kGlowRadiusPerInt = 2.6;
@@ -36,26 +36,31 @@ FireballItem::FireballItem(QGraphicsScene *scene, QPointF start, QPointF end, qr
     // so it needs its own top-level place in the scene rather than
     // inheriting a moving character's local transform.
     setPos(start);
-    setZValue(900000.0); // above every world-Y-ordered Character/Prop, comfortably below LevelUpTextItem's 1,000,000
+    setZValue(SceneLayers::Projectiles);
     scene->addItem(this);
+}
 
-    m_clock.start();
-    connect(&m_timer, &QTimer::timeout, this, [this] {
-        if (m_clock.elapsed() >= m_durationMs + m_impactDurationMs) {
-            m_timer.stop();
-            deleteLater(); // detaches from the scene along with it
-            return;
-        }
-        update();
-    });
-    m_timer.start(kAnimIntervalMs);
+void FireballItem::setTargetPosition(QPointF end)
+{
+    if (m_elapsedMs >= m_durationMs || end - pos() == m_localEnd)
+        return;
+    prepareGeometryChange();
+    m_localEnd = end - pos();
+    update();
+}
+
+void FireballItem::tick(qreal dtSeconds)
+{
+    m_elapsedMs = std::min(m_durationMs + m_impactDurationMs,
+                          m_elapsedMs + std::max(0.0, dtSeconds) * 1000.0);
+    update();
 }
 
 QRectF FireballItem::boundingRect() const
 {
     // Generous box covering the whole travel line plus the glow/impact
     // flash's radius at every point along it.
-    const qreal r = m_glowRadius * 2.0;
+    const qreal r = m_glowRadius * 2.8;
     const qreal minX = std::min(0.0, m_localEnd.x()) - r;
     const qreal minY = std::min(0.0, m_localEnd.y()) - r;
     const qreal maxX = std::max(0.0, m_localEnd.x()) + r;
@@ -65,7 +70,7 @@ QRectF FireballItem::boundingRect() const
 
 void FireballItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *, QWidget *)
 {
-    const qreal elapsed = m_clock.elapsed();
+    const qreal elapsed = m_elapsedMs;
     painter->setPen(Qt::NoPen);
 
     if (elapsed < m_durationMs) {

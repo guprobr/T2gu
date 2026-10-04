@@ -3,6 +3,7 @@
 #include <QHash>
 #include <QRectF>
 #include <QVector>
+#include <algorithm>
 #include <cmath>
 
 // A spatial hash over blocking rectangles, bucketed by a fixed-size grid.
@@ -52,6 +53,37 @@ public:
                 return true;
         }
         return false;
+    }
+
+    // The movement integrator resolves one axis at a time. Scan only the
+    // buckets along that segment and intersect rectangles continuously,
+    // so even a subpixel footprint cannot be jumped over at high speed.
+    bool blocksAxisMove(QPointF from, QPointF to) const
+    {
+        Q_ASSERT(from.x() == to.x() || from.y() == to.y());
+        const QRectF span(from, to);
+        bool blocked = false;
+        forEachBucket(span.normalized(), [&](qint64 key) {
+            if (blocked)
+                return;
+            const auto it = m_buckets.constFind(key);
+            if (it == m_buckets.constEnd())
+                return;
+            for (const QRectF &rect : it.value()) {
+                // Match endpoint collision when a barrier has just been
+                // placed around the start: stepping out remains possible.
+                if (rect.isEmpty() || (rect.contains(from) && !rect.contains(to)))
+                    continue;
+                if (std::max(from.x(), to.x()) >= rect.left()
+                        && std::min(from.x(), to.x()) <= rect.right()
+                        && std::max(from.y(), to.y()) >= rect.top()
+                        && std::min(from.y(), to.y()) <= rect.bottom()) {
+                    blocked = true;
+                    break;
+                }
+            }
+        });
+        return blocked;
     }
 
 private:

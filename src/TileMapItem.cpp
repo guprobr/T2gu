@@ -122,6 +122,7 @@ TileMapItem::TileMapItem(const TileMap &map, QGraphicsItem *parent)
     , QGraphicsItem(parent)
     , m_map(map)
     , m_waterTileIndex(map.tileSheet().indexByName(QStringLiteral("water")))
+    , m_tilesetRevision(map.tilesetRevision())
 {
     // Without this flag, QStyleOptionGraphicsItem::exposedRect always
     // defaults to the item's full boundingRect (the whole map), regardless
@@ -130,6 +131,15 @@ TileMapItem::TileMapItem(const TileMap &map, QGraphicsItem *parent)
     // the map on every repaint.
     setFlag(QGraphicsItem::ItemUsesExtendedStyleOption, true);
     m_clock.start();
+}
+
+void TileMapItem::syncTileset()
+{
+    if (m_tilesetRevision == m_map.tilesetRevision())
+        return;
+    m_variantCache.clear();
+    m_waterTileIndex = m_map.tileSheet().indexByName(QStringLiteral("water"));
+    m_tilesetRevision = m_map.tilesetRevision();
 }
 
 void TileMapItem::tick()
@@ -193,6 +203,7 @@ QPixmap TileMapItem::variantTileFor(int index, int col, int row)
 
 void TileMapItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *)
 {
+    syncTileset();
     // Clipped to a generously PADDED version of option->exposedRect, not
     // the whole map. Drawing every tile every paint was fine when maps
     // were "a few hundred tiles" (the original comment's own assumption,

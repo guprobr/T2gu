@@ -549,7 +549,8 @@ function* onLevelStart() {
     buildPocket();
     if (!api.getVar("door_open", false)) {
         setExitGate("second_door", exitRows, true);
-        // Enemies do not survive a reload, so the Doorkeeper comes back in whatever form it had reached.
+        // Initialize the saved phase; quickload then restores the living
+        // form's exact position/HP from the scene snapshot.
         const phase = api.getVar("boss_phase", 0);
         if (phase < FORMS.length)
             api.spawnEnemy(FORMS[phase][0], bossCell.col, bossCell.row, FORMS[phase][1]);
@@ -647,18 +648,18 @@ function keepsakesHeld() {
 }
 
 // The next form appears where the last one fell, with a potion left for the fight ahead.
-function nextForm(phase) {
-    api.spawnEnemy(FORMS[phase][0], bossCell.col, bossCell.row, FORMS[phase][1]);
-    api.spawnItem("health_potion", bossCell.col, bossCell.row);
+function nextForm(phase, worldX, worldY) {
+    api.spawnEnemyAtWorld(FORMS[phase][0], worldX, worldY, FORMS[phase][1]);
+    api.spawnItemAtWorld("health_potion", worldX, worldY);
 }
 
-function* onEnemyDefeated(name) {
+function* onEnemyDefeated(name, worldX, worldY) {
     const phase = api.getVar("boss_phase", 0);
     if (!api.getVar("door_open", false) && phase < FORMS.length && name === FORMS[phase][0]) {
         api.setVar("boss_phase", phase + 1);
         api.giveExperience(80);
         if (phase === 0) {
-            nextForm(1);
+            nextForm(1, worldX, worldY);
             yield api.wait(0.5);
             yield api.say("Lara", "The engine came apart like a clock, piece by piece. And out of the wreck, something stepped that had never once been made of metal at all.");
             yield api.say("Doorkeeper", "*a voice like a very old hymn, sung quietly* That was only what I wear. This is what I say.");
@@ -671,7 +672,7 @@ function* onEnemyDefeated(name) {
                 yield api.say("Doorkeeper", "And in the Long Room you sounded " + notes + " notes of nine. A chord with a few gaps in it. I remember it. I have been quietly humming the gaps ever since.");
             yield* companionSays("vex_recruited", "Vex", "It's read our entire journey off us like an open book. That's not an attack, that's a citation.");
         } else if (phase === 1) {
-            nextForm(2);
+            nextForm(2, worldX, worldY);
             yield api.wait(0.5);
             yield api.say("Lara", "The voice went quiet, and the air behind it took on a shape I recognize. Not a monster. A light, with a face somewhere inside it.");
             yield api.say("Doorkeeper", "*gentle, and slower now* And this is what I remember. Would you like to hear it?");
