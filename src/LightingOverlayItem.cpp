@@ -1,8 +1,10 @@
 #include "LightingOverlayItem.h"
+#include "PaintMetrics.h"
 
 #include <QLinearGradient>
 #include <QPainter>
 #include <QRadialGradient>
+#include <QStyleOptionGraphicsItem>
 #include <cmath>
 
 #include "VisibleSceneRect.h"
@@ -40,6 +42,7 @@ LightingOverlayItem::LightingOverlayItem(QString mode, qreal mapPixelWidth, qrea
     , m_height(mapPixelHeight)
 {
     setAcceptedMouseButtons(Qt::NoButton);
+    setFlag(ItemUsesExtendedStyleOption);
     m_clock.start();
 }
 
@@ -60,10 +63,16 @@ QRectF LightingOverlayItem::boundingRect() const
     return QRectF(0, 0, m_width, m_height);
 }
 
-void LightingOverlayItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *, QWidget *)
+void LightingOverlayItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *)
 {
-    const qreal t = m_clock.elapsed() / 1000.0;
-    const QRectF rect(0, 0, m_width, m_height);
+    const PaintMetrics::Sample sample(PaintMetrics::Lighting);
+    // Movement repaints must not advance decorative gradients faster than
+    // their own cadence, otherwise slow effects keep churning GL textures.
+    const qreal t = m_lastUpdateMs / 1000.0;
+    const QRectF rect = boundingRect();
+    const QRectF exposed = option ? rect.intersected(option->exposedRect) : rect;
+    if (exposed.isEmpty())
+        return;
 
     painter->save();
     painter->setPen(Qt::NoPen);
@@ -89,7 +98,7 @@ void LightingOverlayItem::paint(QPainter *painter, const QStyleOptionGraphicsIte
             sky.setColorAt(0.5, QColor(255, 225, 180, int(48 + 16 * breathe)));
             sky.setColorAt(1.0, QColor(255, 255, 240, 0));
         }
-        painter->fillRect(rect, sky);
+        painter->fillRect(exposed, sky);
 
         // A soft sun glow anchored at one top corner - there's no single
         // fixed "east"/"west" tile this engine's maps agree on (the
@@ -101,7 +110,7 @@ void LightingOverlayItem::paint(QPainter *painter, const QStyleOptionGraphicsIte
         const QColor sunColor = sunset ? QColor(255, 140, 90) : QColor(255, 235, 180);
         sun.setColorAt(0.0, QColor(sunColor.red(), sunColor.green(), sunColor.blue(), int(150 + 40 * breathe)));
         sun.setColorAt(1.0, QColor(sunColor.red(), sunColor.green(), sunColor.blue(), 0));
-        painter->fillRect(rect, sun);
+        painter->fillRect(exposed, sun);
     } else if (m_mode == QLatin1String("torch")) {
         // Flame flicker: two sine waves at close-but-different frequencies,
         // summed - avoids the too-regular "breathing" look a single sine
@@ -110,7 +119,7 @@ void LightingOverlayItem::paint(QPainter *painter, const QStyleOptionGraphicsIte
         // ripple's time-based phase - no actual randomness to seed/track).
         const qreal flicker = 0.5 + 0.3 * std::sin(t * 6.3) + 0.2 * std::sin(t * 9.7 + 1.3);
         const int alpha = int(55 + 38 * flicker);
-        painter->fillRect(rect, QColor(255, 150, 60, alpha));
+        painter->fillRect(exposed, QColor(255, 150, 60, alpha));
     } else if (m_mode == QLatin1String("cavern")) {
         // A cool, dim vignette - lighter/neutral in the middle (where a
         // torch or glow-crystal prop would plausibly be standing), darker
@@ -121,7 +130,7 @@ void LightingOverlayItem::paint(QPainter *painter, const QStyleOptionGraphicsIte
         QRadialGradient vignette(rect.center(), std::hypot(m_width, m_height) * 0.55);
         vignette.setColorAt(0.0, QColor(40, 60, 70, int(25 + 18 * glimmer)));
         vignette.setColorAt(1.0, QColor(5, 10, 25, 175));
-        painter->fillRect(rect, vignette);
+        painter->fillRect(exposed, vignette);
     } else if (m_mode == QLatin1String("mystical")) {
         // A slow hue rotation (full cycle every 24s) rather than a fixed
         // color - reads as living arcane energy instead of a static tint.
@@ -132,7 +141,7 @@ void LightingOverlayItem::paint(QPainter *painter, const QStyleOptionGraphicsIte
         QRadialGradient aura(rect.center(), std::hypot(m_width, m_height) * 0.55);
         aura.setColorAt(0.0, QColor(glow.red(), glow.green(), glow.blue(), int(65 + 35 * pulse)));
         aura.setColorAt(1.0, QColor(glow.red(), glow.green(), glow.blue(), 0));
-        painter->fillRect(rect, aura);
+        painter->fillRect(exposed, aura);
     }
 
     painter->restore();

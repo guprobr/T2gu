@@ -28,6 +28,67 @@ cmake --build build -j$(nproc)
 - Requires Qt 6.9 or newer (Widgets, Qml, Multimedia). For binaries intended
   for other CPUs, configure with `-DT2GU_NATIVE_CPU=OFF`; local Release builds
   retain `-march=native` by default, and portable builds retain supported LTO.
+- `GameView` defaults to OpenGL rendering. `T2GU_RENDERER=software` forces
+  software; unset/empty values use the default. The optional
+  `QOpenGLWidget` viewport uses `FullViewportUpdate`, no MSAA,
+  and a requested swap interval of 1. Qt OpenGLWidgets is discovered
+  optionally; `-DT2GU_OPENGL_RENDERER=OFF` omits that dependency. Missing
+  contexts/modules, offscreen/minimal platforms and failed initialization
+  fall back to software. Backend and GL driver/device are logged. Compare
+  frame intervals on a real GPU/display; offscreen tests only verify the
+  software/fallback paths. The October 5 Intel Iris Xe trials reduced CPU
+  use; the owner requested OpenGL as the default with software fallback.
+  Focus/minimize rendering workarounds were removed at the owner's request:
+  no forced minimization, no activation filters or update suspension. Kernel
+  logs confirm i915 render-engine GPU hangs in T2gu2 followed by failed resets
+  and KWin fence timeouts on Intel Tiger Lake / Mesa 26.0.8 / kernel 7.0.0-38.
+  This explains desktop-wide locks; the precise GPU command/driver defect
+  remains unidentified. See the October 5 GPU investigation in the review
+  report. Do not present the older focus checks as proof that this is fixed.
+  The owner's October 5 `INTEL_DEBUG=stall` run retained Intel OpenGL,
+  exited normally after roughly seven minutes with no recorded GPU hangs,
+  and had only a modest perceived slowdown. This strengthens a GPU
+  synchronization/timing lead, not a confirmed root cause. The subsequent
+  `INTEL_DEBUG=sync` comparison hung the GPU at 10:13:45 and required a reboot;
+  previous-boot journals confirm the same hang signature and failed resets.
+  Its launcher is now disabled. Upstream Mesa 26.0.8 Iris source shows that
+  `stall` enables cache flush/invalidation around draws, whereas `sync` waits
+  after batch submission. Investigate dependencies/cache handling within a
+  batch; waiting at batch/frame boundaries is not an established fix.
+  The owner subsequently requested applying the successful `stall` behavior.
+  `GameView::configureRendererEnvironment()`, called before QApplication,
+  now requests `always_flush_cache=true` on Linux when Intel PCI adapter
+  8086:9a49 is present and OpenGL is selected/built. Explicit values are
+  preserved; software selection skips the automatic option. Upstream Iris
+  maps this to the identical cache path used by DEBUG_STALL, including blits.
+  The owner subsequently reported that it apparently did not hang. A
+  read-only kernel journal check since the 10:47:40 rebuild found no matching
+  GPU hang/reset/fence-timeout messages. Run duration and backend output were
+  not independently captured; sustained verification is pending. The agent
+  has not launched the binary. INTEL_DEBUG itself remains untouched. No
+  end-of-frame glFinish or focus/minimize guard was added. Saved evidence and manual launchers are under the ignored
+  `output/gpu-hang-2026-10-05/` directory.
+  Validate GL resources after an actual paint attempt, since minimized startup
+  can defer initialization. The owner
+  requested manual verification: rebuild without running
+  tests or launching the game unless subsequently authorized.
+- October 5 paint-cost follow-up: the owner reported no hangs with the
+  integrated cache option but continued gameplay stutter. Water now bakes
+  wrapped stripes into per-row/orientation pixmaps at its 120 ms cadence,
+  with a 16 MiB nominal pixel cache cleared on phase/tileset changes.
+  FullViewportUpdate terrain uses actual art-overlap padding (256 px art
+  on a 128 px grid); partial software updates retain their old margin.
+  Character shadows are cached per radius, and unchanged animation frames
+  no longer call Qt's unconditional setPixmap geometry invalidation. Lighting
+  advances at 240 ms rather than every movement repaint; the debug coordinate
+  HUD refreshes at most every 100 ms. T2GU_PROFILE_RENDER=1 enables three-second
+  CPU scene-paint/interval summaries and per-category costs/callback counts.
+  Those exclude later Qt composition/presentation and GPU timing; profiling
+  adds overhead. After the paint changes were rebuilt, the owner confirmed
+  empirically that both hangs and stuttering were gone in manual play.
+  Keep this accelerated configuration, including the Iris cache-flushing
+  option. This is owner verification on the observed setup, not a measured
+  frame-time result or identification of the underlying driver defect.
 - Assets are found through `assetDir()`/`assetPath()` (`src/AssetPath.h`) —
   never build a path from the `ASSET_DIR` macro directly (`QStringLiteral(ASSET_DIR
   "/x")` was the old pattern and is gone). Resolution order: `$T2GU_ASSET_DIR`,
@@ -410,6 +471,13 @@ reimplementation of an established-but-undocumented-in-code convention.
 is named `"water"` in that tileset's own JSON (`tiles.water`) — every
 other tileset's index-9 terrain is purely decorative.
 
+`TileSheet::tile()` retains each extracted pixmap until a successful sheet
+reload. Keep its pixmap cache key stable across paints: making a fresh sheet
+copy for every unchanged border/object tile caused repeated GL texture
+uploads in the October 5 API capture. Failed loads preserve the current
+sheet and its cache. This removes avoidable rendering churn; it is not a
+confirmed fix for the Intel GPU hang.
+
 ## Asset pipeline
 
 - All world-pixel distances (movement speed, attack reach/radius, shadow
@@ -440,9 +508,14 @@ other tileset's index-9 terrain is purely decorative.
   `SceneLayers.h` defines top-level bands: ground-Y scenery/characters,
   pickups, projectiles, lighting, then notifications. Pickups and fireballs
   receive world lighting; level-up captions remain readable above it.
-  Prop shadows are owned child items with independent bounds, leaving the
-  prop's full-art `boundingRect()` and all placement/footprint calculations
-  unchanged. Level-up captions are scene-owned top-level items that follow
+  Prop shadows within the full-art bounds share the prop's paint call;
+  only overflow shadows use owned lightweight child items with independent
+  bounds. Their opaque area is empty: translucent gradients must not obscure
+  other items in Qt's redraw calculations. An unconditional pixmap child
+  introduced in the review doubled prop item counts and increased rendering
+  cost (corrected 2026-10-05). The prop's full-art `boundingRect()` and all
+  placement/footprint calculations remain unchanged.
+  Level-up captions are scene-owned top-level items that follow
   their original character; `beforeEntityDestroyed()` cancels them before
   that anchor is deleted.
 - Every `props.json` catalog `width` was bumped again (2026-09-27, separate

@@ -8,6 +8,7 @@
 #include <QTimer>
 
 #include "AssetPath.h"
+#include "GameView.h"
 #include "MainWindow.h"
 #include "Version.h"
 
@@ -53,6 +54,7 @@ QPixmap buildSplashPixmap()
 
 int main(int argc, char *argv[])
 {
+    GameView::configureRendererEnvironment();
     QApplication app(argc, argv);
     app.setApplicationVersion(QString::fromLatin1(kGameVersion));
 

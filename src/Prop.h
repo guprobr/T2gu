@@ -32,6 +32,7 @@ public:
     // shadow, the rotated border strips' transform origin, edge placement)
     // reads this.
     QRectF boundingRect() const override;
+    void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
 
     QPointF groundAnchorOffset() const;
 
@@ -60,9 +61,11 @@ public:
 
 private:
     QString m_name;
-    // Child ownership keeps the shadow in this prop's stacking group,
-    // with separate bounds for culling outside the full-art rectangle.
-    QGraphicsPixmapItem *m_shadow = nullptr;
+    // Most shadows fit in the full art bounds and share its paint call.
+    // Only overflow needs a separate, non-interactive child for culling.
+    QGraphicsItem *m_shadow = nullptr;
+    QPixmap m_shadowPixmap;
+    QPointF m_shadowOffset;
     QSizeF m_fullSize; // the full scaled art size boundingRect() reports
 
     // Real ground-contact point of this prop's own art, as a fraction of its

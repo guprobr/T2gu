@@ -2,7 +2,7 @@
 
 ![ShadowShine screenshot](screenshot.png)
 
-v0.7.4
+v0.7.5
 
 > *A 100-chapter isometric RPG. Twenty-five chapters are done. The other seventy-five are, uh, "in the pipeline."*
 
@@ -31,6 +31,59 @@ It builds Release by default (`-O3`, `-march=native`, LTO), because we once lost
 For a Release binary intended for other CPUs, configure with
 `cmake -S . -B build-portable -DT2GU_NATIVE_CPU=OFF`. This disables
 `-march=native` while keeping Release optimization and supported LTO.
+
+### Renderer selection
+
+OpenGL rendering is the default, with automatic software fallback. To force
+software rendering:
+
+```sh
+T2GU_RENDERER=software ./build/T2gu2
+```
+
+An unset or empty `T2GU_RENDERER` uses the default. OpenGL support is
+built automatically when Qt's OpenGLWidgets module is available; configure
+with `-DT2GU_OPENGL_RENDERER=OFF` for a software-only build. An unavailable
+context, unsupported headless platform, or failed viewport initialization
+falls back to software. The terminal reports the selected renderer and,
+for OpenGL, the driver/device. A device named `llvmpipe` or `softpipe` means
+CPU-based OpenGL, rather than GPU acceleration.
+
+Focus and minimization use normal Qt window behavior. The earlier automatic
+minimization and repaint-suspension workarounds have been removed. Earlier
+kernel logs recorded GPU hangs on the observed Intel Tiger Lake/Mesa setup;
+the underlying driver defect remains unidentified. On Linux with the affected Intel PCI adapter
+`8086:9a49`, the game now requests Mesa's `always_flush_cache=true` before Qt
+initializes graphics. In Mesa 26.0.8 Iris this enables the same per-draw and
+blit cache flushing/invalidation as `INTEL_DEBUG=stall`, while keeping GPU
+acceleration. After the cache option and paint optimizations were integrated,
+the owner confirmed no hangs or stuttering in manual play on this setup. An explicitly set
+`always_flush_cache` is preserved. Software selection skips this automatic
+option, as do builds without OpenGL support. This setting affects only the
+game process; no driver or system configuration is changed.
+
+The software override above remains available. See the
+[GPU hang investigation](docs/CODE_REVIEW_2026-10-02.md#gpu-hang-investigation-and-workaround-removal-2026-10-05).
+
+Compare movement in the same dense area at the same window size after assets
+have loaded. Short Intel Iris Xe trials reduced CPU use; broader play and
+foreground/background behavior remain to be verified. See the
+[renderer measurements](docs/CODE_REVIEW_2026-10-02.md#optional-opengl-renderer-trial-2026-10-05).
+
+To investigate stutter during manual play, enable optional paint profiling:
+
+```sh
+mkdir -p output
+T2GU_PROFILE_RENDER=1 ./build/T2gu2 2>&1 | tee output/render-profile.log
+```
+
+Let the chapter load, then walk/run through the affected area. Every three
+seconds the terminal reports paint intervals and CPU scene paint duration
+(median, p95 and maximum), plus average time/callback counts for tiles, props,
+overflow shadows, characters and lighting. These exclude Qt's later window
+composition/presentation and are not GPU timings or displayed FPS. Profiling
+adds measurement/logging overhead and is off in normal play. Keep the log
+when reporting a remaining hitch so optimization can follow the measured cost.
 
 **Want to skip to a specific chapter?** Set `T2GU_MAP_PATH`:
 
@@ -72,6 +125,7 @@ retain their fixed configured data path. The generated desktop launcher's
 | `I` | Inventory |
 | `C` | Command the last character you clicked |
 | `H` | Toggle health bars |
+| `M` | Toggle music on / off |
 | `F5` / `F8` | Save / load |
 | `F9` | Die on purpose, for when you want a fresh start or want to quit |
 | `N` | Skip to the next chapter (debug, but also, you know, temptation) |
@@ -115,7 +169,7 @@ There is no unit test suite. Our testing strategy is to run every chapter headle
 
 ```sh
 for ch in $(seq 1 16); do
-  timeout 8 env QT_QPA_PLATFORM=offscreen T2GU_MAP_PATH="assets/maps/chapter$ch.json" ./build/T2gu2 2>&1 | grep -iE "error|warning|fatal|assert"
+  timeout 8 env QT_QPA_PLATFORM=offscreen T2GU_RENDERER=software T2GU_MAP_PATH="assets/maps/chapter$ch.json" ./build/T2gu2 2>&1 | grep -iE "error|warning|fatal|assert"
 done
 ```
 

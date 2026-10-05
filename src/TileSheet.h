@@ -24,6 +24,8 @@ public:
 
 private:
     QPixmap m_sheet;
+    // Stable pixmap cache keys let Qt reuse GL textures between paints.
+    mutable QHash<int, QPixmap> m_tileCache;
     int m_tileWidth = 0;
     int m_tileHeight = 0;
     int m_columns = 1;

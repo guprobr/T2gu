@@ -297,6 +297,7 @@ private:
     bool isMoveBlocked(QPointF from, QPointF to) const;
 
     SpriteSheet m_sheet;
+    QPixmap m_shadowPixmap;
     QPointF m_velocity;
     SpriteSheet::Facing m_facing = SpriteSheet::Facing::Front;
     bool m_mirrorLeft = false;

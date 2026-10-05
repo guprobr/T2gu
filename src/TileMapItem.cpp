@@ -1,4 +1,5 @@
 #include "TileMapItem.h"
+#include "PaintMetrics.h"
 
 #include <QImage>
 #include <QPainter>
@@ -138,16 +139,21 @@ void TileMapItem::syncTileset()
     if (m_tilesetRevision == m_map.tilesetRevision())
         return;
     m_variantCache.clear();
+    m_rippleCache.clear();
     m_waterTileIndex = m_map.tileSheet().indexByName(QStringLiteral("water"));
     m_tilesetRevision = m_map.tilesetRevision();
 }
 
 void TileMapItem::tick()
 {
+    syncTileset();
+    if (m_waterTileIndex < 0)
+        return;
     const qint64 nowMs = m_clock.elapsed();
     if (nowMs - m_lastUpdateMs < kAnimIntervalMs)
         return;
     m_lastUpdateMs = nowMs;
+    m_rippleCache.clear();
     // Only the currently-visible portion, not the whole map - see
     // VisibleSceneRect.h for why a bare update() here is the wrong call on
     // an item this size.
@@ -159,30 +165,49 @@ QRectF TileMapItem::boundingRect() const
     return QRectF(0, 0, m_map.pixelWidth(), m_map.pixelHeight());
 }
 
-void TileMapItem::paintRippledWaterTile(QPainter *painter, const QPixmap &tile, qreal worldX, qreal worldY) const
+void TileMapItem::paintRippledWaterTile(QPainter *painter, const QPixmap &tile, int row, qreal worldX, qreal worldY)
 {
+    const QPair<qint64, int> key{tile.cacheKey(), row};
+    if (const QPixmap *cached = m_rippleCache.object(key)) {
+        painter->drawPixmap(QPointF(worldX, worldY), *cached);
+        return;
+    }
+
     const int tw = tile.width();
     const int th = tile.height();
-    const qreal t = m_clock.elapsed() / 1000.0 * kRippleTimeSpeed;
+    if (tw <= 0 || th <= 0)
+        return;
+    // Latch the cosmetic phase at its existing 120 ms cadence. Movement
+    // repaints otherwise redraw every stripe on the GPU at the game rate,
+    // bypassing the animation throttle and multiplying per-draw cache stalls.
+    const qreal t = m_lastUpdateMs / 1000.0 * kRippleTimeSpeed;
+    QImage image(tw, th, QImage::Format_ARGB32_Premultiplied);
+    image.fill(Qt::transparent);
+    QPainter raster(&image);
 
-    painter->save();
-    painter->setClipRect(QRectF(worldX, worldY, tw, th));
     for (int y = 0; y < th; y += kRippleStripeHeightPx) {
         const int stripeHeight = std::min(kRippleStripeHeightPx, th - y);
         const qreal phase = t + (worldY + y) * kRippleSpatialFreq;
         const int xOffset = qRound(std::sin(phase) * kRippleAmplitudePx);
 
         const QRectF stripeSrc(0, y, tw, stripeHeight);
-        painter->drawPixmap(QPointF(worldX + xOffset, worldY + y), tile, stripeSrc);
+        raster.drawPixmap(QPointF(xOffset, y), tile, stripeSrc);
         // The tile tiles seamlessly with itself, so whichever edge the shift
         // exposed gets filled by drawing the same stripe again one tile
         // width over - a second real copy of the water rather than a gap.
         if (xOffset > 0)
-            painter->drawPixmap(QPointF(worldX + xOffset - tw, worldY + y), tile, stripeSrc);
+            raster.drawPixmap(QPointF(xOffset - tw, y), tile, stripeSrc);
         else if (xOffset < 0)
-            painter->drawPixmap(QPointF(worldX + xOffset + tw, worldY + y), tile, stripeSrc);
+            raster.drawPixmap(QPointF(xOffset + tw, y), tile, stripeSrc);
     }
-    painter->restore();
+    raster.end();
+    const QPixmap ripple = QPixmap::fromImage(image);
+    if (PaintMetrics::enabled())
+        ++PaintMetrics::currentFrame().waterBuilds;
+    painter->drawPixmap(QPointF(worldX, worldY), ripple);
+    const qint64 kib = (qint64(tw) * th * 4 + 1023) / 1024;
+    if (kib <= m_rippleCache.maxCost())
+        m_rippleCache.insert(key, new QPixmap(ripple), int(kib));
 }
 
 QPixmap TileMapItem::variantTileFor(int index, int col, int row)
@@ -203,28 +228,11 @@ QPixmap TileMapItem::variantTileFor(int index, int col, int row)
 
 void TileMapItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *)
 {
+    const PaintMetrics::Sample sample(PaintMetrics::Tiles);
     syncTileset();
-    // Clipped to a generously PADDED version of option->exposedRect, not
-    // the whole map. Drawing every tile every paint was fine when maps
-    // were "a few hundred tiles" (the original comment's own assumption,
-    // now stale) - the whole-map remodels pushed real maps to 11,700-
-    // 18,360 tiles, and this function draws each one twice (base + obj
-    // layers) on every repaint. The animation timer alone (see the
-    // constructor) forces a full repaint ~17 times/sec regardless of
-    // whether anything moved, so at full-map size this was the dominant
-    // per-frame cost in the engine - far larger than the per-character
-    // collision-check cost fixed separately (see BlockingGrid.h).
-    //
-    // The original reason for NOT clipping was real, not paranoia:
-    // restricting to the exact exposedRect left stale character pixels on
-    // screen whenever more than one move happened between two actual
-    // paints. Padding the exposed rect by several tiles in every
-    // direction (rather than dropping the clip entirely) addresses that
-    // the same way - any plausible amount of missed movement between two
-    // real paints is far smaller than this margin - while still cutting
-    // the drawn tile count by roughly two orders of magnitude on a large
-    // map, since only the viewport's own visible area (plus padding) is
-    // ever exposed at once regardless of total map size.
+    // Keep the historical repair margin for partial software updates,
+    // which previously left stale moving-character pixels without it.
+    // Complete-frame viewports need only the actual tile-art overlap.
     constexpr int kPaddingTiles = 4;
     const int tw = m_map.tileWidth();
     const int th = m_map.tileHeight();
@@ -232,10 +240,25 @@ void TileMapItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *optio
     const int rowsCount = m_map.heightInTiles();
 
     const QRectF exposed = option ? option->exposedRect : boundingRect();
-    const int colStart = std::max(0, int(std::floor(exposed.left() / tw)) - kPaddingTiles);
-    const int colEnd = std::min(cols - 1, int(std::ceil(exposed.right() / tw)) + kPaddingTiles);
-    const int rowStart = std::max(0, int(std::floor(exposed.top() / th)) - kPaddingTiles);
-    const int rowEnd = std::min(rowsCount - 1, int(std::ceil(exposed.bottom() / th)) + kPaddingTiles);
+    int leftPadding = kPaddingTiles;
+    int topPadding = kPaddingTiles;
+    int trailingPadding = kPaddingTiles;
+    if (scene()) {
+        const auto views = scene()->views();
+        if (!views.isEmpty() && views.first()->viewportUpdateMode() == QGraphicsView::FullViewportUpdate) {
+            // A complete frame cannot retain stale pixels from earlier
+            // character positions. Only tile-art overlap needs padding:
+            // shipped 256 px art extends past its 128 px grid cell to the
+            // right/bottom, so include contributing tiles to the left/top.
+            leftPadding = std::max(0, (m_map.tileSheet().tileWidth() + tw - 1) / tw - 1);
+            topPadding = std::max(0, (m_map.tileSheet().tileHeight() + th - 1) / th - 1);
+            trailingPadding = 0;
+        }
+    }
+    const int colStart = std::max(0, int(std::floor(exposed.left() / tw)) - leftPadding);
+    const int colEnd = std::min(cols - 1, int(std::ceil(exposed.right() / tw)) + trailingPadding);
+    const int rowStart = std::max(0, int(std::floor(exposed.top() / th)) - topPadding);
+    const int rowEnd = std::min(rowsCount - 1, int(std::ceil(exposed.bottom() / th)) + trailingPadding);
 
     for (int row = rowStart; row <= rowEnd; ++row) {
         for (int col = colStart; col <= colEnd; ++col) {
@@ -245,7 +268,7 @@ void TileMapItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *optio
             const QPixmap tile = isPureTerrainIndex(baseIndex) ? variantTileFor(baseIndex, col, row)
                                                                 : m_map.tileSheet().tile(baseIndex);
             if (m_waterTileIndex != -1 && baseIndex == m_waterTileIndex)
-                paintRippledWaterTile(painter, tile, col * tw, row * th);
+                paintRippledWaterTile(painter, tile, row, col * tw, row * th);
             else
                 painter->drawPixmap(col * tw, row * th, tile);
         }

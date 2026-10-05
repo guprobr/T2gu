@@ -1,4 +1,5 @@
 #include "Prop.h"
+#include "PaintMetrics.h"
 
 #include <QHash>
 #include <QImage>
@@ -9,6 +10,34 @@
 #include <cmath>
 
 namespace {
+// A shadow is entirely translucent. Keep its opaque area empty, and avoid
+// the alpha-mask shape work of QGraphicsPixmapItem for a non-interactive
+// decoration. Only shadows outside the parent's art bounds need this item.
+class PropShadowItem final : public QGraphicsItem
+{
+public:
+    PropShadowItem(const QPixmap &pixmap, QGraphicsItem *parent)
+        : QGraphicsItem(parent)
+        , m_pixmap(pixmap)
+        , m_bounds(-pixmap.width() / 2.0, -pixmap.height() / 2.0,
+                   pixmap.width(), pixmap.height())
+    {
+        setFlag(ItemStacksBehindParent);
+        setAcceptedMouseButtons(Qt::NoButton);
+    }
+
+    QRectF boundingRect() const override { return m_bounds; }
+    void paint(QPainter *painter, const QStyleOptionGraphicsItem *, QWidget *) override
+    {
+        const PaintMetrics::Sample sample(PaintMetrics::OverflowShadows);
+        painter->drawPixmap(m_bounds.topLeft(), m_pixmap);
+    }
+
+private:
+    QPixmap m_pixmap;
+    QRectF m_bounds;
+};
+
 // Loading a PNG from disk and running it through a Qt::SmoothTransformation
 // scale is genuinely expensive - fine for the handful of props a small map
 // used to have, but a real bottleneck once a single map's maze/scatter
@@ -164,11 +193,7 @@ Prop::Prop(const QString &imagePath, qreal targetWidth, QGraphicsItem *parent)
     m_fullSize = it.value().fullSize;
     m_feetFraction = it.value().feetFraction;
     const qreal shadowRadius = std::min(m_fullSize.width() * 0.22, 60.0);
-    const QPixmap &shadow = shadowPixmapFor(shadowRadius);
-    m_shadow = new QGraphicsPixmapItem(shadow, this);
-    m_shadow->setOffset(-shadow.width() / 2.0, -shadow.height() / 2.0);
-    m_shadow->setFlag(QGraphicsItem::ItemStacksBehindParent);
-    m_shadow->setAcceptedMouseButtons(Qt::NoButton);
+    m_shadowPixmap = shadowPixmapFor(shadowRadius);
     setShadowOffset(QPointF(0, 18));
 }
 
@@ -179,7 +204,29 @@ QRectF Prop::boundingRect() const
 
 void Prop::setShadowOffset(QPointF offset)
 {
-    m_shadow->setPos(groundAnchorOffset() + offset);
+    m_shadowOffset = offset;
+    const QPointF center = groundAnchorOffset() + offset;
+    const QPointF halfSize(m_shadowPixmap.width() / 2.0, m_shadowPixmap.height() / 2.0);
+    const QRectF shadowBounds(center - halfSize, QSizeF(m_shadowPixmap.size()));
+    if (boundingRect().contains(shadowBounds)) {
+        delete m_shadow;
+        m_shadow = nullptr;
+    } else {
+        if (!m_shadow)
+            m_shadow = new PropShadowItem(m_shadowPixmap, this);
+        m_shadow->setPos(center);
+    }
+    update();
+}
+
+void Prop::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget)
+{
+    const PaintMetrics::Sample sample(PaintMetrics::Props);
+    if (!m_shadow) {
+        const QPointF halfSize(m_shadowPixmap.width() / 2.0, m_shadowPixmap.height() / 2.0);
+        painter->drawPixmap(groundAnchorOffset() + m_shadowOffset - halfSize, m_shadowPixmap);
+    }
+    QGraphicsPixmapItem::paint(painter, option, widget);
 }
 
 QPointF Prop::groundAnchorOffset() const

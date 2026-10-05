@@ -56,6 +56,44 @@ normal expiration. Defeat checks hold the event behind a coroutine, move and
 remove its corpse, then spawn a new enemy and pickup at the captured fractional
 world point. They also cover restoration and invalid world-coordinate inputs.
 
+Shadow regressions also cover 2,000 padded props without doubling the scene
+item count, translucent shadow pixels, empty overflow opaque areas, and moving
+between contained and out-of-art shadow offsets. Returning to inline drawing
+must reproduce the original pixels without changing art bounds, anchors or
+collision footprints. These structural checks avoid flaky timing thresholds;
+real-asset camera-pan profiling is separate from startup smoke checks.
+
+`renderer_selection` checks fallback from the OpenGL default, explicit software, invalid
+renderer selection and unavailable OpenGL fallback, including actual opaque
+and translucent viewport pixels. CTest uses offscreen and cannot establish GPU
+performance. A real display can exercise default and explicit OpenGL
+initialization and blending, plus the software override:
+
+```sh
+./build-regression/T2guRendererRegression --default
+./build-regression/T2guRendererRegression --opengl
+timeout --kill-after=5s 60s ./build-regression/T2guRendererRegression --focus
+```
+
+The terminal identifies the GL driver/device. A software GL implementation
+does not count as a hardware performance test. Compare the normal Release
+game with `T2GU_RENDERER=software` and `T2GU_RENDERER=opengl` at the same window
+size and dense chapter location, after loading finishes. Run one process at a
+time under the usual memory guard; startup and screenshots are separate from
+frame-time measurements. Engine CTest and chapter smoke checks explicitly select software so
+launch-shell renderer settings cannot silently change their render path.
+
+`--focus` uses a moving scene and changing HUD in a real top-level GL window.
+Its assertions now expect normal window/update behavior after focus loss,
+responsive GUI timers and restoration of GL presentation after manual
+minimization. Assertions for the removed forced-minimize/repaint-suspension
+workarounds were removed. This revised check has not been run: the owner
+requested manual verification. Kernel logs confirm desktop-wide i915 GPU hangs
+on the owner's setup; earlier passing focus checks did not rule those out.
+Actual desktop taskbar previews remain a manual check. An external timeout is required
+when subsequently authorized: a timer on a blocked GUI thread cannot detect its
+own stall. These use tiny generated shapes, not the roster.
+
 The sprite tools have a separate check using their existing Python
 dependencies (NumPy, Pillow and SciPy):
 

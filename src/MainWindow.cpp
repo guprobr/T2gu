@@ -1,5 +1,6 @@
 #include "MainWindow.h"
 #include "AssetPath.h"
+#include "GameView.h"
 #include "SaveData.h"
 
 #include <QApplication>
@@ -95,18 +96,9 @@ MainWindow::MainWindow(QWidget *parent)
         if (state != Qt::ApplicationActive)
             clearHeldInput();
     });
-    m_view = new QGraphicsView(this);
-    // Deliberately still the default software-raster viewport, not a
-    // QOpenGLWidget one - tried and measured, not just assumed either way.
-    // A real A/B on this machine's actual GPU (600 sampled repaints of the
-    // densest chapter, sustained running) showed the GL viewport was
-    // consistently *slower* (~8.3-8.5us/frame) than plain software
-    // rendering (~5.8-6.2us/frame), not faster - GL context/driver
-    // overhead outweighing any compositing win once TileMapItem's own
-    // viewport-clipping fix already cut the per-frame draw count down to a
-    // few hundred items. Revisit only if that balance changes (e.g. a
-    // future feature adds real per-pixel/shader-heavy work), and re-measure
-    // rather than assuming acceleration helps by default.
+    // GameView defaults to OpenGL, with automatic software fallback and
+    // a launch-time software override for renderer comparisons.
+    m_view = new GameView(this);
     m_view->setRenderHint(QPainter::Antialiasing, false);
     // The camera used to run at a zoom other than 1.0 (145%, then a 2x
     // integer zoom tried as a middle step - see git history/this file's
@@ -249,6 +241,7 @@ void MainWindow::finishLoadingLevel(const QString &mapPath)
     if (!m_pendingGameState)
         m_pendingGameState = m_gameState;
     GameScene *candidate = new GameScene(&*m_pendingGameState, mapPath, this);
+    candidate->setMusicEnabled(m_musicEnabled);
     m_loadingScene = candidate;
     if (!candidate->loadError().isEmpty()) {
         failLoadingLevel(candidate->loadError());
@@ -342,6 +335,7 @@ void MainWindow::finishLoadingLevel(const QString &mapPath)
         m_loadingOverlay->hide();
         if (Character *controlled = candidate->controlledCharacter()) {
             centerViewOn(controlled->feetPos());
+            m_debugHudClock.invalidate();
             updateDebugOverlays(controlled->feetPos());
         }
         refreshMoveIntent();
@@ -365,6 +359,12 @@ void MainWindow::centerViewOn(QPointF scenePos)
 
 void MainWindow::updateDebugOverlays(QPointF playerPos)
 {
+    // A changing child QWidget can trigger a window-sized texture upload
+    // during GL composition. Coordinates need not refresh at movement rate.
+    constexpr int kHudIntervalMs = 100;
+    if (m_debugHudClock.isValid() && m_debugHudClock.elapsed() < kHudIntervalMs)
+        return;
+    m_debugHudClock.start();
     // Raw world pixels alongside the map (col, row) tile they fall in - the
     // former is what everything else here (feetPos(), etc.) actually works
     // in, the latter is what's actually legible against the map/chapter
@@ -372,23 +372,30 @@ void MainWindow::updateDebugOverlays(QPointF playerPos)
     // api.spawnCharacter(name, col, row)).
     const int tileCol = static_cast<int>(playerPos.x() / m_scene->tileWidth());
     const int tileRow = static_cast<int>(playerPos.y() / m_scene->tileHeight());
-    m_positionLabel->setText(QStringLiteral("(%1, %2) - tile (%3, %4)")
+    const QString positionText = QStringLiteral("(%1, %2) - tile (%3, %4)")
                                   .arg(qRound(playerPos.x()))
                                   .arg(qRound(playerPos.y()))
                                   .arg(tileCol)
-                                  .arg(tileRow));
-    m_positionLabel->adjustSize();
-    repositionPositionLabel();
+                                  .arg(tileRow);
+    if (m_positionLabel->text() != positionText) {
+        m_positionLabel->setText(positionText);
+        m_positionLabel->adjustSize();
+        repositionPositionLabel();
+    }
 
     if (!m_treasureLabelVisible)
         return;
     QPointF treasurePos;
+    QString treasureText;
     if (m_scene->findKeyItemWorldPos(&treasurePos))
-        m_treasureLabel->setText(QStringLiteral("(%1, %2)").arg(qRound(treasurePos.x())).arg(qRound(treasurePos.y())));
+        treasureText = QStringLiteral("(%1, %2)").arg(qRound(treasurePos.x())).arg(qRound(treasurePos.y()));
     else
-        m_treasureLabel->setText(QStringLiteral("(collected)"));
-    m_treasureLabel->adjustSize();
-    repositionTreasureLabel();
+        treasureText = QStringLiteral("(collected)");
+    if (m_treasureLabel->text() != treasureText) {
+        m_treasureLabel->setText(treasureText);
+        m_treasureLabel->adjustSize();
+        repositionTreasureLabel();
+    }
 }
 
 void MainWindow::showDialogue(QString speaker, QString text)
@@ -701,9 +708,19 @@ void MainWindow::keyPressEvent(QKeyEvent *event)
         return;
     }
 
+    if (event->key() == Qt::Key_M) {
+        if (!event->isAutoRepeat()) {
+            m_musicEnabled = !m_musicEnabled;
+            m_scene->setMusicEnabled(m_musicEnabled);
+            m_statusMessages->post(m_musicEnabled ? QStringLiteral("Music on") : QStringLiteral("Music off"),
+                                   GameScene::StatusKind::Progress);
+        }
+        event->accept();
+        return;
+    }
+
     if (m_deathMenuOpen) {
-        // Absolute highest priority - death overrides browsing the
-        // inventory or anything else, and only its own 2 bindings exist.
+        // Death overrides browsing the inventory and other gameplay input.
         if (event->isAutoRepeat())
             return;
         const int key = event->key();

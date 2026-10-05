@@ -1,7 +1,9 @@
 #include "Character.h"
+#include "PaintMetrics.h"
 
 #include <QBrush>
 #include <QGraphicsRectItem>
+#include <QHash>
 #include <QImage>
 #include <QPainter>
 #include <QPen>
@@ -14,6 +16,42 @@
 #include "TileMap.h"
 
 namespace {
+// The silhouette and opacity never animate. Keep one rasterized shadow per
+// radius, as Prop already does, instead of rebuilding GL ellipse geometry
+// and switching between gradient/sprite shaders for every character paint.
+QPixmap characterShadowPixmap(qreal radius)
+{
+    if (radius <= 0.0)
+        return {};
+    static QHash<int, QPixmap> cache;
+    const int key = qRound(radius * 8.0);
+    auto it = cache.constFind(key);
+    if (it != cache.cend())
+        return it.value();
+
+    const qreal r = key / 8.0;
+    constexpr qreal kShadowSquash = 0.42;
+    const int width = int(std::ceil(r * 2.0)) + 2;
+    const int height = int(std::ceil(r * 2.0 * kShadowSquash)) + 2;
+    QImage image(width, height, QImage::Format_ARGB32_Premultiplied);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    painter.translate(width / 2.0, height / 2.0);
+    painter.scale(1.0, kShadowSquash);
+    QRadialGradient gradient(QPointF(0, 0), r);
+    gradient.setColorAt(0.0, QColor(0, 0, 0, 100));
+    gradient.setColorAt(0.7, QColor(0, 0, 0, 55));
+    gradient.setColorAt(1.0, QColor(0, 0, 0, 0));
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(gradient);
+    painter.drawEllipse(QPointF(0, 0), r, r);
+    painter.end();
+    const QPixmap pixmap = QPixmap::fromImage(image);
+    cache.insert(key, pixmap);
+    return pixmap;
+}
+
 constexpr qreal kWhistleMinIntervalSeconds = 20.0;
 constexpr qreal kWhistleMaxIntervalSeconds = 45.0;
 
@@ -54,6 +92,8 @@ Character::Character(SpriteSheet sheet, QGraphicsItem *parent)
     , m_sheet(std::move(sheet))
     , m_whistleCooldown(randomWhistleInterval())
 {
+    // Retain the established size cap, softness and feet anchor.
+    m_shadowPixmap = characterShadowPixmap(std::min(boundingRect().width() * 0.28, 136.0));
     updatePixmap();
 }
 
@@ -65,40 +105,9 @@ QRectF Character::boundingRect() const
 
 void Character::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget)
 {
-    // A soft, flattened ground-contact shadow drawn once per frame right
-    // before the sprite itself - one QRadialGradient + one drawEllipse()
-    // call, the same "a translucent gradient fill IS per-pixel alpha
-    // blending, done by the rasterizer in one call" reasoning
-    // LightingOverlayItem already relies on, not real per-pixel work. Drawn
-    // in a scaled/translated local coordinate space so the gradient itself
-    // comes out properly elliptical rather than a circle clipped to an
-    // ellipse (which would fade unevenly along the two axes).
-    const QPointF anchor = feetOffset();
-    // Capped, not just scaled - a couple of oversized/atypical sprites
-    // shouldn't get a shadow blob out of proportion with everyone else's.
-    // The cap is doubled again along with the character roster's own extra
-    // 2x pass (see tools/upscale_2x.py, re-run solo for characters after
-    // tools/refit_sprites.py's shrink-to-fit made them read as too small) -
-    // boundingRect().width() auto-scales with the now-bigger sprites, but a
-    // stale cap would clamp nearly every normal character's shadow down to
-    // its old, now-way-too-small pixel size.
-    const qreal shadowRadius = std::min(boundingRect().width() * 0.28, 136.0);
-    constexpr qreal kShadowSquash = 0.42; // vertical flatten ratio
-
-    QRadialGradient gradient(QPointF(0, 0), shadowRadius);
-    gradient.setColorAt(0.0, QColor(0, 0, 0, 100));
-    gradient.setColorAt(0.7, QColor(0, 0, 0, 55));
-    gradient.setColorAt(1.0, QColor(0, 0, 0, 0));
-
-    painter->save();
-    painter->setRenderHint(QPainter::Antialiasing, true);
-    painter->translate(anchor + m_shadowOffset);
-    painter->scale(1.0, kShadowSquash);
-    painter->setPen(Qt::NoPen);
-    painter->setBrush(gradient);
-    painter->drawEllipse(QPointF(0, 0), shadowRadius, shadowRadius);
-    painter->restore();
-
+    const PaintMetrics::Sample sample(PaintMetrics::Characters);
+    const QPointF halfSize(m_shadowPixmap.width() / 2.0, m_shadowPixmap.height() / 2.0);
+    painter->drawPixmap(feetOffset() + m_shadowOffset - halfSize, m_shadowPixmap);
     QGraphicsPixmapItem::paint(painter, option, widget);
 }
 
@@ -518,7 +527,10 @@ void Character::updatePixmap()
     // cell (see SpriteSheet::Frame); the mirrored variant is cached by the
     // sheet, so this no longer re-flips a full cell every tick.
     const SpriteSheet::Frame frame = m_sheet.frame(movement, frameIndex, m_facing, m_mirrorLeft);
-    setPixmap(frame.pixmap);
+    // Qt's setter always invalidates geometry and its alpha-mask shape,
+    // even for an unchanged frame. Most ticks do not advance animation.
+    if (pixmap().cacheKey() != frame.pixmap.cacheKey())
+        setPixmap(frame.pixmap);
     setOffset(frame.offset);
 
     // Depth-sort by ground-contact Y (world coordinates) rather than a fixed

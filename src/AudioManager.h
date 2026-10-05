@@ -34,6 +34,8 @@ public:
     void playSound(const QString &name, qreal volume = 1.0);
     void playMusic(const QString &name, bool loop = true);
     void stopMusic();
+    // Muting the output preserves playlist handoffs and fades while silent.
+    void setMusicEnabled(bool enabled) { m_musicOutput.setMuted(!enabled); }
     // Ramps the current track's volume down to silent over durationMs, then
     // stops it and restores full volume (so whatever plays next via
     // playMusic() isn't left silently inheriting 0) and emits

@@ -31,7 +31,7 @@ def main():
     root = Path(__file__).resolve().parents[1]
     logs = args.logs or Path(tempfile.mkdtemp(prefix="t2gu-chapter-smoke-"))
     logs.mkdir(parents=True, exist_ok=True)
-    env = dict(os.environ, QT_QPA_PLATFORM="offscreen")
+    env = dict(os.environ, QT_QPA_PLATFORM="offscreen", T2GU_RENDERER="software")
     # Default to this checkout; preserve an explicit asset override.
     env.setdefault("T2GU_ASSET_DIR", str(root / "assets"))
     results = []

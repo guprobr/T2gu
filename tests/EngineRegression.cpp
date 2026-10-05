@@ -1372,6 +1372,8 @@ void EngineRegressionAccess::testRenderingAndDefeatPositions(const QString &root
     const QImage edge = render(shadows, QRectF(0, 42, 64, 16));
     check(qAlpha(full.pixel(16, 50)) > 0 && edge == full.copy(0, 42, 64, 16),
           "viewport showing only an out-of-art shadow renders it without culling");
+    check(prop->childItems().size() == 1 && prop->childItems().first()->opaqueArea().isEmpty(),
+          "translucent overflow shadows do not claim an opaque occlusion mask");
     prop->setShadowOffset(QPointF(-40, -40));
     const QImage shifted = render(shadows, QRectF(-40, -20, 40, 20));
     check(qAlpha(shifted.pixel(16, 12)) > 0 && prop->boundingRect() == artBounds
@@ -1381,6 +1383,41 @@ void EngineRegressionAccess::testRenderingAndDefeatPositions(const QString &root
     const QPointF rotatedCenter = prop->mapToScene(anchor + QPointF(-40, -40));
     const QImage rotated = render(shadows, QRectF(rotatedCenter - QPointF(12, 12), QSizeF(24, 24)));
     check(qAlpha(rotated.pixel(12, 12)) > 0, "rotated border props also retain their out-of-art shadows");
+
+    QImage padded(64, 96, QImage::Format_ARGB32_Premultiplied);
+    padded.fill(Qt::transparent);
+    {
+        QPainter painter(&padded);
+        painter.fillRect(QRect(16, 12, 32, 24), QColor(40, 150, 70));
+    }
+    const QString paddedPath = root + "/padded_prop.png";
+    check(padded.save(paddedPath), "save padded prop fixture");
+    QGraphicsScene dense;
+    dense.setItemIndexMethod(QGraphicsScene::NoIndex);
+    for (int i = 0; i < 2000; ++i) {
+        auto *item = new Prop(paddedPath, 64);
+        dense.addItem(item);
+        item->setPos((i % 50) * 128, (i / 50) * 128);
+    }
+    check(dense.items().size() == 2000, "dense scenery does not double scene items for contained shadows");
+    auto *paddedProp = dynamic_cast<Prop *>(dense.itemAt(QPointF(24, 20), QTransform()));
+    check(paddedProp && paddedProp->childItems().isEmpty(), "contained shadow shares the prop paint call");
+    const QRectF paddedBounds = paddedProp->boundingRect(), paddedFootprint = paddedProp->footprintRect();
+    const QPointF paddedAnchor = paddedProp->groundAnchorOffset();
+    const QImage inlineShadow = render(dense, QRectF(0, 0, 64, 96));
+    check(qAlpha(inlineShadow.pixel(32, 54)) > 0 && qAlpha(inlineShadow.pixel(32, 54)) < 255,
+          "inline shadow paints translucent pixels in the transparent art margin");
+    paddedProp->setShadowOffset(QPointF(0, 100));
+    check(dense.items().size() == 2001 && paddedProp->childItems().size() == 1,
+          "moving outside the art creates only the required overflow item");
+    // Viewport contains only the overflow shadow and no part of its art.
+    const QImage overflow = render(dense, QRectF(16, 124, 32, 24));
+    check(qAlpha(overflow.pixel(16, 12)) > 0, "changed offset remains visible outside the art viewport");
+    paddedProp->setShadowOffset(QPointF(0, 18));
+    check(dense.items().size() == 2000 && render(dense, QRectF(0, 0, 64, 96)) == inlineShadow
+              && paddedProp->boundingRect() == paddedBounds && paddedProp->footprintRect() == paddedFootprint
+              && paddedProp->groundAnchorOffset() == paddedAnchor,
+          "returning inside removes overflow work and preserves pixels, anchors and footprints");
 
     GameState state;
     const QString path = makeMap(root, "render_layers", "function onLevelStart(){api.spawnCharacter('hero',3,3,100);}");

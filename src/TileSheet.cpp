@@ -70,6 +70,7 @@ bool TileSheet::load(const QString &jsonPath, QString *errorOut)
     m_tileHeight = tileHeight;
     m_columns = columns;
     m_sheet = std::move(sheet);
+    m_tileCache.clear();
     m_namedTiles = std::move(names);
 
     return true;
@@ -80,7 +81,13 @@ QPixmap TileSheet::tile(int index) const
     if (index < 0 || index >= tileCount())
         return {};
 
+    const auto cached = m_tileCache.constFind(index);
+    if (cached != m_tileCache.cend())
+        return cached.value();
+
     const int col = index % m_columns;
     const int row = index / m_columns;
-    return m_sheet.copy(col * m_tileWidth, row * m_tileHeight, m_tileWidth, m_tileHeight);
+    const QPixmap tile = m_sheet.copy(col * m_tileWidth, row * m_tileHeight, m_tileWidth, m_tileHeight);
+    m_tileCache.insert(index, tile);
+    return tile;
 }

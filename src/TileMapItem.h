@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QElapsedTimer>
+#include <QCache>
 #include <QGraphicsItem>
 #include <QHash>
 #include <QObject>
@@ -27,7 +28,7 @@
 //
 // A large field of one "pure" terrain (tileset index 0 or 9, per the fixed
 // 10-tile blob-autotile convention every real tileset follows - see
-// assets/tilesets/*.json) is otherwise the exact same 128x128 image drawn
+// assets/tilesets/*.json) is otherwise the exact same tile image drawn
 // hundreds of times with zero variation. Rather than requiring brand new
 // art per terrain, each pure tile gets 3 free extra looks via exact pixel
 // mirroring (horizontal flip, vertical flip, both = 180 deg) - visually
@@ -60,7 +61,7 @@ public:
 
 private:
     void syncTileset();
-    void paintRippledWaterTile(QPainter *painter, const QPixmap &tile, qreal worldX, qreal worldY) const;
+    void paintRippledWaterTile(QPainter *painter, const QPixmap &tile, int row, qreal worldX, qreal worldY);
     // Returns the mirrored variant of `index` (which must be a pure tile,
     // i.e. 0 or 9) picked for (col, row), computing and caching all 4
     // orientations for that index the first time it's requested.
@@ -72,4 +73,6 @@ private:
     QElapsedTimer m_clock;
     qint64 m_lastUpdateMs = 0;
     QHash<int, std::array<QPixmap, 4>> m_variantCache;
+    // Bounded to 16 MiB; shared by columns using the same row/orientation.
+    QCache<QPair<qint64, int>, QPixmap> m_rippleCache{16 * 1024};
 };

@@ -106,6 +106,8 @@ public:
     // MainWindow::keyPressEvent.
     void toggleHealthBarDisplay();
 
+    void setMusicEnabled(bool enabled) { m_audio.setMusicEnabled(enabled); }
+
     // Dev/debug shortcut (K in MainWindow) - toggles a slow forced loop
     // through every animation row (idle/walk/run/defend/attack/skill/hit/
     // die/dash/jump) on the controlled character, regardless of what would

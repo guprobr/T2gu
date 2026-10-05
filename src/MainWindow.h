@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QGraphicsView>
+#include <QElapsedTimer>
 #include <QMainWindow>
 #include <QSet>
 
@@ -44,7 +45,7 @@ private slots:
     void hideDialogue();
     // Connected to GameScene::controlledCharacterMoved (same signal
     // centerViewOn() uses) - keeps the always-on position readout and, if
-    // toggled on, the treasure readout current every tick.
+    // toggled on, the treasure readout current at a throttled HUD cadence.
     void updateDebugOverlays(QPointF playerPos);
     // Prepares a fresh scene/state, commits on readiness, and preserves
     // the old playable scene on failure. GameState survives successful
@@ -127,8 +128,10 @@ private:
     QLabel *m_positionLabel = nullptr;
     QLabel *m_treasureLabel = nullptr;
     bool m_treasureLabelVisible = false;
+    QElapsedTimer m_debugHudClock;
     QString m_currentMapPath; // see jumpToNextLevel()
     bool m_inventoryOpen = false;
     bool m_deathMenuOpen = false;
+    bool m_musicEnabled = true;
     QSet<int> m_heldKeys;
 };

@@ -20,6 +20,17 @@ set(CMAKE_AUTOMOC ON)
 # TileMapItem uses QImage::flipped(), introduced in Qt 6.9.
 find_package(Qt6 6.9 REQUIRED COMPONENTS Widgets Qml Multimedia)
 
+option(T2GU_OPENGL_RENDERER "Build the optional OpenGL viewport when available" ON)
+if (T2GU_OPENGL_RENDERER)
+    find_package(Qt6 6.9 QUIET COMPONENTS OpenGLWidgets)
+    if (TARGET Qt6::OpenGLWidgets)
+        set(T2GU_RENDERER_LIBRARIES Qt6::OpenGLWidgets)
+        set(T2GU_RENDERER_DEFINITIONS T2GU_HAS_OPENGL=1)
+    else()
+        message(STATUS "Qt OpenGLWidgets unavailable; building software renderer only")
+    endif()
+endif()
+
 include(GNUInstallDirs)
 # Relative GNUInstallDirs layouts follow a relocated install prefix. An
 # explicitly absolute directory keeps its configured, fixed location.
@@ -37,6 +48,9 @@ add_executable(T2gu2
     src/main.cpp
     src/MainWindow.cpp
     src/MainWindow.h
+    src/GameView.cpp
+    src/GameView.h
+    src/PaintMetrics.h
     src/GameScene.cpp
     src/GameScene.h
     src/SpriteSheet.cpp
@@ -84,11 +98,11 @@ add_executable(T2gu2
     src/AssetPath.h
 )
 
-target_link_libraries(T2gu2 PRIVATE Qt6::Widgets Qt6::Qml Qt6::Multimedia)
-target_compile_definitions(T2gu2 PRIVATE ${T2GU_ASSET_DEFINITIONS})
+target_link_libraries(T2gu2 PRIVATE Qt6::Widgets Qt6::Qml Qt6::Multimedia ${T2GU_RENDERER_LIBRARIES})
+target_compile_definitions(T2gu2 PRIVATE ${T2GU_ASSET_DEFINITIONS} ${T2GU_RENDERER_DEFINITIONS})
 
-# Small opt-in regressions for script dispatch, scene readiness and story
-# progression. Normal builds retain their existing dependencies/targets.
+# Small opt-in regressions for engine behavior, renderer paths and story
+# progression. Normal builds omit these regression targets.
 option(T2GU_BUILD_TESTS "Build engine regression checks" OFF)
 if (T2GU_BUILD_TESTS)
     enable_testing()
@@ -96,11 +110,17 @@ if (T2GU_BUILD_TESTS)
     list(REMOVE_ITEM T2GU_ENGINE_SOURCES src/main.cpp)
     add_executable(T2guRegression tests/EngineRegression.cpp ${T2GU_ENGINE_SOURCES})
     target_include_directories(T2guRegression PRIVATE src)
-    target_link_libraries(T2guRegression PRIVATE Qt6::Widgets Qt6::Qml Qt6::Multimedia)
-    target_compile_definitions(T2guRegression PRIVATE ${T2GU_ASSET_DEFINITIONS})
+    target_link_libraries(T2guRegression PRIVATE Qt6::Widgets Qt6::Qml Qt6::Multimedia ${T2GU_RENDERER_LIBRARIES})
+    target_compile_definitions(T2guRegression PRIVATE ${T2GU_ASSET_DEFINITIONS} ${T2GU_RENDERER_DEFINITIONS})
     add_test(NAME engine_regressions COMMAND T2guRegression)
     set_tests_properties(engine_regressions PROPERTIES
-        ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 60)
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen;T2GU_RENDERER=software" TIMEOUT 60)
+    add_executable(T2guRendererRegression tests/RendererRegression.cpp src/GameView.cpp src/GameView.h)
+    target_include_directories(T2guRendererRegression PRIVATE src)
+    target_link_libraries(T2guRendererRegression PRIVATE Qt6::Widgets ${T2GU_RENDERER_LIBRARIES})
+    target_compile_definitions(T2guRendererRegression PRIVATE ${T2GU_RENDERER_DEFINITIONS})
+    add_test(NAME renderer_selection COMMAND T2guRendererRegression)
+    set_tests_properties(renderer_selection PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 15)
     add_executable(T2guAssetProbe tests/AssetPathProbe.cpp src/AssetPath.cpp)
     target_include_directories(T2guAssetProbe PRIVATE src)
     target_link_libraries(T2guAssetProbe PRIVATE Qt6::Core)

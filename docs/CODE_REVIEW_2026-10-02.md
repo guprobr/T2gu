@@ -218,6 +218,762 @@ the checker and its instructions are now retained in the repository.
 Music policy tests accelerate the timer and inject completion signals; they do not establish the complete
 two-minute audible experience on a physical desktop.
 
+### Follow-up: shadow rendering regression (2026-10-05)
+
+The owner reported constant jitter/glitches, particularly when walking or
+running. Batch seven's unconditional `QGraphicsPixmapItem` shadow child was
+a regression: chapter 1 gained 4,551 additional graphics items (4,737 before
+the review versus 9,320 after), increasing traversal/paint work in the
+deliberately unindexed scene. Of those shadows, 2,531 fit wholly inside their
+prop's existing full-art rectangle and did not require separate culling.
+The pixmap shadow also returned a nonempty opaque area despite its maximum
+alpha being only 90/255. An actual old shadow returned a 20-element opaque
+path, which is inappropriate for translucent decoration.
+[Qt's pixmap-item documentation](https://doc.qt.io/qt-6/qgraphicspixmapitem.html#ShapeMode-enum)
+describes the default mask-based shape/opaque-area behavior.
+
+Contained shadows now share the original prop paint call. Only overflow
+shadows have child items, implemented as lightweight `QGraphicsItem`s with
+an empty opaque area and independent culling bounds. The full-art prop
+rectangle, ground anchor, footprint, transforms, cached gradient and stacking
+order remain unchanged. Offset changes switch between inline and overflow
+drawing, invalidating the old/new areas through Qt's item ownership and updates.
+Chapter 1 now has **6,789 items**, 2,531 fewer than the reviewed implementation;
+chapter 6 drops from **16,545 to 14,278**, removing 2,267 unnecessary items.
+
+Release and instrumented Debug builds pass. All **six CTest checks** pass
+in **42.59 seconds**, including new 2,000-prop item-count coverage, translucent
+pixels/opaque areas, offset changes and exact pixel restoration while retaining
+viewport-edge and rotated-shadow checks. Guarded real-asset chapters **1 and 6**
+also pass readiness, intro completion and normal simulation without engine or
+sanitizer diagnostics, peaking at **1,136 and 1,317 MiB** respectively. The
+known optional Qt NVIDIA-backend message remains separately recorded.
+
+Real-asset camera-pan profiling used a 2,544×1,424 software viewport and four
+positions in each of those chapters, with simulation frozen for paint isolation.
+An isolated 7,000-prop contained-shadow test reports median paint-thread CPU
+times of **1.12 ms before review, 2.53 ms after review, and 1.14 ms repaired**
+in its first comparison. A second interleaved comparison still favors the
+repair, but timings vary. The broad real-asset wall-clock and CPU profiles
+include large spikes; they do not support a precise end-to-end FPS claim. Raw profiles
+are retained under `/tmp/t2gu-jitter-profile`, and functional chapter logs under
+`/tmp/t2gu-jitter-smoke`.
+
+The owner subsequently identified a maximized **1,920×1,200** window. A
+guarded chapter 1 check at that size drives Shift+D/A through the actual
+`MainWindow` input handlers for approximately eight seconds, recording real
+simulation ticks and viewport paint intervals. The repaired build's repeated
+run records **16.00 ms median / 16.74 ms p95 / 17.21 ms maximum** paint intervals,
+with no intervals over 33.3 ms. An earlier repaired run has a 35.58 ms maximum;
+the pre-review and reconstructed reviewed-shadow runs both stay near 16 ms
+on this route. Thus this route does not reproduce the owner's constant jitter
+and does not establish a desktop-wide smoothness guarantee. All processes
+exit normally below 0.8 GiB RSS; profiling runs are serialized and kept
+separate from compilation and sanitizer checks.
+
+Startup checks alone did not detect the earlier frame
+regression. This follow-up retains structural regression tests rather than
+enforcing a flaky wall-clock timing threshold, and does not claim verification
+of physical desktop input or every remaining source of stutter.
+
+### Optional OpenGL renderer trial (2026-10-05)
+
+`GameView` selects its viewport at launch. Following the initial optional
+trial, the owner requested OpenGL as the default with automatic software
+fallback. Unset/empty `T2GU_RENDERER` values select OpenGL;
+`T2GU_RENDERER=software` forces software. OpenGL uses complete
+viewport updates, no multisampling and a requested swap interval of 1.
+Qt OpenGLWidgets is an optional build dependency, with
+`-DT2GU_OPENGL_RENDERER=OFF` supported. Missing modules, unsupported headless
+platforms, failed context creation and failed shown-viewport initialization
+fall back to software. The active GL vendor, device and version are logged.
+The existing scene, gameplay, sprite bounds and chrome widgets are retained.
+[Qt's Graphics View documentation](https://doc.qt.io/qt-6.10/qgraphicsview.html#ViewportUpdateMode-enum)
+supports the viewport replacement and recommends full updates for OpenGL.
+
+Release and instrumented Debug builds pass. All **seven CTest checks** pass
+under ASan/UBSan in **48.19 seconds**, followed by the corrected renderer
+capture test passing again. A separate software-only build also passes
+renderer selection, fallback and viewport pixel checks. The desktop GL check
+passes actual opaque/translucent scene pixels on **Intel Iris Xe (TGL GT2),
+Mesa 26.0.8, OpenGL 4.6**, using Wayland. Pixel readback preserves and reads
+the painted FBO directly: `QOpenGLWidget::grabFramebuffer()` rerenders its
+own `paintGL`, clearing a Graphics View scene painted by the view's event.
+
+After changing the default, Release and instrumented Debug rebuilds pass;
+all seven CTest checks pass again under ASan/UBSan in **33.36 seconds**.
+Desktop checks verify that unset and empty renderer settings select the
+Intel GPU, preserve opaque/translucent pixels, and allow an explicit
+software override. Explicit OpenGL, headless fallback and the software-only
+build also pass. Headless chapter smoke runs select software explicitly.
+
+Scratch-only Release profiling drives synthetic Shift+D/A along a clear
+segment in each chapter's dense maze. Enemy and pickup artwork remain in
+the scene, but combat/pickup processing and audio playback are disabled for
+the comparison. Each measured phase lasts approximately eight seconds.
+Runs are sequential, use a 3 GiB/60-second guard, and report window exposure
+and actual viewport dimensions. Accepted paired runs use **1,920×1,018**
+viewports (not a measurement of the owner's entire 1,920×1,200 screen).
+
+| Chapter / renderer | Median paint interval | p95 | Maximum | Intervals >33.3 ms | Process CPU time / wall second |
+| --- | --- | --- | --- | --- | --- |
+| 1 / software | 16.01 ms | 17.88 ms | 91.51 ms | 3 | 1,161 ms |
+| 1 / OpenGL | 16.68 ms | 17.65 ms | 21.64 ms | 0 | 580 ms |
+| 6 / software | 16.00 ms | 16.82 ms | 18.28 ms | 0 | 1,061 ms |
+| 6 / OpenGL | 16.66 ms | 17.67 ms | 21.33 ms | 0 | 716 ms |
+
+The chapter 1 pair is `desktop-*-ch1-exposure.log`; the chapter 6 pair is
+`desktop-*-ch6-fixed.log`, under `/tmp/t2gu-jitter-profile`. CPU figures
+include all process threads, so one fully busy core is 1,000 ms per wall
+second. These short samples show reduced CPU use (about 50% and 33%) and
+fewer chapter 1 spikes, while chapter 6 is smooth with either backend.
+OpenGL presentation intervals are recorded separately via `frameSwapped`
+and stay near 16.67 ms in the accepted runs. This supports a user trial,
+not a claim of universal speedup or verification of every chapter's combat/UI.
+
+Earlier desktop runs include one guarded timeout, a roughly 36-second
+gap before regular presentation, a run with no delivered frames, and
+mismatched monitor dimensions. Those are retained and excluded from the
+paired performance comparison. A bounded debugger snapshot found the main
+thread in the event loop; it does not establish the stall's cause. The later
+exposed runs complete normally below 1 GiB RSS. Foreground/background
+behavior and ordinary play remain to be verified beyond these short trials;
+the software override remains available for comparison.
+
+### First OpenGL focus-loss mitigation (2026-10-05, superseded)
+
+The owner identified losing window focus as the stall trigger. A guarded
+desktop run also stopped delivering GUI heartbeats and required external
+termination. Other runs completed normally, including one under a debugger;
+the exact blocked compositor/driver operation has not been captured.
+Before this correction, the real chapter 1 focus-transfer test continued
+submitting roughly 60 GL frames per second while a covering window had focus.
+
+The first mitigation suspended updates on the entire top-level window when the
+window/application is inactive, hidden or minimized. Pausing only the
+viewport is insufficient because changing HUD widgets also drive the window's
+GL composition, as described in
+[Qt's QOpenGLWidget documentation](https://doc.qt.io/qt-6.10/qopenglwidget.html).
+Returning to the foreground restores updates and requests a full redraw.
+Simulation and audio continue; the existing input-release behavior remains.
+Window and application activation are separate conditions, and externally
+disabled updates are preserved.
+
+Initial presentation is allowed before waiting for activation: Wayland
+needs a committed buffer to map a new or restored window. GL validity is
+checked after an actual paint attempt, so minimized/background startup does
+not incorrectly trigger software fallback before GL initialization.
+OpenGL remains the default and software selection/fallback remains available.
+
+The desktop `--focus` regression passes on Intel Iris Xe under ASan/UBSan:
+**910 timer callbacks and 75 presented frames**, with zero further frames in
+each checked inactive interval, while scene positions and HUD text keep
+changing. It covers both activation orders, actual focus transfers to a
+covering window, four minimize/restore cycles, minimized startup and preserving
+externally disabled updates. An external timeout protects this test because a
+GUI timer cannot detect a blocked GUI thread. Default/empty OpenGL selection,
+opaque/translucent pixels, software override and headless/software-only fallback
+also pass. All seven CTest checks pass under ASan/UBSan in **34.55 seconds**;
+the renderer check passes again after the final restore-frame adjustment.
+
+The full Release chapter 1 focus-transfer run also exits normally after
+**53.5 seconds**, with **780.7 MiB peak RSS**. Four covering-window intervals
+stop advancing the render count while one-second GUI heartbeats continue;
+presentation resumes on each return. The 45-second measured phase records
+2,724 simulation intervals and 1,717 presentations. The approximately four-second
+presentation gaps are intentional background suspension, not frame-time stalls.
+Raw logs: `/tmp/t2gu-jitter-profile/focus-baseline.log` and `focus-fixed.log`.
+
+### Automatic minimization follow-up (2026-10-05, superseded)
+
+The owner reported that focus loss still locked the game after the repaint
+suspension above, and confirmed launching `./build/T2gu2`. The earlier passing
+checks therefore did not establish that the owner's stall was resolved.
+
+At the owner's request, this follow-up made `GameView` automatically minimize
+its native top-level window on OpenGL window/application focus loss, replacing
+the first repaint-only mitigation. The queued request checks the window's lifetime and current
+activation state so a rapid focus return cancels it. Restore the game through
+the taskbar or window switcher; simulation and audio continue in the background.
+OpenGL remains the default, with software selection and fallback available.
+
+The normal `build/T2gu2` target rebuilt successfully. No tests or game launches
+were performed for this follow-up, at the owner's explicit request. Existing
+focus-check assertions were updated to expect minimization but remain unrun.
+The owner subsequently confirmed that ordinary focus loss worked, but a
+taskbar preview of the minimized game caused the same lock.
+
+### Minimized taskbar-preview follow-up (2026-10-05, reverted)
+
+Minimization alone does not prevent Qt from processing compositor exposure
+events. Qt's [widget-window exposure handler](https://github.com/qt/qtbase/blob/v6.10.2/src/widgets/kernel/qwidgetwindow.cpp#L991)
+can show children and synchronize the backing store while minimized. Its
+[repaint manager](https://github.com/qt/qtbase/blob/v6.10.2/src/widgets/kernel/qwidgetrepaintmanager.cpp#L552)
+can flush the GL texture even without a new scene paint. This is a plausible
+path for the reported preview lock; no blocked-thread capture confirms it.
+
+This mitigation disabled updates on the whole top-level window before automatic
+minimization and whenever its window state becomes minimized. This blocks
+exposure-triggered GL flushes as well as scene and HUD paints. Activation and
+preview Show events leave the suspension in place while the window remains
+minimized. Clearing the minimized state restores updates that `GameView`
+disabled and schedules a full redraw, allowing the restored window to map
+before activation. Externally disabled updates are preserved. A minimized
+view also skips direct scene paint requests. Simulation and audio continue.
+
+The normal `build/T2gu2` target rebuilt successfully. No tests or game launches
+were performed, as requested by the owner. Existing focus-check assertions
+were adjusted to expect suspended updates but were not run. Taskbar-preview
+and restore behavior await the owner's manual verification.
+
+### GPU hang investigation and workaround removal (2026-10-05)
+
+The owner confirmed the focus/minimize guards worked, but reported the same
+lock during ordinary visible play. The whole desktop became uncontrollable
+until the game was killed. At the owner's request, automatic minimization,
+activation filtering, whole-window update suspension and the minimized-paint
+guard have all been removed. OpenGL remains the default with its existing
+startup software fallback; normal Qt window behavior is restored.
+
+Read-only inspection of the kernel journal established a **GPU render-engine
+hang**, including these entries in America/Sao_Paulo time:
+
+```text
+2026-10-05T05:28:30-03:00 i915: Resetting rcs0 for preemption time out
+2026-10-05T05:28:30-03:00 i915: GT0: rcs0 reset request timed out
+2026-10-05T05:28:30-03:00 i915: GPU HANG: ecode 12:1:84dffffb, in T2gu2 [708222]
+2026-10-05T05:28:42-03:00 Fence expiration time out ... T2gu2[708222]
+2026-10-05T05:28:42-03:00 Fence expiration time out ... kwin_wayland[44903]
+2026-10-05T05:29:11-03:00 i915: GT0: Resetting chip for stopped heartbeat on rcs0
+2026-10-05T05:29:11-03:00 i915: GT0: rcs0 reset request timed out
+```
+
+Prefixes and register details are abbreviated here; raw entries are preserved
+in `/tmp/t2gu-gpu-hang-2026-10-05/kernel.log`. Earlier occurrences name T2gu2
+at 04:28:16, 05:11:13 and 05:22:46, plus earlier rendering probes. KWin logs
+show failed render-device access, EGL context errors and failed atomic commits;
+relevant entries are in `desktop.log` in the same directory. These are observed
+graphics-stack failures, not evidence inferred solely from window behavior.
+GPU fence timeouts in KWin explain the desktop-wide loss of responsiveness.
+
+Recorded environment: Intel Tiger Lake-LP GT2 / Iris Xe (8086:9a49), i915,
+kernel `7.0.0-38-generic`, Mesa `26.0.8-1ubuntu0.3`, Qt `6.10.2+dfsg-7`, KDE
+Wayland. Killing the process does not identify the offending GPU command or
+prove a game-side, Mesa, kernel or hardware defect individually. The older
+debugger snapshot showed an idle event loop and was not a capture of this
+confirmed kernel GPU hang. Likewise, the passing short renderer trials did
+not rule out a GPU hang during later play.
+
+The detailed i915 error state is protected at `/sys/class/drm/card1/error`.
+Reading it directly was denied; an escalated `sudo -n cat` could not proceed
+because interactive authentication is required. The owner then saved the
+existing dump with:
+
+```sh
+sudo cat /sys/class/drm/card1/error > /tmp/t2gu-gpu-hang-2026-10-05/i915-error.txt
+```
+
+Offline decoding with the installed `intel_error_decode` (intel-gpu-tools
+2.3-1) succeeded; `i915-decoded.txt` is preserved beside the 55,210-byte raw
+dump. This is the **first** captured hang, at 03:46:28, naming the earlier
+`t2gu-dense-rend` probe. It is not a new capture of the latest player session.
+The dump records `rcs0` as hung, `Reset count: 0`, `Suspend count: 0`,
+`PM suspended: no`, `GT awake: yes`, and `i915.enable_guc=0` (legacy submission).
+The last recorded instruction is `IPEHR: 0x7b000005`, a draw command, with
+`BBADDR: 0x0000fffe_ffd64049` immediately after the nearby draw packet at
+`0x0000fffe_ffd6402c`. This supports GPU command execution as the failing
+layer; it does not map the failure to a particular character or Qt draw call.
+
+The decoder reports unsupported commands and incorrect length expectations
+for several Gen12 packets. Those messages are limitations of this decode,
+not proof that the application submitted malformed GPU commands. In particular,
+do not treat its labels of zero vertices or zero instances as reliable: its
+field offsets for these seven-dword draw packets are inconsistent with the
+captured packet layout. The saved register and command data should be decoded
+with a matching Gen12-aware Mesa tool before assigning a specific driver bug.
+No system configuration, driver or GL swap setting was changed. The exact
+Mesa/kernel/Qt interaction or hardware defect remains unidentified, and the
+reverted build is not presented as a GPU-hang fix.
+
+The normal `build/T2gu2` target rebuilt successfully after removal of the
+workarounds. No tests or game launches were performed at the owner's request.
+Existing opt-in focus-check assertions were aligned with normal Qt behavior
+but remain unrun. The software override in README avoids the game's OpenGL
+path while the exact graphics-stack trigger remains under investigation.
+
+### Post-revert manual observation and retained-change audit (2026-10-05)
+
+The owner subsequently tried to reproduce the hang but could not, and
+confirmed that the successful run logged Intel OpenGL with no software
+fallback. Read-only inspection of the kernel journal found no GPU-hang/reset
+entries after the latest `build/T2gu2` rebuild at 05:35:40 America/Sao_Paulo
+time, through this audit. This records improved observed behavior, without
+establishing that the underlying GPU hang is fixed.
+
+The rollback removed the focus/minimize guards; it did not restore the entire
+original OpenGL implementation. One rendering change remains: GL validity is
+checked after a scene paint attempt, with fallback queued only if the viewport
+is still invalid and the window is visible and not minimized. The earlier
+implementation checked validity from a queued Show-event callback. Inspection
+of the older `/tmp/t2gu-stall-profile` executable confirms that distinction.
+It corrects premature initialization checks and changes callback timing during
+window exposure. A valid OpenGL viewport does not take the fallback branch,
+so it provides no demonstrated explanation for eliminating a steady-play
+GPU command hang.
+
+Comparison with the preserved pre-guard implementation and the current source
+found the same context preflight, zero MSAA samples, swap interval 1 and full
+viewport updates. Binary inspection also confirmed zero samples and interval
+1 in both `/tmp/t2gu-stall-profile` and `build/T2gu2`; no swap/vsync change was
+left behind. The prop-shadow optimization dates to 02:31, before the recorded
+hangs, and remains unchanged. The music toggle also predates failing launches.
+Neither is a newly introduced fix from the latest rollback.
+
+Removing activation/update/minimization callbacks changes submission timing
+and window transitions, which could reduce exposure to an intermittent
+graphics-stack failure. This is a hypothesis, not an identified causal fix;
+the earlier unguarded renderer also produced GPU hangs. The current build was
+left unchanged. No tests, game launches, driver changes or commits were made
+for this audit.
+
+### Foreground recurrence and Gen12 packet interpretation (2026-10-05)
+
+The owner subsequently reported another failure during ordinary play, without
+a focus change. Kernel entries at **09:22:20 America/Sao_Paulo** identify
+`GPU HANG: ecode 12:1:84dffffb, in T2gu2 [792039]`, an `rcs0` preemption
+timeout and a failed engine reset. At 09:22:32 the game and KWin both have
+expired GPU fences; at 09:22:49 the stopped-heartbeat reset and chip reset
+also time out. Relevant entries are preserved in
+`/tmp/t2gu-gpu-hang-2026-10-05/kernel-0922.log` and `desktop-0922.log`.
+This confirms recurrence after the rollback; the preceding quiet Intel
+OpenGL run did not establish a fix. No running game process remained when
+this occurrence was inspected.
+
+Offline interpretation of selected packets in the **retained first dump**
+used Mesa's Gen12 XML definitions and their imports from
+[Mesa commit be89a173d5000483ba08ef42f8a544b0789bc011](https://chromium.googlesource.com/external/gitlab.freedesktop.org/mesa/mesa/+/be89a173d5000483ba08ef42f8a544b0789bc011/src/intel/genxml/gen120.xml).
+These describe the GPU packet layout; they are not a claim to match the
+installed Mesa library revision. The resulting field interpretation is saved
+as `gen12-packets.txt` beside the dump:
+
+- `0x7b000005` is a valid-length, seven-dword `3DPRIMITIVE`: four vertices,
+  one instance, sequential access, no indirect parameters, and zero start
+  vertex, start instance and base vertex.
+- The most recent `3DSTATE_VF_TOPOLOGY` before the recorded draw selects a
+  triangle fan. The two per-vertex buffers have pitch 8 and size 32, consistent
+  with four pairs of floats. Their high address words are part of 64-bit
+  GPU addresses, not the "max index" described by the older decoder.
+- The following `0x786d1100` is `3DSTATE_CONSTANT_ALL`, updating vertex and
+  pixel shader constant state. It is not an unknown instruction or a loop.
+
+These selected fields are consistent with ordinary Qt painting. They neither
+validate the complete GPU state nor identify the failing shader, texture,
+synchronization operation or software layer. `IPEHR` and the nearby batch
+pointer cannot by themselves assign a causal draw call. The retained error
+state is still the earlier 03:46:28 rendering-probe hang, not this player's
+09:22 occurrence; it was not cleared or replaced.
+
+The next diagnostic is an API trace of a manual run. The
+[apitrace instructions](https://github.com/apitrace/apitrace/blob/13.0/docs/USAGE.markdown)
+describe EGL capture via `egltrace.so`; this covers the game's Qt scene and
+window-composition contexts. Ubuntu's `apitrace` and `apitrace-tracers`
+13.0 packages were downloaded, their SHA256 values compared with local apt
+metadata, and their contents extracted under the existing `/tmp` diagnostic
+directory. No packages were installed system-wide.
+
+The manual launcher is:
+
+```sh
+bash /tmp/t2gu-gpu-hang-2026-10-05/capture-opengl.sh
+```
+
+It explicitly selects Qt Wayland and OpenGL, writes a unique capture directory,
+records the binary hash and game output, and saves relevant journal entries
+after the game exits or is killed. `FLUSH_EVERY_MS=1000`, verified in
+[apitrace 13.0's trace writer](https://github.com/apitrace/apitrace/blob/13.0/lib/trace/trace_writer_local.cpp),
+periodically flushes the trace file without forcing GPU completion. A hard
+kill can still lose the last buffered calls; a trace may also change timing,
+so a quiet captured run remains inconclusive. Long captures can grow large.
+Offline inspection should precede any replay of the recorded GPU workload.
+
+No renderer or game binary changes, tests, game launches, trace replays,
+driver changes or commits were made during this investigation. The precise
+cause remains unresolved, and the focus/minimize guards remain removed.
+
+### Captured recovery and repeated tile uploads (2026-10-05)
+
+The owner ran the capture launcher and reported that the game locked,
+eventually resumed normal gameplay, then was closed. The capture is
+`/tmp/t2gu-gpu-hang-2026-10-05/capture-7sasHv/`. Its metadata records a start
+at 09:40:04 America/Sao_Paulo, the same pre-change game binary hash
+`436f4c1057d9f936fd7ba7d4dc82ba2ef6dd3b8585909e355a1667b06b5b1144`,
+and normal exit status 0. Intel OpenGL is logged with no software fallback.
+
+At 09:40:49.606 the kernel records the same `12:1:84dffffb` GPU hang in
+`T2gu2 [801125]`, after a preemption timeout and failed engine reset. Game
+and desktop GPU fences expire at 09:41:01. At 09:41:17 another engine/chip
+reset attempt times out, followed by `T2gu2[801125] context reset due to
+GPU hang`. The owner confirmed that gameplay itself resumed, not just the
+desktop. Recovery is an observed outcome; these timeout entries do not
+establish that every requested reset succeeded or that tracing fixed the bug.
+
+Offline `apitrace dump` interpretation completed without decoder diagnostics;
+no trace replay or GPU workload was launched. The trace contains 1,429
+`eglSwapBuffers` calls, all returning `EGL_TRUE`, and 4,277 recorded
+`glGetGraphicsResetStatusARB` results, all `GL_ZERO`. The scene and composition
+contexts remain in use until normal shutdown. These API return values do not
+negate the kernel hang or validate all application/driver behavior. The
+capture lacks per-call wall-clock timing, so the kernel stall cannot yet be
+assigned to a particular API call from call numbers alone.
+
+The trace also exposes substantial work: 3,710,993 draw calls, 7,419,737
+`glBufferData` calls and 27,987 non-null 256-by-256 texture uploads. The
+median interval between recorded swaps contains 3,835 draws. Qt's window
+composition also uploads a 1920-by-1008 image in 1,023 calls. This is captured
+workload, not an untraced performance measurement. `trace-summary.json` and
+`context-calls.txt` preserve the offline results. The original trace is
+8,283,114,348 bytes (about 7.7 GiB), stored on the machine's `/tmp` tmpfs;
+its recording overhead and memory use can change timing.
+
+Extracted upload bytes were compared with the shipped `grass_water.png`
+tileset. Calls 3359, 3422, 3446 and 6835 match grass tile 0 and its mirrored
+variants exactly; call 2146261 matches unchanged border tile 3 exactly.
+The blob hashes and identifications are preserved in
+`tile-blob-identification.txt`. This identifies map tiles in the captured
+uploads; dimensions alone were not used to assign every texture's origin.
+
+Source inspection found a concrete cause of avoidable tile churn:
+`TileSheet::tile()` returned a fresh `m_sheet.copy(...)` on every request.
+Pure-terrain variants already retain their pixmaps in `TileMapItem`, but
+border and object tiles used fresh copies while painting. `TileSheet` now
+retains each extracted pixmap by tile index so unchanged tiles retain their
+Qt cache keys and can reuse their GL textures. The cache clears only after a
+successful sheet load; failed loads preserve the current sheet/cache, and
+out-of-range lookups still return empty pixmaps. Extraction coordinates,
+rendered content, water animation and window behavior are unchanged. The
+shipped ten-tile, 256-by-256 sets add at most 2.5 MiB of decoded tile data
+per populated cache, beyond the retained full sheet.
+
+`build/T2gu2` rebuilt successfully with this cache change. No tests, game
+launches, trace replays, driver changes or commits were performed. The
+owner's next manual run should use `./build/T2gu2`; reducing unnecessary
+texture churn is a concrete improvement, but whether it affects the GPU hang
+remains unverified. The underlying graphics-stack defect is still unresolved.
+
+### Recurrence after caching and next driver comparison (2026-10-05)
+
+The owner reported another hang after the tile-cache rebuild. The executable
+was rebuilt at 09:48:45 America/Sao_Paulo; kernel entries at 09:53:30 again
+identify `GPU HANG: ecode 12:1:84dffffb, in T2gu2 [807003]` with a failed
+`rcs0` preemption reset. Further GPU fences expire, and at 09:53:59 the
+heartbeat/chip resets time out and the game context is reset. At 09:54:06
+the kernel also names VS Code's GPU process in a hang (`12:1:85dffffb`);
+VS Code then reports context loss and restarts that process. This may be
+fallout from the shared GPU failure, not an independent initiating bug in
+VS Code. No game process remained at inspection. Raw entries are preserved
+as `kernel-0953.log` and `desktop-0953.log`.
+
+The tile cache has therefore not prevented the reported hang. It addresses
+unnecessary tile extraction/texture churn and is retained as that improvement,
+not represented as a driver-hang fix. No additional rendering/window guards
+or driver settings were added to the game.
+
+The next owner-run comparison isolates driver synchronization using Mesa's
+documented `INTEL_DEBUG=stall` option, which waits between GPU draws/dispatches.
+See [Mesa's Intel debug options](https://docs.mesa3d.org/envvars.html#intel-debug)
+and its [GPU-hang debugging guidance](https://docs.mesa3d.org/graphics-debugging/debugging-misrenderings-crashes.html#is-the-issue-consistently-reproducible-can-you-make-it-100-reproducible).
+The flag keeps OpenGL hardware rendering but can slow it. A change in failure
+rate would be a lead concerning synchronization/cache handling or timing;
+it would not establish a permanent fix or assign fault to a particular layer.
+
+Because resets failed and other applications subsequently lost GPU contexts,
+a fresh boot is recommended before that comparison to reduce the chance of
+carrying disturbed GPU state into the next run. The saved first i915 dump,
+relevant logs and complete 8,283,114,348-byte API trace have been copied into
+the ignored, persistent `output/gpu-hang-2026-10-05/` directory so the evidence
+survives clearing `/tmp`. No reboot was initiated by the agent.
+
+The prepared owner-run launcher records game output, binary identity and
+journal entries without another large API capture:
+
+```sh
+bash output/gpu-hang-2026-10-05/driver-stall.sh
+```
+
+The launcher is a local diagnostic artifact, not an installed package or
+game default. It has not been run. No tests, game launches, trace replays,
+system configuration changes or commits were made for this investigation.
+
+### Owner-run per-draw stall result and batch-sync comparison (2026-10-05)
+
+The owner reported that `driver-stall.sh` did not hang. Saved logs in
+`output/gpu-hang-2026-10-05/driver-stall-9dV7JS/` confirm
+`INTEL_DEBUG=stall`, Intel Iris Xe OpenGL with no software fallback,
+the tile-cache binary hash
+`71c25bdf0eaafb3312e334227adb3d02673b12372eab7f3ed83779b9aabbcaf8`,
+and normal exit status 0. The launch began at 10:01:16 America/Sao_Paulo;
+the post-exit journal capture completed at 10:08:00, roughly 6 minutes
+44 seconds later. Both captured journals report no entries. No
+unsupported-driver-flag warning appears in the game output.
+
+Read-only inspection showed that the current boot still includes the earlier
+09:53 game and 09:54 VS Code GPU hangs; the boot began October 2. The proposed
+reboot was therefore not a change between these observed runs. This rules out
+a reboot as the explanation for this particular successful comparison.
+It does not exclude other timing/workload variation or establish a root cause
+from one run. No frame timings were captured, so the performance cost of
+`stall` has not been measured. The owner subsequently reported that performance
+did not degrade much. This is a subjective observation supporting its
+practicality as a provisional launch option, not a measured frame-time result
+or a confirmed permanent fix.
+
+The result strengthens the GPU synchronization/cache-handling or timing lead.
+The next comparison replaces `stall` with Mesa's documented `sync` option,
+which waits on the CPU for each submitted GPU batch rather than inserting
+per-draw GPU stalls. See [Mesa's Intel debug options](https://docs.mesa3d.org/envvars.html#intel-debug).
+These options change different aspects of scheduling and synchronization:
+if `sync` also suppresses the hang in comparable play, that supports exploring
+completion at batch/frame boundaries; if it still hangs while `stall` remains
+reliable, barriers or dependencies between commands within a batch become a
+stronger lead. Neither outcome alone identifies a specific broken barrier,
+software component or hardware defect.
+
+The owner-run launcher is prepared:
+
+```sh
+bash output/gpu-hang-2026-10-05/driver-sync.sh
+```
+
+It records the selected option, binary identity, game output and journals
+without an API capture. The agent has not run it. The game binary and defaults
+remain unchanged; no per-draw stall, global environment setting or new window
+guard was made permanent. No tests, game launches, trace replays or commits
+were performed during this follow-up.
+
+### Batch-sync hard lock and matching Iris source inspection (2026-10-05)
+
+The owner reported a lock requiring a reboot. The saved environment and
+game log in `output/gpu-hang-2026-10-05/driver-sync-oNlMED/` confirm the
+`INTEL_DEBUG=sync` comparison, Intel OpenGL without software fallback, and
+the same binary hash as the preceding `stall` run. The launch began at
+10:12:09 America/Sao_Paulo. The game printed 9,940 `waiting for idle`
+messages; there is no recorded normal exit status.
+
+After the reboot, read-only `journalctl -b -1` inspection recovered the
+relevant messages to `kernel-previous-boot.log` and
+`desktop-previous-boot.log` in that result directory. At 10:13:45 the kernel
+recorded a render-engine preemption timeout, failed engine reset, and
+`GPU HANG: ecode 12:1:84dffffb, in T2gu2 [815934]`. Fence timeouts followed
+for T2gu2, KWin and other GPU clients. At 10:14:14 another hang report was
+followed by engine and chip reset attempts that also timed out. The next
+boot began at 10:15:34. This confirms GPU failure and failed recovery;
+it does not isolate the command or component that caused the hang.
+
+The upstream Mesa 26.0.8 archive was downloaded from
+[Mesa's release archive](https://archive.mesa3d.org/mesa-26.0.8.tar.xz).
+Its SHA256 matched
+`caf1c0061a68e88dfa74967a7e780c0e85d65b6c4e334cd69095a5dc54ad78bc`,
+published in [the release notes](https://docs.mesa3d.org/relnotes/26.0.8.html).
+Only Iris C/header sources were extracted under the ignored evidence
+directory. No downloaded scripts were executed, drivers installed or
+source built. Ubuntu downstream patches have not been inspected, so this
+is the matching upstream release, not a complete audit of the packaged binary.
+
+The source clarifies the diagnostic comparison:
+
+- `iris_screen.c:736` enables `always_flush_cache` when `DEBUG_STALL` is set.
+- `iris_draw.c:340` and `:347` invoke the cache helper before and after draws.
+  `iris_blorp.c` also brackets relevant blit/resolve operations with it.
+- `iris_pipe_control.c:349` requests pipeline stalling and extensive cache
+  flushing/invalidation. Its helper splits combined flush/invalidate
+  requests into end-of-pipe synchronization followed by invalidation.
+- `iris_batch.c:978` implements `DEBUG_SYNC` as a CPU rendering-completion
+  wait after batch submission, producing the observed idle messages.
+
+These are materially different command sequences. The successful `stall`
+run therefore supports examining cache coherency and dependencies between
+operations inside a batch, as well as timing. The failed `sync` run provides
+no evidence for fixing this with an end-of-frame `glFinish` or another
+CPU wait. Neither result proves a specific missing barrier or permanent fix;
+the single successful run may still reflect workload/timing variation.
+
+The failed `driver-sync.sh` launcher now exits with an explanation before
+launching anything. Its original source is preserved as
+`driver-sync.sh.disabled` for the investigation record. A local driver bug
+report draft is saved as `output/gpu-hang-2026-10-05/DRIVER_BUG_REPORT.md`;
+it has not been sent externally. Game code, renderer defaults and binary
+were unchanged in this follow-up. No tests, game launches, trace replays,
+system configuration changes or commits were performed by the agent.
+
+### Applying the Iris stall cache path to accelerated rendering (2026-10-05)
+
+The owner requested continuing accelerated rendering and applying the
+behavior of the successful first `INTEL_DEBUG=stall` run. Further inspection
+of the checksum-verified upstream Mesa 26.0.8 sources found a direct
+equivalent: `always_flush_cache=true`. `iris_screen.c` enables the same
+boolean from either DEBUG_STALL or this driconf option. A scan of that
+release's C/header sources found no other DEBUG_STALL behavior in the Iris
+OpenGL path. Vulkan's separate implementation is not used by this renderer.
+The installed Gallium library also contains the option name and description.
+
+`src/util/xmlconfig.c:423` reads options from environment variables named
+after each option; its boolean parser accepts `true` and `false`. Environment
+values take precedence over XML configuration. This provides a way to select
+the exact Iris cache path without modifying Mesa, intercepting Qt draw calls,
+or setting INTEL_DEBUG. Public release history also records
+[support for the cache option](https://docs.mesa3d.org/relnotes/19.3.0.html)
+and [its connection to DEBUG_STALL](https://docs.mesa3d.org/relnotes/23.3.0.html).
+
+`GameView::configureRendererEnvironment()` is now called at the start of
+`main`, before QApplication. Mesa reads screen options during initialization;
+setting them inside QOpenGLWidget::initializeGL would be too late. The helper
+requests `always_flush_cache=true` only in Linux builds with OpenGL support,
+when the requested renderer is default/OpenGL and a DRM render node exposes
+the affected Intel PCI vendor/device pair 8086:9a49. Read-only inspection
+confirmed that this machine's renderD128 has those IDs. Explicit option
+values are preserved. Software selection and the offscreen/minimal platforms
+selected through QT_QPA_PLATFORM skip the automatic request. On a hybrid
+machine the PCI check detects presence, not which GPU a context will use;
+drivers without this option ignore it. The behavior of other Intel devices
+has not been verified, so the automatic request is limited to the observed ID.
+
+The cache helper adds GPU synchronization and cache flushing/invalidation
+around draws and applicable blit/resolve operations. OpenGL remains the
+default with existing startup software fallback. INTEL_DEBUG is untouched,
+and no frame-end wait, focus filter, forced minimization or driver installation
+was introduced. The new setting is confined to the game process. If a driver
+version ignores the option, startup context checks cannot detect that or
+guarantee hang prevention.
+
+`cmake --build build --target T2gu2 -j2` passed. The game was not launched and
+no tests were run, per the owner's instruction. This is a source-supported
+implementation of the earlier successful mode, not yet a verified hang fix;
+owner verification and sustained play are pending. No commits were made.
+
+### Initial owner result with the integrated cache option (2026-10-05)
+
+After receiving the rebuilt binary, the owner reported that it apparently
+did not hang. A read-only kernel journal query since the binary's rebuild
+time, 10:47:40 America/Sao_Paulo, returned no entries matching GPU hangs,
+reset request timeouts, GPU-hang context resets or fence expiration timeouts.
+The journal snapshot is saved as
+`output/gpu-hang-2026-10-05/integrated-cache-first-observation.txt`.
+
+This is an encouraging first owner observation of the integrated option,
+following the earlier successful stall run. No exact run duration, frame
+timings, startup renderer output or driver-option acknowledgement were
+captured for this run, so acceleration and option activation have not been
+independently verified from its output. The result remains provisional and
+does not identify the specific missing dependency or prove lasting stability.
+The accelerated configuration and binary were left unchanged. No tests,
+game launches or commits were performed by the agent for this follow-up.
+
+### Remaining stutter after hang mitigation: paint-cost follow-up (2026-10-05)
+
+The owner subsequently reported no hangs but continued jitter that affects
+gameplay, including while moving/running. This separates the hang mitigation
+from the remaining rendering/frame-pacing problem. No new runtime measurements
+were collected by the agent; the following changes use source inspection and
+the previously saved API capture as evidence, pending manual verification.
+
+Concrete repeated work found and changed:
+
+- **Water:** each 256 px water tile used 32 horizontal stripes, with up to
+  another 32 wrap draws, a clip change and painter state saves per repaint.
+  Its 120 ms invalidation interval did not limit the phase or these draws
+  when movement caused frequent full-frame repaints. Water is now composed
+  in a small QImage once per row/orientation/phase and painted as one pixmap.
+  Equal row/orientation copies share it. The ripple cache has a 16 MiB nominal
+  pixel budget and clears on phase or tileset changes. Phase advances at the
+  existing 120 ms cadence. No water timer invalidation is requested when
+  the current tileset has no water index. New textures still need uploads
+  at phase changes; whether those produce visible spikes needs measurement.
+- **Terrain beyond the viewport:** the four-cell repair margin for partial
+  redraws was also used with FullViewportUpdate. Complete-frame rendering
+  now uses only the art overlap needed from earlier columns/rows. Shipped
+  256 px art on a 128 px grid needs one preceding column and row. The old
+  software repair margin is retained for partial-update viewports. Tile
+  pixels, overlap and base-before-object drawing order remain unchanged.
+- **Character shadows:** an antialiased radial-gradient ellipse was rebuilt
+  for every character paint, switching from gradient to sprite rendering.
+  Shadows now use shared pixmaps per radius, following the existing prop
+  shadow approach. The same softness, squash, opacity, cap and feet offset
+  are retained. Raster caching can change edge sampling slightly; no new
+  pixel comparison was run. Sprite cell bounds and movement are unchanged.
+- **Unchanged character frames:** every simulation tick called setPixmap,
+  even on idle/dead characters and ticks between animation frames. Qt 6.10.2's
+  [setter implementation](https://github.com/qt/qtbase/blob/v6.10.2/src/widgets/graphicsview/qgraphicsitem.cpp#L8697)
+  unconditionally requests geometry bookkeeping, discards the cached mask
+  shape and schedules an update. Characters now compare pixmap cache keys
+  and assign only when the frame changes. Offset and Y-based stacking still
+  update independently, so identical art does not suppress movement/facing
+  offsets or depth changes.
+- **Lighting:** painting used live elapsed time rather than the overlay's
+  240 ms animation cadence; movement therefore changed decorative gradients
+  more often. Phase is now latched to its own cadence. An extended style
+  option restricts fill geometry to the exposed portion, while gradients
+  remain anchored to the whole map. This preserves their spatial layout.
+- **Widget HUD:** coordinate text, resizing and repositioning were performed
+  at movement-tick frequency. The earlier capture included 1,023 window-sized
+  1920×1008 backing-texture uploads; it did not prove all were caused by the
+  HUD. The HUD is a plausible contributor because it is a changing QWidget
+  over the GL viewport. Debug coordinates now refresh at most every 100 ms,
+  and unchanged strings skip text/layout updates. Camera/input processing
+  remains at simulation cadence; level readiness forces a fresh readout.
+
+Props already share decoded/scaled/trimmed art and cached shadow pixmaps.
+Contained shadows share their parent's paint callback; only overflow shadows
+have lightweight child items. Their translucent bounds and ground-Y stacking
+cannot simply be flattened into a background image without changing occlusion
+against characters/items. No additional prop children, whole-map raster cache
+or uncapped sprite cache were introduced. Dense alpha-blended props, shadow
+draw counts and art larger than grid cells remain possible GPU/overdraw costs.
+Frame-end synchronization was not added, and the Iris cache-flushing setting
+remains in place. The earlier capture's large draw counts make reducing draws
+particularly relevant to that mode, but do not measure the new workload.
+
+An optional `T2GU_PROFILE_RENDER=1` diagnostic now reports every three seconds:
+paint-start interval and CPU scene-paint duration (p50/p95/maximum), average
+cost and paint-callback counts for tiles, props, overflow shadows, characters
+and lighting, and water frame builds. Measurements use CPU clocks and add no
+GPU synchronization. They exclude Qt's later widget composition, swap and
+presentation; asynchronous GPU cost may appear in intervals rather than in
+the item callback that submitted it. They are not displayed FPS or a GPU
+profiler. Timing/logging overhead applies only to the opt-in diagnostic;
+ordinary play does not time each item. Samples are bounded and discarded
+after each report.
+
+Manual launch with a saved log:
+
+```sh
+mkdir -p output
+T2GU_PROFILE_RENDER=1 ./build/T2gu2 2>&1 | tee output/render-profile.log
+```
+
+Wait for chapter assets to finish loading, then compare standing, walking,
+running, water and dense scenery at the same window size. The log makes the
+next remaining bottleneck reviewable without another multi-gigabyte API trace.
+`cmake --build build --target T2gu2 -j2` passed. No tests, game launches,
+benchmarks or commits were performed by the agent. Smoothness improvements
+and continued hang-free behavior require the owner's manual check; no new
+frame-time improvement or complete stutter fix is claimed.
+
+### Owner confirmation: accelerated rendering without hangs or stutter (2026-10-05)
+
+Following the rendering optimizations, the owner confirmed empirically that
+both symptoms were gone: no hangs and no stuttering in manual play. The
+accelerated configuration is retained, including the Iris cache-flushing
+option and the paint-cost reductions. The verified build's SHA256 is
+`16658430307ec398f83b5af6caaee65c82fdfdb4f5cdcf3cc3020de2e1ee49ad`.
+
+This is the owner's qualitative runtime confirmation on the observed setup.
+No new frame-time measurements, exact session duration or profile log were
+provided, and the specific underlying driver defect remains unidentified.
+The result does not attribute the smoothness improvement to one individual
+optimization. Only documentation was updated after this confirmation;
+the working code and binary were left unchanged. No tests, game launches
+or commits were performed by the agent in this follow-up.
+
 ## Scope and verification
 
 Reviewed the current implementation in all **47 C++ source/header files**, all **26 JavaScript files** (chapters 1–25 and sandbox), all **6 Python tools**, CMake/install configuration, launcher template, the scripting reference, sprite workflow, README, and repository instructions. Asset validation covered **153 JSON files**, **99 character directories**, **135 prop entries**, and **93 item entries**. The historical `T2gu-legacy/` tree was excluded, as repository instructions explicitly designate it as unbuilt historical material.
