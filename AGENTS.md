@@ -89,7 +89,7 @@ cmake --build build -j$(nproc)
   Keep this accelerated configuration, including the Iris cache-flushing
   option. This is owner verification on the observed setup, not a measured
   frame-time result or identification of the underlying driver defect.
-- Assets are found through `assetDir()`/`assetPath()` (`src/AssetPath.h`) —
+- Assets are found through `assetDir()`/`assetPath()` (`src/assets/AssetPath.h`) —
   never build a path from the `ASSET_DIR` macro directly (`QStringLiteral(ASSET_DIR
   "/x")` was the old pattern and is gone). Resolution order: `$T2GU_ASSET_DIR`,
   then the configured GNUInstallDirs data path (`<exe dir>/../share/t2gu2/assets`
@@ -189,11 +189,15 @@ cmake --build build -j$(nproc)
 ## Source layout
 
 ```
-src/            all C++ (flat, no subdirectories)
-  Version.h     `kGameVersion`, the game's version string. Bump it here
-                AND in README.md (the line right below the screenshot)
-                together on every release; main.cpp registers it with Qt
-                via `setApplicationVersion()`
+src/            C++ grouped by responsibility
+  app/          entry point, MainWindow, and Version.h
+  assets/       asset paths, sprite sheets, and tile sheets
+  audio/        music and sound playback
+  game/         scene, characters, props, tile map, collision, and game state
+  persistence/  save serialization and validation
+  rendering/    viewport, scene visuals, layers, and paint metrics
+  scripting/    JavaScript engine and api bridge
+  ui/           dialogue, inventory, status, death, and loading widgets
 assets/
   characters/   one subdirectory per roster entry (99 currently — down
                 from 135 at launch; a fine-tooth-comb sprite audit found
@@ -219,6 +223,15 @@ docs/
   SCRIPTING.md  the actual `api.*` reference — keep this in sync any time
                 the script-facing surface changes
 ```
+
+`src/app/Version.h` defines `kGameVersion`, the game's version string.
+Bump it and the version in README.md (right below the screenshot) together
+on every release; `src/app/main.cpp` registers it with Qt through
+`setApplicationVersion()`.
+
+Project headers use paths relative to `src/` (for example,
+`#include "game/GameScene.h"`). Every C++ target includes `src/` as its
+include root; keep headers beside their corresponding implementation.
 
 ## Architecture
 

@@ -18,20 +18,20 @@
 #include <limits>
 #include <utility>
 
-#include "GameScene.h"
-#include "FireballItem.h"
-#include "LevelUpTextItem.h"
-#include "LightingOverlayItem.h"
-#include "SceneLayers.h"
-#include "SaveData.h"
-#include "DialogueBoxWidget.h"
-#include "DeathMenuWidget.h"
-#include "InventoryWidget.h"
-#include "LoadingOverlayWidget.h"
-#include "MainWindow.h"
-#include "Prop.h"
-#include "ScriptEngine.h"
-#include "TileMapItem.h"
+#include "game/GameScene.h"
+#include "rendering/FireballItem.h"
+#include "rendering/LevelUpTextItem.h"
+#include "rendering/LightingOverlayItem.h"
+#include "rendering/SceneLayers.h"
+#include "persistence/SaveData.h"
+#include "ui/DialogueBoxWidget.h"
+#include "ui/DeathMenuWidget.h"
+#include "ui/InventoryWidget.h"
+#include "ui/LoadingOverlayWidget.h"
+#include "app/MainWindow.h"
+#include "game/Prop.h"
+#include "scripting/ScriptEngine.h"
+#include "rendering/TileMapItem.h"
 
 namespace {
 void check(bool condition, const char *message)

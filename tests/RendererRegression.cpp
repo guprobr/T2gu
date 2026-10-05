@@ -17,7 +17,7 @@
 #include <QOpenGLWidget>
 #endif
 
-#include "GameView.h"
+#include "rendering/GameView.h"
 
 namespace {
 void check(bool condition, const char *message)

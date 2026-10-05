@@ -1019,7 +1019,7 @@ Temporary harnesses and logs were kept under `/tmp/t2gu-review-*`; they are revi
 
 **Status: reproduced with AddressSanitizer.**
 
-Sources: [GameScene.cpp:1163](/home/guzpido/T2gu/src/GameScene.cpp:1163), [GameScene.cpp:1222](/home/guzpido/T2gu/src/GameScene.cpp:1222), [GameScene.cpp:2285](/home/guzpido/T2gu/src/GameScene.cpp:2285), [chapter25.js:650](/home/guzpido/T2gu/assets/scripts/chapter25.js:650).
+Sources: [GameScene.cpp:1163](/home/guzpido/T2gu/src/game/GameScene.cpp:1163), [GameScene.cpp:1222](/home/guzpido/T2gu/src/game/GameScene.cpp:1222), [GameScene.cpp:2285](/home/guzpido/T2gu/src/game/GameScene.cpp:2285), [chapter25.js:650](/home/guzpido/T2gu/assets/scripts/chapter25.js:650).
 
 `triggerPlayerAttack()` iterates `m_enemies` by reference. On a lethal hit, `awardEnemyDefeatRewards()` synchronously invokes JavaScript `onEnemyDefeated`. That script can call `api.spawnEnemy`, appending to the same container. If it reallocates, the active range-for iteration points into freed storage.
 
@@ -1073,7 +1073,7 @@ globals={chapter:6, nettle_recruited:true}
 
 **Status: premature callback execution and simulation during population reproduced; resulting save corruption is a risk, not a separately reproduced end-to-end save failure.**
 
-Sources: [SpriteSheet.cpp:72](/home/guzpido/T2gu/src/SpriteSheet.cpp:72), [GameScene.cpp:808](/home/guzpido/T2gu/src/GameScene.cpp:808), [MainWindow.cpp:295](/home/guzpido/T2gu/src/MainWindow.cpp:295), [MainWindow.cpp:302](/home/guzpido/T2gu/src/MainWindow.cpp:302), [MainWindow.cpp:318](/home/guzpido/T2gu/src/MainWindow.cpp:318).
+Sources: [SpriteSheet.cpp:72](/home/guzpido/T2gu/src/assets/SpriteSheet.cpp:72), [GameScene.cpp:808](/home/guzpido/T2gu/src/game/GameScene.cpp:808), [MainWindow.cpp:295](/home/guzpido/T2gu/src/app/MainWindow.cpp:295), [MainWindow.cpp:302](/home/guzpido/T2gu/src/app/MainWindow.cpp:302), [MainWindow.cpp:318](/home/guzpido/T2gu/src/app/MainWindow.cpp:318).
 
 `GameScene` queues `onLevelStart()` and then starts its simulation timer at the end of its constructor. The script runs later, so the timer is already active while the script spawns characters. A cold sprite load calls `processEvents(ExcludeUserInputEvents)` inside that script execution.
 
@@ -1096,7 +1096,7 @@ The comment in `SpriteSheet::load()` that no scene timer is running is therefore
 
 ### M01 — A synchronous script handler is not considered busy while it executes
 
-**Status: reproduced.** Sources: [ScriptEngine.cpp:49](/home/guzpido/T2gu/src/ScriptEngine.cpp:49), [ScriptEngine.h:69](/home/guzpido/T2gu/src/ScriptEngine.h:69).
+**Status: reproduced.** Sources: [ScriptEngine.cpp:49](/home/guzpido/T2gu/src/scripting/ScriptEngine.cpp:49), [ScriptEngine.h:69](/home/guzpido/T2gu/src/scripting/ScriptEngine.h:69).
 
 `startEntryPoint()` calls a plain JavaScript function while the engine still reports `Idle` and has no active iterator. If that function triggers nested Qt event processing through a sprite load, another gameplay event can call another handler immediately instead of queuing it. This violates the documented one-at-a-time execution contract even though waiting generators are correctly protected.
 
@@ -1106,7 +1106,7 @@ A plain `onLevelStart` fixture recorded `TICK_DURING_START busy=0` and `nested_p
 
 ### M02 — Item rendering, pickup coordinates, and saved coordinates can disagree
 
-**Status: reproduced.** Sources: [GameScene.cpp:905](/home/guzpido/T2gu/src/GameScene.cpp:905), [GameScene.cpp:2585](/home/guzpido/T2gu/src/GameScene.cpp:2585), [GameScene.cpp:2394](/home/guzpido/T2gu/src/GameScene.cpp:2394), [GameScene.cpp:2470](/home/guzpido/T2gu/src/GameScene.cpp:2470), [GameScene.cpp:2662](/home/guzpido/T2gu/src/GameScene.cpp:2662).
+**Status: reproduced.** Sources: [GameScene.cpp:905](/home/guzpido/T2gu/src/game/GameScene.cpp:905), [GameScene.cpp:2585](/home/guzpido/T2gu/src/game/GameScene.cpp:2585), [GameScene.cpp:2394](/home/guzpido/T2gu/src/game/GameScene.cpp:2394), [GameScene.cpp:2470](/home/guzpido/T2gu/src/game/GameScene.cpp:2470), [GameScene.cpp:2662](/home/guzpido/T2gu/src/game/GameScene.cpp:2662).
 
 `placeProp()` nudges duplicate ground anchors by `(48,48)`. `spawnItemInWorld()` then stores the **original** coordinates in `WorldItem`, and pickup distance, treasure location, and snapshot capture use those originals. The rendered prop can therefore sit somewhere other than its interaction position.
 
@@ -1123,7 +1123,7 @@ The restore result above exercised restoration into the same scene, where delete
 
 ### M03 — Chapter 15 resets wave bookkeeping while quickload restores wave enemies
 
-**Status: source-established integration defect; reset reproduced in the script harness.** Sources: [chapter15.js:545](/home/guzpido/T2gu/assets/scripts/chapter15.js:545), [chapter15.js:670](/home/guzpido/T2gu/assets/scripts/chapter15.js:670), [chapter15.js:699](/home/guzpido/T2gu/assets/scripts/chapter15.js:699), [GameScene.cpp:2383](/home/guzpido/T2gu/src/GameScene.cpp:2383), [GameScene.cpp:2447](/home/guzpido/T2gu/src/GameScene.cpp:2447).
+**Status: source-established integration defect; reset reproduced in the script harness.** Sources: [chapter15.js:545](/home/guzpido/T2gu/assets/scripts/chapter15.js:545), [chapter15.js:670](/home/guzpido/T2gu/assets/scripts/chapter15.js:670), [chapter15.js:699](/home/guzpido/T2gu/assets/scripts/chapter15.js:699), [GameScene.cpp:2383](/home/guzpido/T2gu/src/game/GameScene.cpp:2383), [GameScene.cpp:2447](/home/guzpido/T2gu/src/game/GameScene.cpp:2447).
 
 `onLevelStart()` clears `vigil_active` and `vigil_alive`, explicitly assuming a reload leaves no enemies behind. Scene snapshots save and restore living enemies, including the active wave. Saving during a wave and loading produces enemies from that wave with counters saying no wave is active. Talking to the Light can spawn another copy; kills are then counted by roster name against the new counter, potentially completing the wave while enemies remain.
 
@@ -1133,7 +1133,7 @@ The script harness began the first six-enemy wave, then re-ran initialization an
 
 ### M04 — A permanent maximum-HP boost can make a dead character have positive HP
 
-**Status: reproduced.** Sources: [Character.cpp:281](/home/guzpido/T2gu/src/Character.cpp:281), [Character.cpp:289](/home/guzpido/T2gu/src/Character.cpp:289), [GameScene.cpp:2552](/home/guzpido/T2gu/src/GameScene.cpp:2552).
+**Status: reproduced.** Sources: [Character.cpp:281](/home/guzpido/T2gu/src/game/Character.cpp:281), [Character.cpp:289](/home/guzpido/T2gu/src/game/Character.cpp:289), [GameScene.cpp:2552](/home/guzpido/T2gu/src/game/GameScene.cpp:2552).
 
 The maximum-HP item path calls `setMaxHp()` on every party member. That setter refills HP but does not reset `m_dead`. A dead member can become `hp=110, maxHp=110, dead=true`. Snapshot restoration later derives death from HP through `setCurrentHp()`, so the same saved state can become alive after loading.
 
@@ -1143,7 +1143,7 @@ The UI normally prevents item use after the controlled character dies; a dead fo
 
 ### M05 — Saving omits temporary buffs even though their consumed items are saved
 
-**Status: reproduced.** Sources: [Character.h:239](/home/guzpido/T2gu/src/Character.h:239), [GameScene.cpp:2374](/home/guzpido/T2gu/src/GameScene.cpp:2374), [GameScene.cpp:2522](/home/guzpido/T2gu/src/GameScene.cpp:2522).
+**Status: reproduced.** Sources: [Character.h:239](/home/guzpido/T2gu/src/game/Character.h:239), [GameScene.cpp:2374](/home/guzpido/T2gu/src/game/GameScene.cpp:2374), [GameScene.cpp:2522](/home/guzpido/T2gu/src/game/GameScene.cpp:2522).
 
 Temporary strength, intelligence, and speed bonuses and their remaining durations live only on `Character`. Snapshots contain positions and HP, while inventory records that the potion was consumed. Restoring into a new scene loses an effect that was still active at save time. The fixture measured speed **14 before saving, 10 after restoring**.
 
@@ -1153,7 +1153,7 @@ Scene replacement also drops these effects on a chapter transition. Whether tran
 
 ### M06 — `api.setTileset()` leaves old cached tiles and water-rendering metadata
 
-**Status: reproduced; latent API defect, not exercised by current chapter population.** Sources: [TileMapItem.cpp:124](/home/guzpido/T2gu/src/TileMapItem.cpp:124), [TileMapItem.cpp:178](/home/guzpido/T2gu/src/TileMapItem.cpp:178), [GameScene.cpp:2684](/home/guzpido/T2gu/src/GameScene.cpp:2684).
+**Status: reproduced; latent API defect, not exercised by current chapter population.** Sources: [TileMapItem.cpp:124](/home/guzpido/T2gu/src/rendering/TileMapItem.cpp:124), [TileMapItem.cpp:178](/home/guzpido/T2gu/src/rendering/TileMapItem.cpp:178), [GameScene.cpp:2684](/home/guzpido/T2gu/src/game/GameScene.cpp:2684).
 
 Terrain variants are cached by numeric tile index, and the renderer captures the water index once in its constructor. `scriptSetTileset()` reloads the underlying sheet and requests repainting, but neither invalidates the cache nor refreshes the renderer's water index.
 
@@ -1169,7 +1169,7 @@ Collision follows the map's refreshed water classification, while rendering can 
 
 ### M07 — The time-step clamp does not guarantee collision safety at supported speeds
 
-**Status: endpoint tunneling reproduced.** Sources: [GameScene.cpp:46](/home/guzpido/T2gu/src/GameScene.cpp:46), [GameScene.cpp:302](/home/guzpido/T2gu/src/GameScene.cpp:302), [Character.cpp:435](/home/guzpido/T2gu/src/Character.cpp:435), [MainWindow.cpp:923](/home/guzpido/T2gu/src/MainWindow.cpp:923).
+**Status: endpoint tunneling reproduced.** Sources: [GameScene.cpp:46](/home/guzpido/T2gu/src/game/GameScene.cpp:46), [GameScene.cpp:302](/home/guzpido/T2gu/src/game/GameScene.cpp:302), [Character.cpp:435](/home/guzpido/T2gu/src/game/Character.cpp:435), [MainWindow.cpp:923](/home/guzpido/T2gu/src/app/MainWindow.cpp:923).
 
 Movement checks only the final feet point for each axis. Clamping `dt` to 0.05 seconds bounds displacement, but does not ensure it is smaller than every prop footprint. Running, speed buffs, level bonuses, and the follower catch-up multiplier of up to 3 increase supported displacement substantially. Lara's current base speed stat is 12, so reasoning from an old flat movement speed is insufficient.
 
@@ -1179,7 +1179,7 @@ With a supported 1,024 px/s velocity and `dt=0.05`, the fixture moved from x=200
 
 ### M08 — Malformed map metadata can be accepted and later crash; load failure is not contained
 
-**Status: division-by-zero reproduced; other failure consequences established by source.** Sources: [TileMap.cpp:40](/home/guzpido/T2gu/src/TileMap.cpp:40), [TileMap.cpp:101](/home/guzpido/T2gu/src/TileMap.cpp:101), [GameScene.cpp:577](/home/guzpido/T2gu/src/GameScene.cpp:577), [MainWindow.cpp:260](/home/guzpido/T2gu/src/MainWindow.cpp:260).
+**Status: division-by-zero reproduced; other failure consequences established by source.** Sources: [TileMap.cpp:40](/home/guzpido/T2gu/src/game/TileMap.cpp:40), [TileMap.cpp:101](/home/guzpido/T2gu/src/game/TileMap.cpp:101), [GameScene.cpp:577](/home/guzpido/T2gu/src/game/GameScene.cpp:577), [MainWindow.cpp:260](/home/guzpido/T2gu/src/app/MainWindow.cpp:260).
 
 Map loading checks positive map width/height, but not positive tile width/height. A map with `tileWidth=0` successfully loads; `isWalkable()` then divides by zero:
 
@@ -1197,7 +1197,7 @@ Save loading does correctly check JSON parsing, supported versions, and map-file
 
 ### M09 — Fireball damage is guaranteed to the original target despite the documented dodge behavior
 
-**Status: established by source.** Sources: [GameScene.cpp:2049](/home/guzpido/T2gu/src/GameScene.cpp:2049), [GameScene.cpp:2063](/home/guzpido/T2gu/src/GameScene.cpp:2063), [GameScene.cpp:2079](/home/guzpido/T2gu/src/GameScene.cpp:2079), [FireballItem.cpp:43](/home/guzpido/T2gu/src/FireballItem.cpp:43).
+**Status: established by source.** Sources: [GameScene.cpp:2049](/home/guzpido/T2gu/src/game/GameScene.cpp:2049), [GameScene.cpp:2063](/home/guzpido/T2gu/src/game/GameScene.cpp:2063), [GameScene.cpp:2079](/home/guzpido/T2gu/src/game/GameScene.cpp:2079), [FireballItem.cpp:43](/home/guzpido/T2gu/src/rendering/FireballItem.cpp:43).
 
 The visual bolt snapshots an impact location, with a comment describing the target dodging by moving away. Pending damage stores a target pointer and applies damage when its timer expires, without checking the target's distance from the impact point. A living target still takes the hit after moving away.
 
@@ -1209,7 +1209,7 @@ Terrain is also ignored in melee hit testing and projectile damage. A focused fi
 
 ### M10 — Path recovery can classify slow progress as stuck, and failed searches bypass cooldown
 
-**Status: established by source; frequency in a live campaign was not measured.** Sources: [GameScene.cpp:388](/home/guzpido/T2gu/src/GameScene.cpp:388), [GameScene.cpp:1711](/home/guzpido/T2gu/src/GameScene.cpp:1711), [GameScene.cpp:1741](/home/guzpido/T2gu/src/GameScene.cpp:1741).
+**Status: established by source; frequency in a live campaign was not measured.** Sources: [GameScene.cpp:388](/home/guzpido/T2gu/src/game/GameScene.cpp:388), [GameScene.cpp:1711](/home/guzpido/T2gu/src/game/GameScene.cpp:1711), [GameScene.cpp:1741](/home/guzpido/T2gu/src/game/GameScene.cpp:1741).
 
 `moveAlongPath()` expects the distance to the waypoint to shrink by at least 8 px **per call**, otherwise it accumulates a stuck timer. At roughly 60 ticks/s, perfectly normal 320 px/s movement advances about 5.3 px per call and fails that threshold. Waypoint changes can further distort the comparison. A falsely stuck character can blacklist a genuinely reachable cell.
 
@@ -1219,7 +1219,7 @@ Separately, `waypoints.isEmpty()` causes a new A* search irrespective of `repath
 
 ### M11 — Delayed dialogue and inventory can both be active, with inventory taking Enter
 
-**Status: reproduced using synthetic Qt events.** Sources: [MainWindow.cpp:362](/home/guzpido/T2gu/src/MainWindow.cpp:362), [MainWindow.cpp:760](/home/guzpido/T2gu/src/MainWindow.cpp:760), [MainWindow.cpp:797](/home/guzpido/T2gu/src/MainWindow.cpp:797).
+**Status: reproduced using synthetic Qt events.** Sources: [MainWindow.cpp:362](/home/guzpido/T2gu/src/app/MainWindow.cpp:362), [MainWindow.cpp:760](/home/guzpido/T2gu/src/app/MainWindow.cpp:760), [MainWindow.cpp:797](/home/guzpido/T2gu/src/app/MainWindow.cpp:797).
 
 Inventory opening checks whether dialogue is visible now, not whether a waiting script will show it later. `showDialogue()` does not close inventory. Thus opening inventory during an intro wait or post-kill wait can leave both visible; inventory input has priority and consumes Enter instead of advancing the dialogue.
 
@@ -1235,7 +1235,7 @@ The player can recover by closing inventory with Escape and then pressing Enter,
 
 ### M12 — Movement keys are not cleared when the application loses focus
 
-**Status: source-established missing handling; physical focus-loss delivery was not tested.** Sources: [MainWindow.cpp:907](/home/guzpido/T2gu/src/MainWindow.cpp:907), [MainWindow.cpp:914](/home/guzpido/T2gu/src/MainWindow.cpp:914), [MainWindow.h:25](/home/guzpido/T2gu/src/MainWindow.h:25).
+**Status: source-established missing handling; physical focus-loss delivery was not tested.** Sources: [MainWindow.cpp:907](/home/guzpido/T2gu/src/app/MainWindow.cpp:907), [MainWindow.cpp:914](/home/guzpido/T2gu/src/app/MainWindow.cpp:914), [MainWindow.h:25](/home/guzpido/T2gu/src/app/MainWindow.h:25).
 
 Held keys are inserted on press and removed on release. There is no focus/window-deactivation handler clearing them. If a movement or Shift key is released while another application has focus, this window may never receive its release and can continue moving or running after the user returns. The per-tick refresh preserves the stale intent.
 
@@ -1243,7 +1243,7 @@ Held keys are inserted on press and removed on release. There is no focus/window
 
 ### M13 — Ambient music scheduling can override explicit script music or silence
 
-**Status: established by source; the two-minute audio path was not runtime-tested.** Sources: [GameScene.cpp:548](/home/guzpido/T2gu/src/GameScene.cpp:548), [GameScene.cpp:551](/home/guzpido/T2gu/src/GameScene.cpp:551), [GameScene.cpp:2806](/home/guzpido/T2gu/src/GameScene.cpp:2806), [AudioManager.cpp:90](/home/guzpido/T2gu/src/AudioManager.cpp:90).
+**Status: established by source; the two-minute audio path was not runtime-tested.** Sources: [GameScene.cpp:548](/home/guzpido/T2gu/src/game/GameScene.cpp:548), [GameScene.cpp:551](/home/guzpido/T2gu/src/game/GameScene.cpp:551), [GameScene.cpp:2806](/home/guzpido/T2gu/src/game/GameScene.cpp:2806), [AudioManager.cpp:90](/home/guzpido/T2gu/src/audio/AudioManager.cpp:90).
 
 Every scene schedules a fade after two minutes and connects the first `musicFinished` event to random level music. `api.playMusic()` and `api.stopMusic()` do not cancel that ambient-intro policy. A script's replacement track can be faded by the old timer; a requested silent scene can later resume random music. `stopMusic()` also leaves an active fade alive, whose completion emits `musicFinished`.
 
@@ -1255,7 +1255,7 @@ The constructor comment assumes the natural-end and fade routes cannot both occu
 
 ### L01 — Slightly negative world coordinates map into tile zero
 
-**Status: reproduced.** Source: [TileMap.cpp:100](/home/guzpido/T2gu/src/TileMap.cpp:100).
+**Status: reproduced.** Source: [TileMap.cpp:100](/home/guzpido/T2gu/src/game/TileMap.cpp:100).
 
 Integer conversion/division truncates toward zero, so `isWalkable(-1,64)` returns true on a walkable tile-zero fixture. Values just west/north of the map can be treated as in bounds rather than outside the world. Border barriers mask this in many maps.
 
@@ -1263,7 +1263,7 @@ Integer conversion/division truncates toward zero, so `isWalkable(-1,64)` return
 
 ### L02 — Rendering bounds and overlay-order comments do not consistently match painting
 
-**Status: source-established geometry/order issues; full visual impact not exhaustively rendered.** Sources: [FireballItem.cpp:54](/home/guzpido/T2gu/src/FireballItem.cpp:54), [FireballItem.cpp:96](/home/guzpido/T2gu/src/FireballItem.cpp:96), [Prop.cpp:168](/home/guzpido/T2gu/src/Prop.cpp:168), [GameScene.cpp:472](/home/guzpido/T2gu/src/GameScene.cpp:472), [GameScene.cpp:2586](/home/guzpido/T2gu/src/GameScene.cpp:2586), [LevelUpTextItem.cpp:36](/home/guzpido/T2gu/src/LevelUpTextItem.cpp:36).
+**Status: source-established geometry/order issues; full visual impact not exhaustively rendered.** Sources: [FireballItem.cpp:54](/home/guzpido/T2gu/src/rendering/FireballItem.cpp:54), [FireballItem.cpp:96](/home/guzpido/T2gu/src/rendering/FireballItem.cpp:96), [Prop.cpp:168](/home/guzpido/T2gu/src/game/Prop.cpp:168), [GameScene.cpp:472](/home/guzpido/T2gu/src/game/GameScene.cpp:472), [GameScene.cpp:2586](/home/guzpido/T2gu/src/game/GameScene.cpp:2586), [LevelUpTextItem.cpp:36](/home/guzpido/T2gu/src/rendering/LevelUpTextItem.cpp:36).
 
 The fireball bounds extend by `2 * glowRadius`, but the expanding impact reaches almost `2.8 * glowRadius` before disappearing. Qt can clip/cull that outer paint. Prop bounds cover the full source-art rectangle, while a measured ground anchor plus shadow offset/radius can place part of the shadow outside it; the asset scan suggests this is common, but it used Pillow scaling rather than an exact Qt render.
 
@@ -1273,7 +1273,7 @@ Item pickups have `1,000,000 + groundY` z-order while the lighting overlay sits 
 
 ### L03 — Selection information is a snapshot rather than a live display
 
-**Status: established by source.** Source: [GameScene.cpp:2872](/home/guzpido/T2gu/src/GameScene.cpp:2872).
+**Status: established by source.** Source: [GameScene.cpp:2872](/home/guzpido/T2gu/src/game/GameScene.cpp:2872).
 
 `selectionChanged` is emitted when selecting, with copied HP/stats. Subsequent damage, healing, or progression does not refresh the selected information widget. A selected target can display stale health until selection changes.
 
@@ -1281,7 +1281,7 @@ Item pickups have `1,000,000 + groundY` z-order while the lighting overlay sits 
 
 ### L04 — Refreshing inventory jumps selection to the first item
 
-**Status: established by source.** Sources: [InventoryWidget.cpp:58](/home/guzpido/T2gu/src/InventoryWidget.cpp:58), [MainWindow.cpp:784](/home/guzpido/T2gu/src/MainWindow.cpp:784).
+**Status: established by source.** Sources: [InventoryWidget.cpp:58](/home/guzpido/T2gu/src/ui/InventoryWidget.cpp:58), [MainWindow.cpp:784](/home/guzpido/T2gu/src/app/MainWindow.cpp:784).
 
 After using an item that does not open dialogue, inventory is rebuilt and row zero becomes selected. Repeated Enter can therefore operate on a different item instead of continuing to use the highlighted stack.
 
@@ -1307,7 +1307,7 @@ The documented encounter says each form spawns where the previous one fell. `nex
 
 ### A01 — Per-scene ownership does not imply per-scene sprite memory release
 
-Sources: [GameScene.cpp:57](/home/guzpido/T2gu/src/GameScene.cpp:57), [GameScene.cpp:855](/home/guzpido/T2gu/src/GameScene.cpp:855), [SpriteSheet.h:49](/home/guzpido/T2gu/src/SpriteSheet.h:49).
+Sources: [GameScene.cpp:57](/home/guzpido/T2gu/src/game/GameScene.cpp:57), [GameScene.cpp:855](/home/guzpido/T2gu/src/game/GameScene.cpp:855), [SpriteSheet.h:49](/home/guzpido/T2gu/src/assets/SpriteSheet.h:49).
 
 The process-lifetime sprite cache retains trimmed frames for every unique roster name loaded, and mirrored frames are cached lazily. Destroying a scene releases its entities but does not release those cached sprite assets. A long campaign can therefore retain substantially more than one chapter's working set. This is intentional caching, not proof of a leak.
 
@@ -1320,7 +1320,7 @@ The repository explicitly records that offline per-frame/lazy-decoding changes w
 **Addressed in batch eight:** dialogue and quest comments describe the
 implemented hunt-and-return flow. The findings below preserve review history.
 
-Sources: [chapter15.js:594](/home/guzpido/T2gu/assets/scripts/chapter15.js:594), [chapter15.js:639](/home/guzpido/T2gu/assets/scripts/chapter15.js:639), [chapter15.js:647](/home/guzpido/T2gu/assets/scripts/chapter15.js:647), [GameScene.cpp:1902](/home/guzpido/T2gu/src/GameScene.cpp:1902).
+Sources: [chapter15.js:594](/home/guzpido/T2gu/assets/scripts/chapter15.js:594), [chapter15.js:639](/home/guzpido/T2gu/assets/scripts/chapter15.js:639), [chapter15.js:647](/home/guzpido/T2gu/assets/scripts/chapter15.js:647), [GameScene.cpp:1902](/home/guzpido/T2gu/src/game/GameScene.cpp:1902).
 
 Wave spawn locations are at least four tiles, approximately 512 px, from the Light. Enemies' detection range is 440 px, their AI targets the controlled character, and the Light is an ordinary noncombat NPC. They are not given an objective that makes them head toward or damage the Light. The player may need to walk out and find them. Waves also require another conversation to begin, despite a nearby comment saying they follow automatically.
 
@@ -1337,7 +1337,7 @@ the retained readiness/RSS smoke checker. This table records the original review
 | Queued readiness callbacks run after population simply because they were queued later | Nested `processEvents()` runs them before population completes | Document an explicit readiness boundary |
 | Many quests still unlock mandatory physical progression gates | Commit `c4777d8` deliberately removed hard gates from 16 chapters | Update quest tables and distinguish optional rewards from mandatory progression |
 | Chapters 1–2 share one hub; the first level transition is to chapter 3 | Each has its own map, and chapter 1 loads chapter 2 | Update [SCRIPTING.md:408](/home/guzpido/T2gu/docs/SCRIPTING.md:408) |
-| Current save version is 1 and missing-version saves are accepted | Current and minimum supported versions are both 2; missing version defaults to 1 and is rejected | Update [AGENTS.md:588](/home/guzpido/T2gu/AGENTS.md:588) and the stale comment at [MainWindow.cpp:637](/home/guzpido/T2gu/src/MainWindow.cpp:637) |
+| Current save version is 1 and missing-version saves are accepted | Current and minimum supported versions are both 2; missing version defaults to 1 and is rejected | Update [AGENTS.md:588](/home/guzpido/T2gu/AGENTS.md:588) and the stale comment at [MainWindow.cpp:637](/home/guzpido/T2gu/src/app/MainWindow.cpp:637) |
 | Stats and sounds are flat catalogs | Files contain `stats` and `sounds` wrapper objects | Correct catalog examples and instructions |
 | Intelligence is stored for a future system and has no gameplay effect | Fireball damage/cooldowns and casting eligibility use intelligence | Update `assets/characters/stats.json`'s catalog comment |
 | Older 115/135-character roster figures describe the current roster | Current tree contains 99 character directories | Label historical measurements and refresh current counts |
@@ -1354,7 +1354,7 @@ These contradictions matter because a future contributor following them literall
 Release tuning, and GNUInstallDirs-aware discovery with executable regressions.
 See fix progress for the actual tested Qt version and relocation limits.
 
-Sources: [CMakeLists.txt:21](/home/guzpido/T2gu/CMakeLists.txt:21), [CMakeLists.txt:85](/home/guzpido/T2gu/CMakeLists.txt:85), [CMakeLists.txt:110](/home/guzpido/T2gu/CMakeLists.txt:110), [AssetPath.cpp:14](/home/guzpido/T2gu/src/AssetPath.cpp:14).
+Sources: [CMakeLists.txt:21](/home/guzpido/T2gu/CMakeLists.txt:21), [CMakeLists.txt:85](/home/guzpido/T2gu/CMakeLists.txt:85), [CMakeLists.txt:110](/home/guzpido/T2gu/CMakeLists.txt:110), [AssetPath.cpp:14](/home/guzpido/T2gu/src/assets/AssetPath.cpp:14).
 
 `find_package(Qt6)` declares no minimum version although code uses newer API such as `QImage::flipped`. Declare and test the actual supported baseline instead of leaving older Qt installations to fail during compilation.
 
@@ -1366,7 +1366,7 @@ The generated desktop file intentionally uses the configure-time install prefix.
 
 ### A05 — Roster names are doing the work of entity identity
 
-Source: [GameScene.h](/home/guzpido/T2gu/src/GameScene.h), [ScriptBridge.h](/home/guzpido/T2gu/src/ScriptBridge.h).
+Source: [GameScene.h](/home/guzpido/T2gu/src/game/GameScene.h), [ScriptBridge.h](/home/guzpido/T2gu/src/scripting/ScriptBridge.h).
 
 Dozens of enemies can share a roster key, while name lookup retains one pointer for a name. Talk/kill callbacks and quest bookkeeping also use roster names. Current chapters mostly manage this with reserved archetypes, spawn guards, and careful name exclusions, but it limits mechanics such as attributing a kill to a particular wave or reporting a particular boss's death position.
 

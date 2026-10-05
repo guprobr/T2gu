@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Bakes SpriteSheet::frame()'s runtime margin-crop + connected-component
-blob-isolation (src/SpriteSheet.cpp) into new, properly-sized sprite sheets,
+blob-isolation (src/assets/SpriteSheet.cpp) into new, properly-sized sprite sheets,
 one per character folder under assets/characters/.
 
 Ports the exact algorithm the C++ engine already uses at runtime (and
@@ -31,7 +31,7 @@ CHARACTERS_DIR = ROOT / "assets" / "characters"
 
 def isolate_frame_content(canvas: np.ndarray, nominal_rect) -> np.ndarray:
     """canvas: HxWx4 uint8 RGBA array. nominal_rect: (x, y, w, h).
-    Mirrors isolateFrameContent() in src/SpriteSheet.cpp exactly: label
+    Mirrors isolateFrameContent() in src/assets/SpriteSheet.cpp exactly: label
     4-connected opaque (alpha > 10) blobs, keep the one overlapping the
     nominal rect the most in full, drop every other blob that touches the
     canvas's outer edge (bleed from a neighboring cell)."""

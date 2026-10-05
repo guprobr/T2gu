@@ -45,59 +45,69 @@ set(T2GU_ASSET_DEFINITIONS
     T2GU_INSTALL_ASSET_PATH="${T2GU_INSTALL_ASSET_PATH}")
 
 add_executable(T2gu2
-    src/main.cpp
-    src/MainWindow.cpp
-    src/MainWindow.h
-    src/GameView.cpp
-    src/GameView.h
-    src/PaintMetrics.h
-    src/GameScene.cpp
-    src/GameScene.h
-    src/SpriteSheet.cpp
-    src/SpriteSheet.h
-    src/Character.cpp
-    src/Character.h
-    src/TileSheet.cpp
-    src/TileSheet.h
-    src/TileMap.cpp
-    src/TileMap.h
-    src/TileMapItem.cpp
-    src/TileMapItem.h
-    src/LightingOverlayItem.cpp
-    src/LightingOverlayItem.h
-    src/Prop.cpp
-    src/Prop.h
-    src/ScriptEngine.cpp
-    src/ScriptEngine.h
-    src/ScriptBridge.cpp
-    src/ScriptBridge.h
-    src/DialogueBoxWidget.cpp
-    src/DialogueBoxWidget.h
-    src/InventoryWidget.cpp
-    src/InventoryWidget.h
-    src/DeathMenuWidget.cpp
-    src/DeathMenuWidget.h
-    src/LoadingOverlayWidget.cpp
-    src/LoadingOverlayWidget.h
-    src/LevelUpTextItem.cpp
-    src/LevelUpTextItem.h
-    src/FireballItem.cpp
-    src/FireballItem.h
-    src/AudioManager.cpp
-    src/AudioManager.h
-    src/SelectionInfoWidget.cpp
-    src/SelectionInfoWidget.h
-    src/StatusMessageWidget.cpp
-    src/StatusMessageWidget.h
-    src/GameState.h
-    src/SceneLayers.h
-    src/SaveData.cpp
-    src/SaveData.h
-    src/Version.h
-    src/AssetPath.cpp
-    src/AssetPath.h
+    src/app/MainWindow.cpp
+    src/app/MainWindow.h
+    src/app/Version.h
+    src/app/main.cpp
+
+    src/assets/AssetPath.cpp
+    src/assets/AssetPath.h
+    src/assets/SpriteSheet.cpp
+    src/assets/SpriteSheet.h
+    src/assets/TileSheet.cpp
+    src/assets/TileSheet.h
+
+    src/audio/AudioManager.cpp
+    src/audio/AudioManager.h
+
+    src/game/BlockingGrid.h
+    src/game/Character.cpp
+    src/game/Character.h
+    src/game/GameScene.cpp
+    src/game/GameScene.h
+    src/game/GameState.h
+    src/game/Prop.cpp
+    src/game/Prop.h
+    src/game/TileMap.cpp
+    src/game/TileMap.h
+
+    src/persistence/SaveData.cpp
+    src/persistence/SaveData.h
+
+    src/rendering/FireballItem.cpp
+    src/rendering/FireballItem.h
+    src/rendering/GameView.cpp
+    src/rendering/GameView.h
+    src/rendering/LevelUpTextItem.cpp
+    src/rendering/LevelUpTextItem.h
+    src/rendering/LightingOverlayItem.cpp
+    src/rendering/LightingOverlayItem.h
+    src/rendering/PaintMetrics.h
+    src/rendering/SceneLayers.h
+    src/rendering/TileMapItem.cpp
+    src/rendering/TileMapItem.h
+    src/rendering/VisibleSceneRect.h
+
+    src/scripting/ScriptBridge.cpp
+    src/scripting/ScriptBridge.h
+    src/scripting/ScriptEngine.cpp
+    src/scripting/ScriptEngine.h
+
+    src/ui/DeathMenuWidget.cpp
+    src/ui/DeathMenuWidget.h
+    src/ui/DialogueBoxWidget.cpp
+    src/ui/DialogueBoxWidget.h
+    src/ui/InventoryWidget.cpp
+    src/ui/InventoryWidget.h
+    src/ui/LoadingOverlayWidget.cpp
+    src/ui/LoadingOverlayWidget.h
+    src/ui/SelectionInfoWidget.cpp
+    src/ui/SelectionInfoWidget.h
+    src/ui/StatusMessageWidget.cpp
+    src/ui/StatusMessageWidget.h
 )
 
+target_include_directories(T2gu2 PRIVATE src)
 target_link_libraries(T2gu2 PRIVATE Qt6::Widgets Qt6::Qml Qt6::Multimedia ${T2GU_RENDERER_LIBRARIES})
 target_compile_definitions(T2gu2 PRIVATE ${T2GU_ASSET_DEFINITIONS} ${T2GU_RENDERER_DEFINITIONS})
 
@@ -107,7 +117,7 @@ option(T2GU_BUILD_TESTS "Build engine regression checks" OFF)
 if (T2GU_BUILD_TESTS)
     enable_testing()
     get_target_property(T2GU_ENGINE_SOURCES T2gu2 SOURCES)
-    list(REMOVE_ITEM T2GU_ENGINE_SOURCES src/main.cpp)
+    list(REMOVE_ITEM T2GU_ENGINE_SOURCES src/app/main.cpp)
     add_executable(T2guRegression tests/EngineRegression.cpp ${T2GU_ENGINE_SOURCES})
     target_include_directories(T2guRegression PRIVATE src)
     target_link_libraries(T2guRegression PRIVATE Qt6::Widgets Qt6::Qml Qt6::Multimedia ${T2GU_RENDERER_LIBRARIES})
@@ -115,13 +125,13 @@ if (T2GU_BUILD_TESTS)
     add_test(NAME engine_regressions COMMAND T2guRegression)
     set_tests_properties(engine_regressions PROPERTIES
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;T2GU_RENDERER=software" TIMEOUT 60)
-    add_executable(T2guRendererRegression tests/RendererRegression.cpp src/GameView.cpp src/GameView.h)
+    add_executable(T2guRendererRegression tests/RendererRegression.cpp src/rendering/GameView.cpp src/rendering/GameView.h)
     target_include_directories(T2guRendererRegression PRIVATE src)
     target_link_libraries(T2guRendererRegression PRIVATE Qt6::Widgets ${T2GU_RENDERER_LIBRARIES})
     target_compile_definitions(T2guRendererRegression PRIVATE ${T2GU_RENDERER_DEFINITIONS})
     add_test(NAME renderer_selection COMMAND T2guRendererRegression)
     set_tests_properties(renderer_selection PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 15)
-    add_executable(T2guAssetProbe tests/AssetPathProbe.cpp src/AssetPath.cpp)
+    add_executable(T2guAssetProbe tests/AssetPathProbe.cpp src/assets/AssetPath.cpp)
     target_include_directories(T2guAssetProbe PRIVATE src)
     target_link_libraries(T2guAssetProbe PRIVATE Qt6::Core)
     target_compile_definitions(T2guAssetProbe PRIVATE ${T2GU_ASSET_DEFINITIONS})
@@ -186,7 +196,7 @@ endif()
 #
 # Installs the binary, the whole assets/ tree (~1 GB), the app icons and the
 # launcher entry. The binary finds its assets at the configured data directory
-# on its own (see src/AssetPath.h), so the install does not depend on the
+# on its own (see src/assets/AssetPath.h), so the install does not depend on the
 # source tree staying where it was built. Set the prefix when configuring:
 # the launcher's Exec= line is filled in from it here, at configure time.
 # (Use -DT2GU_NATIVE_CPU=OFF when distributing to other CPUs.)

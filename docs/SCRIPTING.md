@@ -7,7 +7,7 @@ commands documented below.
 
 This file is the reference for that `api.*` surface and the entry points a
 script can define. **Keep it in sync with the code** - whenever
-`src/ScriptBridge.h`, `src/ScriptEngine.h`, or the set of entry points
+`src/scripting/ScriptBridge.h`, `src/scripting/ScriptEngine.h`, or the set of entry points
 `GameScene` calls changes, update this file in the same change.
 
 ## Attaching a script to a map
@@ -582,25 +582,25 @@ and prints to the game's stdout/stderr - useful when iterating on a script.
 
 For anyone changing the engine side rather than writing scripts:
 
-- `src/ScriptBridge.h/.cpp` - the `QObject` installed as `api`; every method
+- `src/scripting/ScriptBridge.h/.cpp` - the `QObject` installed as `api`; every method
   here is a row in the tables above. Add a new `Q_INVOKABLE` here (and a
   matching `GameScene` method) to add a new command.
-- `src/ScriptEngine.h/.cpp` - owns the `QJSEngine`, evaluates script files,
+- `src/scripting/ScriptEngine.h/.cpp` - owns the `QJSEngine`, evaluates script files,
   and drives the generator/coroutine stepping (`callEntryPoint`, `onTick`,
   `advance`). This is where the `wait`/`say` descriptor handling lives
   (`handleYield`).
-- `src/GameScene.cpp` - constructs `ScriptBridge`/`ScriptEngine`, loads the
+- `src/game/GameScene.cpp` - constructs `ScriptBridge`/`ScriptEngine`, loads the
   map's `"script"` field, and calls `onEnemyDefeated`/`onPlayerDied`/
   `onItemCollected` at the relevant call sites; `updateItemPickups()` is the
   per-tick world-item proximity check.
-- `src/AudioManager.h/.cpp` - owns the actual `QSoundEffect`/`QMediaPlayer`
+- `src/audio/AudioManager.h/.cpp` - owns the actual `QSoundEffect`/`QMediaPlayer`
   instances behind `playSound`/`playMusic`/`stopMusic`; `GameScene` owns one
   instance and forwards both its own combat/UI sound triggers and the
   script bridge's calls through it.
-- `src/GameState.h` - the small struct (`vars`, `inventory`) that survives a
+- `src/game/GameState.h` - the small struct (`vars`, `inventory`) that survives a
   `loadLevel()` transition; owned by `MainWindow`, injected into each
   `GameScene` it constructs.
-- `src/MainWindow.cpp` (`loadLevel()`) - actually performs a level
+- `src/app/MainWindow.cpp` (`loadLevel()`) - actually performs a level
   transition: constructs the new `GameScene`, swaps it into the
   `QGraphicsView`, and tears down the old one. **Stops the old scene's tick
   timer before preparing the candidate and deferring deletion after commit** - skipping that reliably corrupted

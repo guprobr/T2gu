@@ -1,4 +1,4 @@
-#include "AssetPath.h"
+#include "assets/AssetPath.h"
 
 #include <QCoreApplication>
 #include <QDir>
