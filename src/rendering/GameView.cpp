@@ -5,6 +5,7 @@
 #include <QTimer>
 #include <algorithm>
 #include <cmath>
+#include <chrono>
 
 #ifdef T2GU_HAS_OPENGL
 #include <QOffscreenSurface>
@@ -97,6 +98,12 @@ GameView::GameView(QWidget *parent)
 {
     if (PaintMetrics::enabled())
         m_profileClock.start();
+    configureRenderer();
+    configureFrameLimit();
+}
+
+void GameView::configureRenderer()
+{
     QString requested = qEnvironmentVariable("T2GU_RENDERER").trimmed().toLower();
     if (requested.isEmpty())
         requested = QStringLiteral("opengl");
@@ -132,10 +139,56 @@ GameView::GameView(QWidget *parent)
 #endif
 }
 
+void GameView::configureFrameLimit()
+{
+    const QString requested = qEnvironmentVariable("T2GU_MAX_FPS").trimmed();
+    if (requested.isEmpty())
+        return;
+    bool valid = false;
+    const int fps = requested.toInt(&valid);
+    if (!valid || fps < 0 || fps > 240) {
+        qWarning().noquote() << "Invalid T2GU_MAX_FPS:" << requested << "- expected 0 through 240; using scene-driven updates";
+        return;
+    }
+    if (fps == 0)
+        return;
+
+    m_maximumFrameRate = fps;
+    // Let movement/AI retain their simulation timer, while scene changes
+    // and camera pans coalesce into the next complete viewport repaint.
+    // Fewer scene submissions leave CPU/GPU headroom for capture/encoding.
+    setViewportUpdateMode(QGraphicsView::NoViewportUpdate);
+    m_frameTimer.setTimerType(Qt::PreciseTimer);
+    m_frameTimer.setInterval(std::chrono::nanoseconds(1000000000LL / fps));
+    connect(&m_frameTimer, &QChronoTimer::timeout, this, [this] {
+        // setScene() is not virtual, so observe replacements here rather
+        // than hiding it and relying on every caller's static pointer type.
+        if (scene() != m_frameScene) {
+            disconnect(m_sceneChangedConnection);
+            m_frameScene = scene();
+            if (m_frameScene) {
+                m_sceneChangedConnection = connect(m_frameScene, &QGraphicsScene::changed, this,
+                    [this](const QList<QRectF> &) { m_frameDirty = true; });
+            }
+            m_frameDirty = true;
+        }
+        // A frame cap must not turn an unchanged scene into a busy redraw
+        // loop. Animated/moving items and camera scrolls mark it dirty.
+        if (m_frameDirty) {
+            m_frameDirty = false;
+            viewport()->update();
+        }
+    });
+    m_frameTimer.start();
+    qInfo("T2gu rendering: scene repaint limit=%d fps; simulation timing unchanged", fps);
+}
+
 void GameView::useSoftwareViewport()
 {
     setViewport(new QWidget);
-    setViewportUpdateMode(QGraphicsView::MinimalViewportUpdate);
+    setViewportUpdateMode(m_maximumFrameRate > 0 ? QGraphicsView::NoViewportUpdate
+                                                : QGraphicsView::MinimalViewportUpdate);
+    m_frameDirty = true;
     m_usesOpenGL = false;
     qWarning("OpenGL viewport initialization failed - using software");
 }
@@ -161,6 +214,13 @@ void GameView::paintEvent(QPaintEvent *event)
         });
     }
 #endif
+}
+
+void GameView::scrollContentsBy(int dx, int dy)
+{
+    if (dx != 0 || dy != 0)
+        m_frameDirty = true;
+    QGraphicsView::scrollContentsBy(dx, dy);
 }
 
 void GameView::recordPaint(qint64 startedNs, qint64 finishedNs)
@@ -193,7 +253,9 @@ void GameView::recordPaint(qint64 startedNs, qint64 finishedNs)
     };
     const double count = m_paintDurations.size();
     QStringList parts{
-        QStringLiteral("T2gu paint profile: backend=%1; frames=%2").arg(m_usesOpenGL ? "opengl" : "software").arg(int(count)),
+        QStringLiteral("T2gu paint profile: backend=%1; frames=%2; repaint-limit=%3")
+                .arg(m_usesOpenGL ? "opengl" : "software").arg(int(count))
+                .arg(m_maximumFrameRate > 0 ? QString::number(m_maximumFrameRate) : QStringLiteral("scene-driven")),
         QStringLiteral("interval p50/p95/max=%1").arg(distribution(m_paintIntervals)),
         QStringLiteral("CPU scene paint p50/p95/max=%1").arg(distribution(m_paintDurations))
     };

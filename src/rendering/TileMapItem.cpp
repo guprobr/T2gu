@@ -245,7 +245,8 @@ void TileMapItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *optio
     int trailingPadding = kPaddingTiles;
     if (scene()) {
         const auto views = scene()->views();
-        if (!views.isEmpty() && views.first()->viewportUpdateMode() == QGraphicsView::FullViewportUpdate) {
+        if (!views.isEmpty() && (views.first()->viewportUpdateMode() == QGraphicsView::FullViewportUpdate
+                || views.first()->viewportUpdateMode() == QGraphicsView::NoViewportUpdate)) {
             // A complete frame cannot retain stale pixels from earlier
             // character positions. Only tile-art overlap needs padding:
             // shipped 256 px art extends past its 128 px grid cell to the

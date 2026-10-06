@@ -79,7 +79,12 @@ measured in gameplay.
 
 `renderer_selection` checks fallback from the OpenGL default, explicit software, invalid
 renderer selection and unavailable OpenGL fallback, including actual opaque
-and translucent viewport pixels. CTest uses offscreen and cannot establish GPU
+and translucent viewport pixels. It also checks valid/disabled/invalid
+`T2GU_MAX_FPS` values, retention of the cap on software fallback, and latest
+scene/camera positions after a burst of updates between scheduled frames.
+Desktop GL checks exercise the cap and pixel rendering on OpenGL too.
+These tests do not assert frame-time performance or OBS latency.
+CTest uses offscreen and cannot establish GPU
 performance. A real display can exercise default and explicit OpenGL
 initialization and blending, plus the software override:
 

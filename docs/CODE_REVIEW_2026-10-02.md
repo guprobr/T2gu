@@ -1017,6 +1017,49 @@ were compiled. No tests, game launches or benchmarks were run, honoring the
 owner's manual-verification instruction. Gameplay speedup and the relative
 contribution of pathfinding remain unmeasured.
 
+### Game-side latency during OBS recording (2026-10-05)
+
+The owner clarified that latency/stutter occurs in the game itself while
+OBS records. Neither process was running during a read-only process check,
+so no concurrent-load measurements were captured. OBS's
+[performance guide](https://obsproject.com/kb/encoding-performance-troubleshooting#limit-the-game-framerate)
+recommends limiting game rendering to leave capture/composition headroom.
+This is a plausible contention lead, not a diagnosis of this session's
+CPU, GPU, encoder, memory bandwidth or compositor bottleneck.
+
+`T2GU_MAX_FPS` now optionally limits routine scene/camera repaints independently
+of the simulation timer. At `30`, a precise nanosecond `QChronoTimer` requests
+at most 30 full viewport updates per second when the scene/camera is dirty.
+Qt's `NoViewportUpdate` disables automatic item/camera redraws, coalescing
+changes into the latest complete frame. A scene-change observer is rebound
+after scene replacements; camera scrolls also mark the view dirty. An unchanged
+scene does not become a continuous redraw loop. Missed timer deadlines do not
+queue a render catch-up burst. Exposure/resize and widget composition can still
+generate additional frames; this is not a hard cap on desktop presentations.
+
+Both OpenGL and software fallback support the cap. Terrain in this complete
+frame mode uses the existing reduced art-overlap padding. The default remains
+scene-driven rendering; empty/unset/zero disables the limit. Integer limits
+1–240 are accepted; invalid settings log a warning and retain normal updates.
+Paint profiling includes the requested repaint limit. Movement/combat/input
+code, the 16 ms simulation timer, 50 ms delta clamp, swap interval and the
+Intel cache-flushing workaround are unchanged. No priority boosts, focus
+guards, forced minimization, GPU waits or OBS settings changes were added.
+
+The tradeoff is reduced visual sampling at low limits. Input/simulation
+remain on the shared GUI thread, so actual scheduling delays can still affect
+both; no claim of a guaranteed latency bound is made. This mode needs an
+owner-controlled recording comparison in the same loaded maze/window size.
+Both existing CPU diagnostics can be enabled for that comparison, but neither
+measures GPU or encoder time.
+
+Renderer regressions now cover frame-limit parsing, software fallback,
+opaque/translucent pixels, latest item/camera positions after a burst
+of changes, and subsequent item-only updates without camera motion. Desktop
+GL variants cover the scheduled full-frame path. The Release game and Debug
+renderer regression executable were compiled. No tests, game launches or
+recording trials were run, following the owner's manual-verification rule.
+
 ## Scope and verification
 
 Reviewed the current implementation in all **47 C++ source/header files**, all **26 JavaScript files** (chapters 1–25 and sandbox), all **6 Python tools**, CMake/install configuration, launcher template, the scripting reference, sprite workflow, README, and repository instructions. Asset validation covered **153 JSON files**, **99 character directories**, **135 prop entries**, and **93 item entries**. The historical `T2gu-legacy/` tree was excluded, as repository instructions explicitly designate it as unbuilt historical material.

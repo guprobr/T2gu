@@ -89,6 +89,19 @@ cmake --build build -j$(nproc)
   Keep this accelerated configuration, including the Iris cache-flushing
   option. This is owner verification on the observed setup, not a measured
   frame-time result or identification of the underlying driver defect.
+- October 5 OBS follow-up: the owner reported game-side latency/stutter
+  during recording. `T2GU_MAX_FPS=30` now opts into scheduled whole-viewport
+  scene repaints, using `NoViewportUpdate` plus a precise `QChronoTimer`;
+  camera and item changes accumulate until the next frame. Unchanged
+  scenes skip repaint requests; scene replacements rebind the dirty observer.
+  The simulation timer, input handling and 50 ms delta cap remain independent. Unset/empty
+  or `0` retains scene-driven rendering; valid limits are 1–240. Both GL
+  and software fallback support the cap, and terrain retains its reduced
+  whole-frame art-overlap margin in this mode. Exposure/resize and widget
+  composition may cause extra frames; this is a scene repaint cap, not a
+  guarantee of all-window presentation rate or input latency. Renderer
+  regressions were added/compiled but not run; the agent did not launch
+  the game. OBS-loaded performance remains unmeasured.
 - Assets are found through `assetDir()`/`assetPath()` (`src/assets/AssetPath.h`) —
   never build a path from the `ASSET_DIR` macro directly (`QStringLiteral(ASSET_DIR
   "/x")` was the old pattern and is gone). Resolution order: `$T2GU_ASSET_DIR`,

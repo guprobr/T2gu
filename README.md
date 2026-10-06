@@ -85,6 +85,34 @@ composition/presentation and are not GPU timings or displayed FPS. Profiling
 adds measurement/logging overhead and is off in normal play. Keep the log
 when reporting a remaining hitch so optimization can follow the measured cost.
 
+### Recording with OBS or playing under system load
+
+To leave more CPU/GPU time for recording, limit scene repaints independently
+of the game's simulation timer:
+
+```sh
+T2GU_MAX_FPS=30 ./build/T2gu2
+```
+
+This requests complete scene frames at most 30 Hz when the scene or camera
+changes, using the latest character and camera positions. An unchanged scene
+does not trigger periodic redraws. Movement, combat, input handling and the existing 50 ms
+simulation-delta cap retain their normal timing. The setting works with
+OpenGL and software fallback. Omit it or set it to `0` to retain normal
+scene-driven rendering; integer limits from `1` to `240` are accepted.
+Try `30` while recording, or `60` if the system has enough headroom. Lower
+repaint rates trade visual smoothness for fewer scene draws; system load can
+still delay both simulation and presentation. Window exposure, resize and
+widget composition can generate additional frames, so this limits routine
+scene/camera repaints rather than every desktop presentation.
+
+[OBS also recommends limiting game frame rates](https://obsproject.com/kb/encoding-performance-troubleshooting#limit-the-game-framerate)
+to leave rendering resources available for capture. The benefit for this
+game needs manual verification with OBS running. For comparable logs, use
+`T2GU_PROFILE_RENDER=1 T2GU_PROFILE_PATHFINDING=1`, walk through the same
+loaded maze at the same window size with and without recording, then repeat
+with the repaint limit. CPU paint/AI timing does not measure GPU time.
+
 **Want to skip to a specific chapter?** Set `T2GU_MAP_PATH`:
 
 ```sh

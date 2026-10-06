@@ -26,7 +26,6 @@ void check(bool condition, const char *message)
         qFatal("Renderer regression failed: %s", message);
 }
 
-#ifdef T2GU_HAS_OPENGL
 void pumpEvents(int milliseconds)
 {
     QEventLoop loop;
@@ -34,6 +33,7 @@ void pumpEvents(int milliseconds)
     loop.exec();
 }
 
+#ifdef T2GU_HAS_OPENGL
 void waitFor(const std::function<bool()> &condition, const char *message)
 {
     QElapsedTimer deadline;
@@ -217,11 +217,72 @@ void checkPixels(GameView &view)
     view.hide();
     view.setScene(nullptr);
 }
+
+void checkLimitedScene(GameView &view)
+{
+    class PositionProbe final : public QGraphicsRectItem
+    {
+    public:
+        PositionProbe() : QGraphicsRectItem(-6, -6, 12, 12) { setBrush(Qt::red); }
+        int paints = 0;
+        QPointF paintedPosition;
+        QPointF paintedViewportPosition;
+        void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override
+        {
+            ++paints;
+            paintedPosition = pos();
+            paintedViewportPosition = painter->worldTransform().map(QPointF());
+            QGraphicsRectItem::paint(painter, option, widget);
+        }
+    };
+    QGraphicsScene scene;
+    scene.setSceneRect(0, 0, 2048, 1536);
+    auto *probe = new PositionProbe;
+    scene.addItem(probe);
+    probe->setPos(900, 700);
+    view.setScene(&scene);
+    view.setFrameShape(QFrame::NoFrame);
+    view.setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    view.setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    view.resize(96, 96);
+    view.centerOn(probe);
+    view.show();
+    QElapsedTimer deadline;
+    deadline.start();
+    while (probe->paints == 0 && deadline.elapsed() < 5000)
+        pumpEvents(10);
+    check(probe->paints > 0, "limited viewport paints its initial scene");
+    probe->paints = 0;
+    // Many simulation/camera changes between paints must leave the next
+    // scheduled frame at the latest position, without stale scroll pixels.
+    for (int i = 0; i < 200; ++i) {
+        probe->setPos(900 + i, 700 + i);
+        view.centerOn(probe);
+    }
+    deadline.restart();
+    while ((probe->paints == 0 || probe->paintedPosition != probe->pos()) && deadline.elapsed() < 5000)
+        pumpEvents(10);
+    check(probe->paints > 0 && probe->paintedPosition == probe->pos(),
+          "limited renderer presents the latest scene position using its frame timer");
+    check(qAbs(probe->paintedViewportPosition.x() - view.viewport()->width() / 2.0) <= 1
+              && qAbs(probe->paintedViewportPosition.y() - view.viewport()->height() / 2.0) <= 1,
+          "limited renderer presents the latest camera position without partial scrolling");
+    probe->paints = 0;
+    probe->setPos(probe->pos() + QPointF(8, 12)); // no camera scroll or external viewport update
+    deadline.restart();
+    while ((probe->paints == 0 || probe->paintedPosition != probe->pos()) && deadline.elapsed() < 5000)
+        pumpEvents(10);
+    check(probe->paints > 0 && probe->paintedPosition == probe->pos(),
+          "item-only changes mark the limited scene dirty after its previous frame");
+    view.hide();
+    view.setScene(nullptr);
+}
 }
 
 int main(int argc, char **argv)
 {
     QApplication app(argc, argv);
+    qunsetenv("T2GU_MAX_FPS"); // launch-shell settings must not change baseline checks
     const QString mode = argc == 2 ? QString::fromLocal8Bit(argv[1]) : QString();
     if (mode == QLatin1String("--focus")) {
         checkFocusLifecycle();
@@ -248,6 +309,14 @@ int main(int argc, char **argv)
             check(!softwareView.usesOpenGL(), "explicit software overrides the available OpenGL default");
             checkPixels(softwareView);
         }
+        qputenv("T2GU_RENDERER", "opengl");
+        qputenv("T2GU_MAX_FPS", "30");
+        GameView cappedView;
+        check(cappedView.usesOpenGL() && cappedView.maximumFrameRate() == 30
+                  && cappedView.viewportUpdateMode() == QGraphicsView::NoViewportUpdate,
+              "frame limiting retains OpenGL with complete scheduled frames");
+        checkPixels(cappedView);
+        checkLimitedScene(cappedView);
         qInfo("OpenGL renderer regression passed");
         return 0;
     }
@@ -272,6 +341,29 @@ int main(int argc, char **argv)
     // exercises a build configured without the optional OpenGL module.
     check(!fallbackView.usesOpenGL(), "unavailable OpenGL falls back before creating its viewport");
     checkPixels(fallbackView);
+    qputenv("T2GU_MAX_FPS", "30");
+    GameView cappedFallback;
+    check(!cappedFallback.usesOpenGL() && cappedFallback.maximumFrameRate() == 30
+              && cappedFallback.viewportUpdateMode() == QGraphicsView::NoViewportUpdate,
+          "unavailable OpenGL retains the requested frame limit on software");
+    checkPixels(cappedFallback);
+    checkLimitedScene(cappedFallback);
+    qputenv("T2GU_RENDERER", "software");
+    for (const QByteArray value : {QByteArray("1"), QByteArray(" 30 "), QByteArray("60"), QByteArray("240")}) {
+        qputenv("T2GU_MAX_FPS", value);
+        GameView capped;
+        check(capped.maximumFrameRate() == value.trimmed().toInt()
+                  && capped.viewportUpdateMode() == QGraphicsView::NoViewportUpdate,
+              "valid frame limits use scheduled complete viewport updates");
+    }
+    for (const QByteArray value : {QByteArray(), QByteArray("0"), QByteArray("-1"), QByteArray("241"),
+                                  QByteArray("bad"), QByteArray("2147483648")}) {
+        qputenv("T2GU_MAX_FPS", value);
+        GameView uncapped;
+        check(uncapped.maximumFrameRate() == 0
+                  && uncapped.viewportUpdateMode() == QGraphicsView::MinimalViewportUpdate,
+              "disabled or invalid frame limits retain software scene-driven updates");
+    }
     qInfo("Renderer selection regressions passed");
     return 0;
 }
