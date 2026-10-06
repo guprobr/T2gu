@@ -27,11 +27,17 @@
 class BlockingGrid
 {
 public:
-    void clear() { m_buckets.clear(); }
+    quint64 revision() const { return m_revision; }
+    void clear()
+    {
+        m_buckets.clear();
+        ++m_revision;
+    }
 
     void insert(const QRectF &rect)
     {
         forEachBucket(rect, [this, &rect](qint64 key) { m_buckets[key].append(rect); });
+        ++m_revision;
     }
 
     void remove(const QRectF &rect)
@@ -41,6 +47,7 @@ public:
             if (it != m_buckets.end())
                 it->removeOne(rect);
         });
+        ++m_revision;
     }
 
     bool containsPoint(qreal x, qreal y) const
@@ -107,4 +114,5 @@ private:
     }
 
     QHash<qint64, QVector<QRectF>> m_buckets;
+    quint64 m_revision = 0; // invalidates cached navigation after any blocker change
 };

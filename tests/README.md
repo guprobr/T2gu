@@ -22,7 +22,10 @@ cells, wall sliding, and negative/nonfinite coordinates. Window checks cover
 inventory handing off to delayed dialogue and clearing direction/Shift state
 on window and application deactivation. Path checks cover normal 60 Hz
 progress, genuine stalls, waypoint changes, unreachable-target cooldowns,
-and recovery when a gate opens. Music checks cover cancelled/replaced fades,
+and recovery when a gate opens. Maze checks compare route lengths to an
+independent BFS reference and verify cardinal steps, warmed-cache invalidation
+when blockers or water change, tileset swaps, temporary block removal,
+blocked endpoint exceptions and invalid endpoints. Music checks cover cancelled/replaced fades,
 intro deadline and early-completion handoffs, script track/silence ownership,
 retired scenes, and actual media load failure without completion. Intro timing
 is accelerated and completion signals are injected for policy checks;
@@ -62,6 +65,17 @@ between contained and out-of-art shadow offsets. Returning to inline drawing
 must reproduce the original pixels without changing art bounds, anchors or
 collision footprints. These structural checks avoid flaky timing thresholds;
 real-asset camera-pan profiling is separate from startup smoke checks.
+
+For manual maze profiling, launch with `T2GU_PROFILE_PATHFINDING=1`.
+Every three seconds, `[pathfinding]` logs combined enemy/party AI time per
+tick (average/maximum), search counts, successes, expansion-cap failures,
+expanded cells, uncached walkability checks, and average/maximum search time.
+The AI time includes searches and trail/crowd steering; it excludes character
+movement integration, other simulation work, painting and GPU presentation.
+Timing adds overhead and is disabled during ordinary play. Use with
+`T2GU_PROFILE_RENDER=1` to compare CPU search/AI costs with paint costs in
+the same manual session. These diagnostics do not establish a speedup until
+measured in gameplay.
 
 `renderer_selection` checks fallback from the OpenGL default, explicit software, invalid
 renderer selection and unavailable OpenGL fallback, including actual opaque

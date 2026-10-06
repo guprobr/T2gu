@@ -567,6 +567,18 @@ confirmed fix for the Intel GPU hang.
   Stuck detection measures accumulated progress over its time window, not
   an 8px requirement per frame; changing waypoints resets that baseline.
   A reachable slow-moving character must never blacklist its own path.
+- October 5 pathfinding optimization: A* now uses reusable dense tile
+  costs/parents with generation stamps and a reusable heap. Equal-cost ties
+  prefer progress toward the goal; stale heap entries do not consume the
+  expansion cap. Tile-center walkability is cached lazily until
+  `TileMap::walkabilityRevision()` or `BlockingGrid::revision()` changes.
+  Water transitions, successful tileset/map loads and blocker mutations
+  invalidate the cache; temporary stuck-cell blocks stay outside it.
+  Start/goal center exceptions and four-directional routes are retained.
+  `T2GU_PROFILE_PATHFINDING=1` reports three-second CPU search and combined
+  enemy/party AI summaries; see `tests/README.md` for their scope. The
+  optimization is source-based; gameplay speedup remains unmeasured.
+  Regression checks were added but not run, honoring manual verification.
 - Once the leader has stood still for `kPartyCrowdSettleSeconds`,
   followers that can see it and are inside the crowd area stop lining up
   and `shuffleInCrowd()` idles them in a loose crowd: short random steps

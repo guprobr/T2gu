@@ -68,6 +68,7 @@ class EngineRegressionAccess
 public:
     static int chapterSmoke(QApplication &app, const QString &mapPath);
     static void testPathRecovery(const QString &root);
+    static void testMazePathfinding(const QString &root);
     static void testMusicOwnership(const QString &root);
     static void testFailedLoads(const QString &root);
     static void testProjectileAndSelection(const QString &root);
@@ -297,6 +298,110 @@ void EngineRegressionAccess::testPathRecovery(const QString &root)
     for (int i = 0; i < 35; ++i)
         scene.moveAlongPath(hero, path, target, 320, 1.0 / 60);
     check(!path.waypoints.isEmpty(), "failed search retries after its cooldown and recovers when a gate opens");
+}
+
+void EngineRegressionAccess::testMazePathfinding(const QString &root)
+{
+    GameState state;
+    GameScene scene(&state, makeMap(root, "maze_paths", "function onLevelStart(){}"));
+    waitUntil([&] { return scene.isReady(); });
+    scene.stopTicking();
+    scene.scriptSetBarrier("north", 0, 0, 10, 1, true);
+    scene.scriptSetBarrier("south", 0, 9, 10, 1, true);
+    scene.scriptSetBarrier("west", 0, 0, 1, 10, true);
+    scene.scriptSetBarrier("east", 9, 0, 1, 10, true);
+    scene.scriptSetBarrier("first_turn", 3, 1, 1, 7, true);
+    scene.scriptSetBarrier("second_turn", 6, 2, 1, 7, true);
+    const auto center = [](QPoint cell) { return QPointF((cell.x() + 0.5) * 128, (cell.y() + 0.5) * 128); };
+    const auto walkable = [&](QPoint cell) {
+        const QPointF point = center(cell);
+        return scene.m_map.isWalkable(point.x(), point.y())
+            && !scene.m_blockingAreas.containsPoint(point.x(), point.y());
+    };
+    // An independent breadth-first reference checks optimal length and
+    // every step through alternating dead ends; equal-cost A* ties may
+    // choose different valid routes.
+    const auto shortestDistance = [&](QPoint start, QPoint goal) {
+        QVector<int> distances(100, -1);
+        QVector<QPoint> queue{start};
+        distances[start.y() * 10 + start.x()] = 0;
+        const QPoint directions[] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+        for (qsizetype i = 0; i < queue.size(); ++i) {
+            const QPoint current = queue.at(i);
+            const int distance = distances[current.y() * 10 + current.x()];
+            if (current == goal)
+                return distance;
+            for (const QPoint &direction : directions) {
+                const QPoint next = current + direction;
+                if (next.x() < 0 || next.y() < 0 || next.x() >= 10 || next.y() >= 10 || !walkable(next))
+                    continue;
+                int &nextDistance = distances[next.y() * 10 + next.x()];
+                if (nextDistance >= 0)
+                    continue;
+                nextDistance = distance + 1;
+                queue.append(next);
+            }
+        }
+        return -1;
+    };
+    const QPoint endpoints[] = {{1, 1}, {2, 8}, {4, 1}, {5, 8}, {7, 1}, {8, 8}};
+    for (const QPoint &start : endpoints) {
+        for (const QPoint &goal : endpoints) {
+            const auto route = scene.findPath(center(start), center(goal));
+            check(route.size() == shortestDistance(start, goal), "maze A* matches independent BFS shortest length");
+            QPoint previous = start;
+            for (const QPointF &point : route) {
+                const QPoint cell(int(point.x() / 128), int(point.y() / 128));
+                check(point == center(cell) && walkable(cell), "maze route uses walkable tile centers");
+                check((cell - previous).manhattanLength() == 1, "maze route never wraps rows or cuts diagonal corners");
+                previous = cell;
+            }
+            check(previous == goal, "maze route reaches its requested goal");
+        }
+    }
+    const QPointF start = center({1, 1}), goal = center({8, 8});
+    check(scene.findPath(start, goal).size() == 28, "maze path goes around both walls");
+    scene.scriptSetBarrier("first_turn", 0, 0, 1, 1, false);
+    check(scene.findPath(start, goal).size() == 14, "removing the first wall allows a shorter route");
+    scene.scriptSetBarrier("first_turn", 3, 1, 1, 7, true);
+    check(scene.findPath(start, goal).size() == 28, "adding a wall invalidates warmed open-cell caches");
+
+    scene.m_temporarilyBlockedCells.insert({3, 8}, 6.0);
+    check(scene.findPath(start, goal).isEmpty(), "temporary blacklist can close the only maze mouth");
+    scene.m_temporarilyBlockedCells.clear();
+    check(scene.findPath(start, goal).size() == 28, "expired temporary blocks do not poison static walkability");
+    scene.scriptSetBarrier("mouth", 3, 8, 1, 1, true);
+    check(!scene.findPath(start, center({3, 8})).isEmpty(), "blocked goal center still permits an approach");
+    check(scene.findPath(start, goal).isEmpty(), "goal exception never makes a blocked cell traversable later");
+    scene.scriptSetBarrier("mouth", 0, 0, 1, 1, false);
+    scene.scriptSetBarrier("start", 1, 1, 1, 1, true);
+    check(scene.findPath(start, goal).size() == 28, "a newly blocked start still allows a route out");
+    scene.scriptSetBarrier("start", 0, 0, 1, 1, false);
+
+    writeJson(root + "/tilesets/path_water.json", {{"sheet", "ground.png"}, {"tileWidth", 128},
+              {"tileHeight", 128}, {"columns", 10}, {"tiles", QJsonObject{{"ground", 0}, {"water", 9}}}});
+    scene.m_map.setBaseTile(3, 8, 9);
+    check(scene.findPath(start, goal).size() == 28, "secondary terrain remains decorative without a water tile");
+    QString error;
+    check(scene.m_map.loadTileset("../tilesets/path_water.json", &error), "load maze water tileset");
+    check(scene.findPath(start, goal).isEmpty(), "tileset water semantics invalidate cached routes");
+    scene.m_map.setBaseTile(3, 8, 0);
+    check(scene.findPath(start, goal).size() == 28, "draining terrain restores the warmed maze mouth");
+    scene.m_map.setBaseTile(3, 8, 9);
+    check(scene.findPath(start, goal).isEmpty(), "flooding terrain closes a cached walkable cell");
+    check(!scene.m_map.loadTileset("missing.json", &error), "reject missing replacement tileset");
+    check(scene.findPath(start, goal).isEmpty(), "failed tileset replacement retains navigation state");
+    check(scene.m_map.loadTileset("../tilesets/ground.json", &error), "restore decorative tileset");
+    check(scene.findPath(start, goal).size() == 28, "removing water semantics restores navigation");
+
+    const QPointF invalid[] = {{-0.5, 128}, {128, -0.5}, {1280, 128}, {128, 1280},
+        {std::numeric_limits<qreal>::infinity(), 128}, {128, std::numeric_limits<qreal>::quiet_NaN()}};
+    for (const QPointF &point : invalid) {
+        check(scene.findPath(start, point).isEmpty(), "reject out-of-map or nonfinite path goals");
+        check(scene.findPath(point, goal).isEmpty(), "reject out-of-map or nonfinite path starts");
+    }
+    scene.m_blockingAreas.clear();
+    check(scene.findPath(start, goal).size() == 14, "clearing blockers invalidates warmed navigation");
 }
 
 void EngineRegressionAccess::testMusicOwnership(const QString &root)
@@ -1586,6 +1691,7 @@ int main(int argc, char **argv)
     EngineRegressionAccess::testProjectileAndSelection(fixtures.path());
     EngineRegressionAccess::testRenderingAndDefeatPositions(fixtures.path());
     EngineRegressionAccess::testPathRecovery(fixtures.path());
+    EngineRegressionAccess::testMazePathfinding(fixtures.path());
     EngineRegressionAccess::testMusicOwnership(fixtures.path());
     testMovementCollision(fixtures.path());
     testWindowInput(fixtures.path());

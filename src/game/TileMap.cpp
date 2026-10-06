@@ -99,6 +99,7 @@ bool TileMap::load(const QString &jsonPath, QString *errorOut)
         return fail(QStringLiteral("invalid object grid shape or tile index"));
 
     candidate.m_tilesetRevision = m_tilesetRevision + 1;
+    candidate.m_walkabilityRevision = m_walkabilityRevision + 1;
     *this = std::move(candidate);
     return true;
 }
@@ -120,6 +121,7 @@ bool TileMap::loadTileset(const QString &tilesetRelPath, QString *errorOut)
     m_tileSheet = std::move(candidate);
     m_waterTileIndex = m_tileSheet.indexByName(QStringLiteral("water"));
     ++m_tilesetRevision;
+    ++m_walkabilityRevision;
     return true;
 }
 
@@ -127,7 +129,14 @@ void TileMap::setBaseTile(int col, int row, int index)
 {
     if (col < 0 || row < 0 || col >= m_width || row >= m_height || index < -1 || index >= m_tileSheet.tileCount())
         return;
-    m_base[row * m_width + col] = index;
+    int &tile = m_base[row * m_width + col];
+    if (tile == index)
+        return;
+    // Decorative edits cannot change collision. Water transitions must
+    // invalidate navigation even when the artwork revision is unchanged.
+    if (m_waterTileIndex != -1 && (tile == m_waterTileIndex || index == m_waterTileIndex))
+        ++m_walkabilityRevision;
+    tile = index;
 }
 
 int TileMap::baseAt(int col, int row) const

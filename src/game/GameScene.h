@@ -602,18 +602,14 @@ private:
     // includeShuffleTargets also counts the spots other members are
     // currently walking to, so two of them don't pick the same one.
     bool violatesCrowdSpacing(QPointF point, const Character *self, bool includeShuffleTargets) const;
-    // Grid BFS (4-directional, no diagonals - this engine's mazes are
-    // grid-aligned corridors, so diagonal shortcuts would just cut through
-    // wall corners) from fromWorld to toWorld, walkability tested the same
-    // way Character::isBlocked() resolves real movement collision (tile
-    // walkability + m_blockingAreas) - just inlined here against m_map/
-    // m_blockingAreas directly rather than through a Character instance,
-    // since that check is private to Character and every character shares
-    // the same map/blocking state anyway. Returns an empty vector if no
-    // path was found within kPathfindMaxExpansions node expansions (see
-    // GameScene.cpp) - a safety cap, not a hard map-size limit, so this
-    // can't stall a tick on a huge unreachable search.
-    QVector<QPointF> findPath(QPointF fromWorld, QPointF toWorld) const;
+    // Four-directional A* over tile centers; continuous movement still
+    // uses Character's swept collision. Reusable search storage and lazy
+    // walkability caches avoid allocating/hashing every visited cell.
+    // Returns empty for same-cell targets, invalid endpoints or a failed/
+    // capped search. Start/goal centers may be blocked: actors can stand
+    // at a walkable edge of those cells, so getting close remains useful.
+    QVector<QPointF> findPath(QPointF fromWorld, QPointF toWorld);
+    void reportPathfindingMetrics();
     void applyHealthBarDisplay();
     void updateItemPickups();
     // Shared tail of scriptSpawnItem()/dropRandomLoot() - places itemId's
@@ -736,6 +732,39 @@ private:
     QHash<Character *, qreal> m_fireballCooldowns;
     // Per-follower grid path for updatePartyAI() - see PartyPath/findPath().
     QHash<Character *, PartyPath> m_partyPaths;
+    struct PathCell
+    {
+        quint32 search = 0; // generation stamps avoid clearing costs/parents every search
+        int cost = 0;
+        int parent = -1;
+        quint8 walkability = 0; // 0 unknown, 1 blocked, 2 walkable
+    };
+    struct PathOpenNode
+    {
+        int cell;
+        int cost;
+        int estimate;
+    };
+    QVector<PathCell> m_pathCells;
+    QVector<PathOpenNode> m_pathOpen;
+    quint32 m_pathSearch = 0;
+    quint64 m_pathMapRevision = 0;
+    quint64 m_pathBlockingRevision = 0;
+    struct PathfindingMetrics
+    {
+        bool enabled = qEnvironmentVariableIntValue("T2GU_PROFILE_PATHFINDING") == 1;
+        QElapsedTimer window;
+        qint64 searchNanoseconds = 0;
+        qint64 maxSearchNanoseconds = 0;
+        qint64 aiNanoseconds = 0;
+        qint64 maxAiNanoseconds = 0;
+        int ticks = 0;
+        int searches = 0;
+        int found = 0;
+        int capped = 0;
+        int expansions = 0;
+        int walkabilityChecks = 0;
+    } m_pathMetrics;
     // The controlled character's recent route, oldest sample first - see
     // updateLeaderTrail()/followTrail(). Never dereferenced through
     // m_trailLeader, only compared, but destroyEntity() still clears it so

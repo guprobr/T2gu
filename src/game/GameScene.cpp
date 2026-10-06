@@ -16,9 +16,7 @@
 #include <QSet>
 #include <algorithm>
 #include <cmath>
-#include <queue>
 #include <utility>
-#include <vector>
 
 #include "rendering/FireballItem.h"
 #include "rendering/SceneLayers.h"
@@ -357,7 +355,7 @@ constexpr int kPathfindMaxExpansions = 12000; // safety cap, not a real map-size
 // single interval almost by construction, so this is really "how often do
 // we re-run A* while in continuous pursuit," not just "while still en
 // route" - a real `perf record` during a multi-companion soak showed
-// findPath()'s A* search (plus its QHash-based visited/cost tracking) as a
+// the previous hash-based A* search as a
 // measurable, non-trivial slice of total CPU time, driven by call
 // frequency more than any single call's own cost. 0.8s instead of 0.5s
 // trades a bit of path freshness for meaningfully fewer searches over a
@@ -1802,109 +1800,166 @@ void GameScene::moveAlongPath(Character *character, PartyPath &pathState, QPoint
         character->setVelocity(QPointF(0, 0));
 }
 
-QVector<QPointF> GameScene::findPath(QPointF fromWorld, QPointF toWorld) const
+QVector<QPointF> GameScene::findPath(QPointF fromWorld, QPointF toWorld)
 {
     const int tileW = m_map.tileWidth();
     const int tileH = m_map.tileHeight();
-    if (tileW <= 0 || tileH <= 0)
+    const int width = m_map.widthInTiles();
+    const int height = m_map.heightInTiles();
+    const auto onMap = [this](QPointF p) {
+        return std::isfinite(p.x()) && std::isfinite(p.y())
+            && p.x() >= 0.0 && p.y() >= 0.0
+            && p.x() < m_map.pixelWidth() && p.y() < m_map.pixelHeight();
+    };
+    if (tileW <= 0 || tileH <= 0 || !onMap(fromWorld) || !onMap(toWorld))
         return {};
 
-    auto toCell = [tileW, tileH](QPointF p) {
-        return QPoint(static_cast<int>(p.x()) / tileW, static_cast<int>(p.y()) / tileH);
+    const auto toCell = [tileW, tileH, width](QPointF p) {
+        return static_cast<int>(p.y() / tileH) * width + static_cast<int>(p.x() / tileW);
     };
-    auto cellCenter = [tileW, tileH](QPoint c) {
-        return QPointF(c.x() * tileW + tileW / 2.0, c.y() * tileH + tileH / 2.0);
+    const auto cellCenter = [tileW, tileH, width](int cell) {
+        return QPointF((cell % width + 0.5) * tileW, (cell / width + 0.5) * tileH);
     };
-
-    const QPoint start = toCell(fromWorld);
-    const QPoint goal = toCell(toWorld);
+    const int start = toCell(fromWorld);
+    const int goal = toCell(toWorld);
     if (start == goal)
         return {};
 
-    // A* (Manhattan-distance heuristic), not plain BFS - a following/
-    // chasing companion's target keeps moving further away as it runs,
-    // and BFS explores in uniform rings regardless of which direction the
-    // goal is actually in. On a real chase (goal tens of tiles away), that
-    // ring exploration was hitting kPathfindMaxExpansions and returning
-    // "no path found" long before it ever reached a genuinely reachable
-    // goal, stranding the companion on the straight-line fallback (see
-    // moveAlongPath) it was specifically added to avoid. A* biases
-    // expansion toward the goal, so the same distant target is found in a
-    // small fraction of the node visits. 4-directional only, no diagonals
-    // - diagonal steps would cut across wall corners in a grid-aligned
-    // maze built from tile-wide corridors.
-    static const QPoint kDirections[4] = { QPoint(1, 0), QPoint(-1, 0), QPoint(0, 1), QPoint(0, -1) };
-    auto heuristic = [&goal](QPoint p) { return std::abs(p.x() - goal.x()) + std::abs(p.y() - goal.y()); };
-
-    struct OpenNode
-    {
-        int f;
-        QPoint pos;
-    };
-    struct OpenNodeCompare
-    {
-        bool operator()(const OpenNode &a, const OpenNode &b) const { return a.f > b.f; }
+    QElapsedTimer searchClock;
+    if (m_pathMetrics.enabled)
+        searchClock.start();
+    int expansions = 0;
+    int walkabilityChecks = 0;
+    const auto recordSearch = [&](bool found, bool capped) {
+        if (!m_pathMetrics.enabled)
+            return;
+        const qint64 elapsed = searchClock.nsecsElapsed();
+        m_pathMetrics.searchNanoseconds += elapsed;
+        m_pathMetrics.maxSearchNanoseconds = std::max(m_pathMetrics.maxSearchNanoseconds, elapsed);
+        ++m_pathMetrics.searches;
+        m_pathMetrics.found += found;
+        m_pathMetrics.capped += capped;
+        m_pathMetrics.expansions += expansions;
+        m_pathMetrics.walkabilityChecks += walkabilityChecks;
     };
 
-    std::priority_queue<OpenNode, std::vector<OpenNode>, OpenNodeCompare> openSet;
-    QHash<QPoint, QPoint> cameFrom;
-    QHash<QPoint, int> bestCost;
-
-    cameFrom.insert(start, start);
-    bestCost.insert(start, 0);
-    openSet.push({ heuristic(start), start });
+    const int cellCount = width * height;
+    if (m_pathCells.size() != cellCount)
+        m_pathCells.resize(cellCount);
+    if (m_pathMapRevision != m_map.walkabilityRevision()
+            || m_pathBlockingRevision != m_blockingAreas.revision()) {
+        // Invalidate once at the next search, after all maze population or
+        // terrain edits finish, rather than once for every inserted prop.
+        for (PathCell &cell : m_pathCells)
+            cell.walkability = 0;
+        m_pathMapRevision = m_map.walkabilityRevision();
+        m_pathBlockingRevision = m_blockingAreas.revision();
+    }
+    if (++m_pathSearch == 0) {
+        for (PathCell &cell : m_pathCells)
+            cell.search = 0;
+        ++m_pathSearch;
+    }
+    PathCell *cells = m_pathCells.data();
+    const int goalX = goal % width;
+    const int goalY = goal / width;
+    const auto heuristic = [width, goalX, goalY](int cell) {
+        return std::abs(cell % width - goalX) + std::abs(cell / width - goalY);
+    };
+    const auto lowerPriority = [](const PathOpenNode &a, const PathOpenNode &b) {
+        // Prefer progress toward the goal on equal f scores. Open rooms
+        // otherwise expand large plateaus of equally promising cells.
+        return a.estimate != b.estimate ? a.estimate > b.estimate : a.cost < b.cost;
+    };
+    // Keep heap capacity across calls, including failures. All searches
+    // run sequentially in this scene's guarded simulation tick.
+    m_pathOpen.clear();
+    m_pathOpen.append({start, 0, heuristic(start)});
+    cells[start].search = m_pathSearch;
+    cells[start].cost = 0;
+    cells[start].parent = start;
+    const bool hasTemporaryBlocks = !m_temporarilyBlockedCells.isEmpty();
 
     bool found = false;
-    int expansions = 0;
-    while (!openSet.empty() && expansions < kPathfindMaxExpansions) {
-        const QPoint current = openSet.top().pos;
-        openSet.pop();
+    while (!m_pathOpen.isEmpty() && expansions < kPathfindMaxExpansions) {
+        std::pop_heap(m_pathOpen.begin(), m_pathOpen.end(), lowerPriority);
+        const PathOpenNode current = m_pathOpen.takeLast();
+        // An improved route can leave an older entry in the heap. It must
+        // not re-expand a cell or consume the safety cap a second time.
+        if (current.cost != cells[current.cell].cost)
+            continue;
         ++expansions;
-        if (current == goal) {
+        if (current.cell == goal) {
             found = true;
             break;
         }
-        const int currentCost = bestCost.value(current);
-
-        for (const QPoint &dir : kDirections) {
-            const QPoint next = current + dir;
-            // The goal cell is always accepted even if its own tile-center
-            // nominally reads as blocked (e.g. a target standing right at
-            // the edge of a wall) - the point is to get close, not to
-            // literally stand on that exact pixel.
+        const int x = current.cell % width;
+        const int y = current.cell / width;
+        const int neighbors[4] = {
+            x + 1 < width ? current.cell + 1 : -1,
+            x > 0 ? current.cell - 1 : -1,
+            y + 1 < height ? current.cell + width : -1,
+            y > 0 ? current.cell - width : -1
+        };
+        for (const int next : neighbors) {
+            if (next < 0)
+                continue;
+            PathCell &cell = cells[next];
+            const int cost = current.cost + 1;
+            if (cell.search == m_pathSearch && cost >= cell.cost)
+                continue;
+            // Preserve accepting a blocked goal center: the target may
+            // actually stand at its walkable edge. Never cache that exception.
             if (next != goal) {
-                const QPointF center = cellCenter(next);
-                const bool blocked = !m_map.isWalkable(center.x(), center.y())
-                    || m_blockingAreas.containsPoint(center.x(), center.y())
-                    || m_temporarilyBlockedCells.contains(next);
-                if (blocked)
+                if (cell.walkability == 0) {
+                    const QPointF center = cellCenter(next);
+                    cell.walkability = m_map.isWalkable(center.x(), center.y())
+                            && !m_blockingAreas.containsPoint(center.x(), center.y()) ? 2 : 1;
+                    ++walkabilityChecks;
+                }
+                if (cell.walkability == 1 || (hasTemporaryBlocks
+                        && m_temporarilyBlockedCells.contains(QPoint(next % width, next / width))))
                     continue;
             }
-            const int tentativeCost = currentCost + 1;
-            if (bestCost.contains(next) && tentativeCost >= bestCost.value(next))
-                continue;
-            bestCost.insert(next, tentativeCost);
-            cameFrom.insert(next, current);
-            openSet.push({ tentativeCost + heuristic(next), next });
+            cell.search = m_pathSearch;
+            cell.cost = cost;
+            cell.parent = current.cell;
+            m_pathOpen.append({next, cost, cost + heuristic(next)});
+            std::push_heap(m_pathOpen.begin(), m_pathOpen.end(), lowerPriority);
         }
     }
-
-    if (!found)
+    if (!found) {
+        recordSearch(false, expansions >= kPathfindMaxExpansions);
         return {};
-
-    QVector<QPoint> cellPath;
-    QPoint cur = goal;
-    while (cur != start) {
-        cellPath.append(cur);
-        cur = cameFrom.value(cur);
     }
-    std::reverse(cellPath.begin(), cellPath.end());
 
     QVector<QPointF> waypoints;
-    waypoints.reserve(cellPath.size());
-    for (const QPoint &cell : cellPath)
+    waypoints.reserve(cells[goal].cost);
+    for (int cell = goal; cell != start; cell = cells[cell].parent)
         waypoints.append(cellCenter(cell));
+    std::reverse(waypoints.begin(), waypoints.end());
+    recordSearch(true, false);
     return waypoints;
+}
+
+void GameScene::reportPathfindingMetrics()
+{
+    if (!m_pathMetrics.window.isValid())
+        m_pathMetrics.window.start();
+    if (m_pathMetrics.window.elapsed() < 3000)
+        return;
+    const int searches = std::max(1, m_pathMetrics.searches);
+    const int ticks = std::max(1, m_pathMetrics.ticks);
+    qInfo().nospace() << "[pathfinding] ticks=" << m_pathMetrics.ticks
+        << " ai-ms(avg/max)=" << m_pathMetrics.aiNanoseconds / (ticks * 1.0e6)
+        << "/" << m_pathMetrics.maxAiNanoseconds / 1.0e6
+        << " searches=" << m_pathMetrics.searches << " found=" << m_pathMetrics.found
+        << " capped=" << m_pathMetrics.capped << " expansions=" << m_pathMetrics.expansions
+        << " walkability-checks=" << m_pathMetrics.walkabilityChecks
+        << " search-ms(avg/max)=" << m_pathMetrics.searchNanoseconds / (searches * 1.0e6)
+        << "/" << m_pathMetrics.maxSearchNanoseconds / 1.0e6;
+    m_pathMetrics = PathfindingMetrics{};
+    m_pathMetrics.window.start();
 }
 
 void GameScene::updateEnemyAI(qreal dtSeconds)
@@ -3213,8 +3268,18 @@ void GameScene::onTick()
     m_scriptEngine.onTick(dt);
     if (m_tickStopped || m_simulationPaused)
         return; // the script requested a level transition
+    QElapsedTimer aiClock;
+    if (m_pathMetrics.enabled)
+        aiClock.start();
     updateEnemyAI(dt);
     updatePartyAI(dt);
+    if (m_pathMetrics.enabled) {
+        const qint64 elapsed = aiClock.nsecsElapsed();
+        m_pathMetrics.aiNanoseconds += elapsed;
+        m_pathMetrics.maxAiNanoseconds = std::max(m_pathMetrics.maxAiNanoseconds, elapsed);
+        ++m_pathMetrics.ticks;
+        reportPathfindingMetrics();
+    }
     // After both melee AI passes, so a character that already started a
     // melee swing this tick (isActing()) never also casts the same tick -
     // melee gets first refusal.

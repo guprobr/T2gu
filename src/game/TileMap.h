@@ -27,6 +27,7 @@ public:
     int objAt(int col, int row) const;
     const TileSheet &tileSheet() const { return m_tileSheet; }
     quint64 tilesetRevision() const { return m_tilesetRevision; }
+    quint64 walkabilityRevision() const { return m_walkabilityRevision; }
 
     // Swaps which TileSheet the base/obj grids are drawn from, in place -
     // the grids themselves (and every index they contain) are untouched, so
@@ -60,4 +61,5 @@ private:
     QVector<int> m_obj;
     int m_waterTileIndex = -1;
     quint64 m_tilesetRevision = 0;
+    quint64 m_walkabilityRevision = 0;
 };

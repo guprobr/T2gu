@@ -974,6 +974,49 @@ optimization. Only documentation was updated after this confirmation;
 the working code and binary were left unchanged. No tests, game launches
 or commits were performed by the agent in this follow-up.
 
+### Maze pathfinding optimization (2026-10-05)
+
+The owner suspected pathfinding costs inside mazes. Source inspection found
+that every A* call allocated two per-cell hash tables and a priority queue,
+repeated map/prop-center checks for neighboring cells, and counted stale heap
+entries against the 12,000-expansion cap. This is evidence of avoidable work;
+no new runtime profile establishes pathfinding as the current bottleneck.
+
+`findPath()` now retains a dense tile array for generation-stamped costs and
+parents, plus heap capacity across searches. Walkability is evaluated lazily
+once per queried tile until terrain or blocker revisions change. Successful
+map/tileset loads, water transitions and blocking-grid insert/remove/clear
+operations invalidate this cache; ordinary decorative terrain edits do not.
+Temporary stuck-cell blocks are checked independently so their expiration
+cannot leave stale cached obstacles. Stale queue entries are discarded before
+expansion accounting, and equal estimated-cost ties prefer progress toward
+the target. Endpoint bounds are checked before indexing the dense array.
+
+Four-directional shortest-path search, blocked start/goal-center exceptions,
+retry cooldowns, continuous movement collision and leader-trail following
+remain in place. The change can choose a different equally short route.
+Per-scene retained search storage scales with map cell count (16 bytes per
+tile plus the heap), rather than only the cells explored by the latest call.
+The existing map validation bounds this allocation to at most 1,048,576
+cells; ordinary shipped maps are much smaller.
+
+`T2GU_PROFILE_PATHFINDING=1` adds three-second summaries of combined
+enemy/party AI time per tick, search average/maximum time, counts, successes,
+expansion-cap failures, expanded cells and uncached walkability checks.
+Combined AI includes search, trail/crowd steering and melee decisions, but
+excludes movement integration, other simulation, rendering and presentation.
+Search timing includes initial scratch allocation/cache invalidation and
+waypoint reconstruction. Timing adds overhead and is disabled by default.
+Use alongside `T2GU_PROFILE_RENDER=1` for an owner's manual maze session.
+
+New opt-in regression cases compare routes against an independent BFS
+reference through alternating maze turns and cover gate changes, temporary
+blocks, blocked endpoints, clearing blockers, water edits, tileset swaps
+and invalid endpoints. The Release game and Debug regression executable
+were compiled. No tests, game launches or benchmarks were run, honoring the
+owner's manual-verification instruction. Gameplay speedup and the relative
+contribution of pathfinding remain unmeasured.
+
 ## Scope and verification
 
 Reviewed the current implementation in all **47 C++ source/header files**, all **26 JavaScript files** (chapters 1–25 and sandbox), all **6 Python tools**, CMake/install configuration, launcher template, the scripting reference, sprite workflow, README, and repository instructions. Asset validation covered **153 JSON files**, **99 character directories**, **135 prop entries**, and **93 item entries**. The historical `T2gu-legacy/` tree was excluded, as repository instructions explicitly designate it as unbuilt historical material.
