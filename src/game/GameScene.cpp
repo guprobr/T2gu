@@ -1,5 +1,6 @@
 #include "game/GameScene.h"
 #include "assets/AssetPath.h"
+#include "app/RuntimeMetrics.h"
 
 #include <QDebug>
 #include <QDir>
@@ -794,6 +795,9 @@ GameScene::GameScene(GameState *state, const QString &mapPath, QObject *parent)
         }
     }
 
+    // Simulation cadence should not inherit coarse-timer wakeup coalescing.
+    // A busy GUI thread can still delay even a precise timer.
+    m_tickTimer.setTimerType(Qt::PreciseTimer);
     connect(&m_tickTimer, &QTimer::timeout, this, &GameScene::onTick);
     // Listeners are connected after construction. Keep simulation stopped
     // throughout initial population and synchronous readiness callbacks:
@@ -820,6 +824,7 @@ GameScene::GameScene(GameState *state, const QString &mapPath, QObject *parent)
             return;
         m_clock.start();
         m_lastElapsedMs = 0;
+        RuntimeMetrics::reset();
         m_tickTimer.start(kTickIntervalMs);
     });
 }
@@ -1163,7 +1168,7 @@ void GameScene::spawnEnemies()
     static const QVector<Spawn> spawns = {
         { QStringLiteral("skeleton_swordsman"), 25, 4 },
         { QStringLiteral("zombie_peasant"), 29, 7 },
-        { QStringLiteral("orc"), 24, 10 },
+        { QStringLiteral("goblin"), 24, 10 },
         { QStringLiteral("wraith"), 32, 5 },
     };
 
@@ -1278,6 +1283,13 @@ void GameScene::updateCorpseCleanup(qreal dtSeconds)
 
 void GameScene::updatePartyAI(qreal dtSeconds)
 {
+    // No follower consumes the trail in a solo party. Invalidate it so a
+    // subsequent recruit starts at the leader's current position.
+    if (m_party.size() <= 1) {
+        m_trailLeader = nullptr;
+        m_leaderTrail.clear();
+        return;
+    }
     Character *controlled = controlledCharacter();
     if (!controlled)
         return;
@@ -2304,6 +2316,7 @@ void GameScene::resumeSimulation()
     if (!m_clock.isValid())
         m_clock.start();
     m_lastElapsedMs = m_clock.elapsed();
+    RuntimeMetrics::reset();
     if (m_sceneReady)
         m_tickTimer.start(kTickIntervalMs);
 }
@@ -3224,6 +3237,17 @@ void GameScene::mousePressEvent(QGraphicsSceneMouseEvent *event)
     QGraphicsScene::mousePressEvent(event);
 }
 
+bool GameScene::event(QEvent *event)
+{
+    if (RuntimeMetrics::enabled() && event->type() == QEvent::MetaCall) {
+        // Qt's dirty-item callbacks can synchronously deliver window updates.
+        // Their duration includes nested viewport paint and presentation.
+        const RuntimeMetrics::Sample sample(RuntimeMetrics::SceneDispatch);
+        return QGraphicsScene::event(event);
+    }
+    return QGraphicsScene::event(event);
+}
+
 void GameScene::onTick()
 {
     // Sprite decoding can process Qt events inside a later script step as
@@ -3232,15 +3256,21 @@ void GameScene::onTick()
         return;
     QScopedValueRollback<bool> ticking(m_tickInProgress, true);
     const qint64 nowMs = m_clock.elapsed();
-    const qreal dt = std::min((nowMs - m_lastElapsedMs) / 1000.0, kMaxTickDtSeconds);
+    const qreal rawDt = (nowMs - m_lastElapsedMs) / 1000.0;
+    const qreal dt = std::min(rawDt, kMaxTickDtSeconds);
     m_lastElapsedMs = nowMs;
+    const RuntimeMetrics::Tick tick(rawDt, dt, m_party.size(), m_enemies.size(), m_npcs.size(),
+                                    m_props.size(), m_worldItems.size());
 
     // Driven from here rather than each item's own independent QTimer -
     // see TileMapItem::tick()/LightingOverlayItem::tick().
-    if (m_tileMapItem)
-        m_tileMapItem->tick();
-    if (m_lightingOverlayItem)
-        m_lightingOverlayItem->tick();
+    {
+        const RuntimeMetrics::Sample sample(RuntimeMetrics::VisualTimers);
+        if (m_tileMapItem)
+            m_tileMapItem->tick();
+        if (m_lightingOverlayItem)
+            m_lightingOverlayItem->tick();
+    }
 
     // See m_temporarilyBlockedCells - each entry expires on its own after
     // kTemporaryBlockSeconds rather than staying blacklisted forever.
@@ -3265,14 +3295,23 @@ void GameScene::onTick()
         }
     }
 
-    m_scriptEngine.onTick(dt);
+    {
+        const RuntimeMetrics::Sample sample(RuntimeMetrics::ScriptTick);
+        m_scriptEngine.onTick(dt);
+    }
     if (m_tickStopped || m_simulationPaused)
         return; // the script requested a level transition
     QElapsedTimer aiClock;
     if (m_pathMetrics.enabled)
         aiClock.start();
-    updateEnemyAI(dt);
-    updatePartyAI(dt);
+    {
+        const RuntimeMetrics::Sample sample(RuntimeMetrics::EnemyAI);
+        updateEnemyAI(dt);
+    }
+    {
+        const RuntimeMetrics::Sample sample(RuntimeMetrics::PartyAI);
+        updatePartyAI(dt);
+    }
     if (m_pathMetrics.enabled) {
         const qint64 elapsed = aiClock.nsecsElapsed();
         m_pathMetrics.aiNanoseconds += elapsed;
@@ -3283,27 +3322,37 @@ void GameScene::onTick()
     // After both melee AI passes, so a character that already started a
     // melee swing this tick (isActing()) never also casts the same tick -
     // melee gets first refusal.
-    updateFireballCasting(dt);
-    updatePendingFireballHits(dt);
-    updateCorpseCleanup(dt);
-    updateItemPickups();
-
-    for (Character *character : std::as_const(m_party)) {
-        character->tick(dt);
-        if (character->consumeWhistlePending())
-            playCreatureSound(character->name(), QStringLiteral("whistle"));
+    {
+        const RuntimeMetrics::Sample sample(RuntimeMetrics::Combat);
+        updateFireballCasting(dt);
+        updatePendingFireballHits(dt);
+        updateCorpseCleanup(dt);
     }
-    for (const Enemy &enemy : std::as_const(m_enemies)) {
-        enemy.character->tick(dt);
-        if (enemy.character->consumeWhistlePending())
-            playCreatureSound(enemy.name, QStringLiteral("whistle"));
-    }
-    for (const Npc &npc : std::as_const(m_npcs)) {
-        npc.character->tick(dt);
-        if (npc.character->consumeWhistlePending())
-            playCreatureSound(npc.name, QStringLiteral("whistle"));
+    {
+        const RuntimeMetrics::Sample sample(RuntimeMetrics::Pickups);
+        updateItemPickups();
     }
 
+    {
+        const RuntimeMetrics::Sample sample(RuntimeMetrics::Characters);
+        for (Character *character : std::as_const(m_party)) {
+            character->tick(dt);
+            if (character->consumeWhistlePending())
+                playCreatureSound(character->name(), QStringLiteral("whistle"));
+        }
+        for (const Enemy &enemy : std::as_const(m_enemies)) {
+            enemy.character->tick(dt);
+            if (enemy.character->consumeWhistlePending())
+                playCreatureSound(enemy.name, QStringLiteral("whistle"));
+        }
+        for (const Npc &npc : std::as_const(m_npcs)) {
+            npc.character->tick(dt);
+            if (npc.character->consumeWhistlePending())
+                playCreatureSound(npc.name, QStringLiteral("whistle"));
+        }
+    }
+
+    const RuntimeMetrics::Sample uiSample(RuntimeMetrics::Ui);
     refreshSelectionInfo();
 
     for (int i = m_levelUpEffects.size() - 1; i >= 0; --i) {

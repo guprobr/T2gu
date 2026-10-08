@@ -6,13 +6,72 @@
 #include <QPixmap>
 #include <QSplashScreen>
 #include <QTimer>
+#include <QThread>
+#include <QScopedValueRollback>
+#include <QMetaEnum>
 
 #include "assets/AssetPath.h"
 #include "rendering/GameView.h"
 #include "app/MainWindow.h"
 #include "app/Version.h"
+#include "app/RuntimeMetrics.h"
 
 namespace {
+// Time outer GUI event deliveries too: queued script/audio callbacks and
+// input hit testing can stall between simulation ticks. Receiver metadata
+// must be captured before delivery, since the callback may delete it.
+class ProfiledApplication final : public QApplication
+{
+public:
+    using QApplication::QApplication;
+    bool notify(QObject *receiver, QEvent *event) override
+    {
+        if (!RuntimeMetrics::enabled() || QThread::currentThread() != thread())
+            return QApplication::notify(receiver, event);
+        if (event->type() == QEvent::UpdateRequest) {
+            // Keep nested window composition visible inside a scene MetaCall.
+            const RuntimeMetrics::Sample sample(RuntimeMetrics::WindowUpdate);
+            return notifyProfiled(receiver, event);
+        }
+        if (event->type() == QEvent::Paint && receiver->isWidgetType()
+                && !receiver->inherits("QOpenGLWidget")) {
+            // Parent backgrounds and chrome use the raster backing store.
+            // Include nested paint deliveries, excluding the GL viewport.
+            const RuntimeMetrics::Sample sample(RuntimeMetrics::WidgetPaint);
+            return notifyProfiled(receiver, event);
+        }
+        return notifyProfiled(receiver, event);
+    }
+private:
+    bool notifyProfiled(QObject *receiver, QEvent *event)
+    {
+        if (m_notifying)
+            return QApplication::notify(receiver, event);
+        QScopedValueRollback<bool> notifying(m_notifying, true);
+        const QString receiverClass = QString::fromLatin1(receiver->metaObject()->className());
+        const QEvent::Type type = event->type();
+        const quint64 generation = RuntimeMetrics::window().generation;
+        QElapsedTimer clock;
+        clock.start();
+        const bool result = QApplication::notify(receiver, event);
+        const qint64 elapsed = clock.nsecsElapsed();
+        // A load/resume resets the session inside its readiness callback;
+        // don't then charge that entire loading event to the new session.
+        if (elapsed >= 16000000 && RuntimeMetrics::window().generation == generation) {
+            auto &w = RuntimeMetrics::window();
+            ++w.slowEvents;
+            if (elapsed > w.slowestEvent) {
+                w.slowestEvent = elapsed;
+                const char *name = QMetaEnum::fromType<QEvent::Type>().valueToKey(type);
+                w.eventDescription = QStringLiteral("receiver=%1 event=%2(%3)")
+                    .arg(receiverClass, QString::fromLatin1(name ? name : "unknown")).arg(int(type));
+            }
+        }
+        return result;
+    }
+    bool m_notifying = false;
+};
+
 // Held on screen for a fixed minimum duration below, same reasoning as
 // level-transition overlay: a warm start can finish quickly enough that
 // the splash would flash before anyone could read it. Cold sprite decoding
@@ -55,7 +114,7 @@ QPixmap buildSplashPixmap()
 int main(int argc, char *argv[])
 {
     GameView::configureRendererEnvironment();
-    QApplication app(argc, argv);
+    ProfiledApplication app(argc, argv);
     app.setApplicationVersion(QString::fromLatin1(kGameVersion));
 
     // Shown before MainWindow (and the actual first chapter it loads)

@@ -1,4 +1,5 @@
 #include "game/Prop.h"
+#include "app/RuntimeMetrics.h"
 #include "rendering/PaintMetrics.h"
 
 #include <QHash>
@@ -174,6 +175,7 @@ Prop::Prop(const QString &imagePath, qreal targetWidth, QGraphicsItem *parent)
     auto &cache = propAssetCache();
     auto it = cache.find(cacheKey);
     if (it == cache.end()) {
+        const RuntimeMetrics::Sample sample(RuntimeMetrics::Assets);
         QPixmap pixmap(imagePath);
         if (targetWidth > 0 && pixmap.width() > 0) {
             const qreal scale = targetWidth / pixmap.width();

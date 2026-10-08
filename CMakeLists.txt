@@ -47,6 +47,7 @@ set(T2GU_ASSET_DEFINITIONS
 add_executable(T2gu2
     src/app/MainWindow.cpp
     src/app/MainWindow.h
+    src/app/RuntimeMetrics.h
     src/app/Version.h
     src/app/main.cpp
 
@@ -82,6 +83,8 @@ add_executable(T2gu2
     src/rendering/LevelUpTextItem.h
     src/rendering/LightingOverlayItem.cpp
     src/rendering/LightingOverlayItem.h
+    src/rendering/OpenGLViewport.cpp
+    src/rendering/OpenGLViewport.h
     src/rendering/PaintMetrics.h
     src/rendering/SceneLayers.h
     src/rendering/TileMapItem.cpp
@@ -125,7 +128,8 @@ if (T2GU_BUILD_TESTS)
     add_test(NAME engine_regressions COMMAND T2guRegression)
     set_tests_properties(engine_regressions PROPERTIES
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;T2GU_RENDERER=software" TIMEOUT 60)
-    add_executable(T2guRendererRegression tests/RendererRegression.cpp src/rendering/GameView.cpp src/rendering/GameView.h)
+    add_executable(T2guRendererRegression tests/RendererRegression.cpp src/rendering/GameView.cpp src/rendering/GameView.h
+                   src/rendering/OpenGLViewport.cpp src/rendering/OpenGLViewport.h)
     target_include_directories(T2guRendererRegression PRIVATE src)
     target_link_libraries(T2guRendererRegression PRIVATE Qt6::Widgets ${T2GU_RENDERER_LIBRARIES})
     target_compile_definitions(T2guRendererRegression PRIVATE ${T2GU_RENDERER_DEFINITIONS})

@@ -102,6 +102,367 @@ cmake --build build -j$(nproc)
   guarantee of all-window presentation rate or input latency. Renderer
   regressions were added/compiled but not run; the agent did not launch
   the game. OBS-loaded performance remains unmeasured.
+- October 7 solo-maze follow-up: the owner reported continued stuttering in
+  complex mazes even without companions. The controlled hero never uses A*,
+  and hostile AI chases directly; follower pathfinding does not explain the
+  solo case. `updatePartyAI()` now skips trail maintenance with at most one
+  party member, invalidating the trail for future recruitment. The 16 ms
+  simulation timer now requests `Qt::PreciseTimer`; late delivery is still
+  possible under load. `T2GU_PROFILE_RUNTIME=1` adds three-second wall-time
+  summaries for ticks, actual intervals and outside-tick gaps, per-stage
+  timings, nested movement collision/audio/script/asset costs, entity counts,
+  and 50 ms delta clamps/discarded time. The normal executable also records
+  slow outer GUI Qt event deliveries, including queued callbacks and input.
+  Linux adds GUI-tick CPU time, process faults/context switches and RSS/swap.
+  Nested timings overlap; outside-tick time includes normal timer waiting.
+  Loading/resume resets the diagnostic baseline. Profiling is opt-in and
+  adds overhead. All enemies/NPCs still tick and may whistle remotely; new
+  scripted spawns can decode sprites synchronously, and process-lifetime
+  asset caches retain memory across chapters. These are investigated leads,
+  not confirmed causes. The Release binary was rebuilt; no tests or game
+  launches were run. A manual trace is pending. Renderer/cache configuration
+  is retained. See README and the October 7 review-report follow-up.
+  The owner's subsequent `/tmp/t2gu-runtime.log` run visibly reproduced the
+  stutter. Saved evidence: ignored `output/runtime-2026-10-07/` (raw log and
+  parsed summary). Across 13 reports, simulation ticks peaked at 6.511 ms
+  while actual intervals peaked at 184.203 ms; later medians were about
+  80–83 ms. Collision max was 0.080 ms, audio setup max 0.612 ms, with no
+  major faults or swap and RSS 684.5–756.0 MiB. Delayed delivery triggered
+  271 delta clamps, discarding 8.462 seconds of simulation time. Long outer
+  events predominantly targeted GameScene MetaCall, which is not proof of
+  expensive scripts: Qt's queued dirty-item updates synchronously deliver
+  window UpdateRequest events. Added opt-in nested scene-dispatch,
+  window-update and viewport-paint timings, including Linux GUI-thread CPU
+  costs, to separate scene maintenance/drawing from composition/presentation
+  waits. Rebuilt without agent launches or tests. The next detailed capture
+  is pending; renderer behavior and the underlying cause remain unchanged.
+  The next `/tmp/t2gu-runtime-detail.log` capture contains 29 runtime reports
+  and 30 paint reports. It locates the sustained stall inside window updates,
+  including drawing and additional non-paint work/waits. In report 8, scene
+  dispatch averaged 78.949 ms, window update 77.717 ms and viewport paint
+  30.542 ms (all 38 calls); tick median was 0.870 ms. Window CPU averaged
+  41.110 ms, paint CPU 30.014 ms. Thus scene maintenance outside the window
+  update cost ~1.232 ms, with ~47.175 ms elsewhere inside the update (~11.096
+  ms CPU plus ~36.079 ms without GUI-thread CPU execution). In smooth report
+  23, matched window/paint counts gave 14.472/3.336 ms mean wall duration.
+  Collision max 0.303 ms, audio setup max 0.686 ms, script execution max
+  0.087 ms; no major faults or swap, RSS 685.4–779.5 MiB. Across this capture,
+  606 clamps discarded 16.537 seconds of simulation. Saved raw detail log and
+  parsed `detail-summary.json` alongside the first evidence. These measurements
+  identify a drawing/window-update bottleneck; they do not identify a specific
+  driver defect, texture-cache issue or presentation mechanism. Non-rendering
+  simulation is not the sustained bottleneck in these recordings. No further
+  code changes, tests or agent game launches were made after reading the trace.
+  The owner then directed the investigation toward drawing and window
+  composition/presentation on Wayland, Intel and KDE. `T2GU_PROFILE_PRESENT=1`
+  now enables public QOpenGLWidget boundary measurements: scene paint,
+  paint completion to aboutToCompose, composition to frameSwapped, and Qt
+  swap-return intervals, with wall/GUI CPU distributions and display size,
+  DPR/refresh metadata. Desktop GL timer queries measure scene GPU elapsed
+  time asynchronously (eight-query pool, fetch only available results);
+  unsupported contexts retain wall/CPU probes. Qt flushShared precedes
+  aboutToCompose, so the preceding gap includes that synchronization plus
+  raster/event work. Qt Wayland EGL can wait for a frame callback before
+  eglSwapBuffers; the composition interval does not isolate the exact call.
+  frameSwapped is Qt submission completion, not KWin presentation/scanout.
+  Runtime profiling also times non-GL widget paint delivery (parent/HUD),
+  excluding backing-store texture uploads. Existing paint labels now correctly
+  say wall time. These diagnostics are opt-in, preserve the Intel cache option
+  and introduce no explicit GL flush/finish or unfinished-query waits. Release
+  rebuilt successfully; no game launches or tests. Manual capture pending.
+  The owner's first `/tmp/t2gu-present.log` capture felt smooth; Chrome and
+  Tidal had been closed. Saved as ignored
+  `output/runtime-2026-10-07/solo-maze-present-chrome-tidal-closed.log`, with
+  `present-summary.json`. Wayland/KDE/Intel GL and cache-flush=true are logged;
+  viewport 1920x1128, DPR 1, DP-2 nominal 59.95 Hz. Across 41 runtime reports,
+  7,426 ticks, interval medians were 16.169–16.737 ms; five clamps discarded
+  98 ms (previous detailed run: 606 clamps / 16.537 s). Scene paint medians
+  were 1.682–4.567 ms, GPU elapsed medians 4.160–8.666 ms; pre-compose max
+  1.194 ms and raster-widget-paint max 0.542 ms. No sustained 80 ms stalls.
+  Isolated gaps remain; idle/scene-driven update intervals are not proof of
+  blocked rendering. First 26 reports have the prior scene's 4551 props/11
+  NPCs, with changing enemy counts; later populations differ. The two apps'
+  closure and new GPU-query instrumentation prevent a controlled attribution.
+  External CPU/GPU/compositor contention is a lead, not an identified cause.
+  No renderer changes, tests or agent launches were made after this reading.
+  A subsequent `/tmp/t2gu-present.log` run with Chrome open and Tidal playing
+  music also stayed smooth (owner confirmed). Saved as
+  `solo-maze-present-chrome-tidal-playing.log`, with
+  `present-chrome-tidal-playing-summary.json` alongside the closed-app run.
+  Across 28 runtime reports / 5083 ticks, interval medians were 16.142–16.691 ms,
+  max 48.584 ms, zero delta clamps, tick max 1.156 ms. All reports have 4551
+  props / 11 NPCs. Scene paint medians 1.799–3.504 ms; GPU medians 4.718–9.594
+  ms. No major faults or swap. App closure is not established as the reason
+  for smoothness. Both smooth runs enabled new GPU query instrumentation;
+  to check its timing effects, `T2GU_PROFILE_PRESENT_GPU=0` now disables query
+  creation/markers/polling and their early makeCurrent while retaining all
+  wall/CPU boundary probes. Unset retains query behavior when PRESENT=1.
+  This is a diagnostic comparison, not a synchronization fix or a claim that
+  probes explain the original stutter. Release rebuilt; no tests or launches.
+  The following GPU-disabled run reproduced visible stutter (owner confirmed).
+  Saved `solo-maze-present-no-gpu.log` / `present-no-gpu-summary.json` contain
+  15 reports, 2117 ticks, 137 clamps / 5.446 s discarded. Slow reports 11–14
+  have tick medians 67.090–95.507 ms, paint medians 17.382–30.074 ms and
+  composition/swap medians 30.473–64.497 ms; GUI CPU paint rises too. Global
+  tick gap max 221.571 ms. GPU queries=false and cache-flush=true are logged,
+  with no major faults/swap. Reports recover to smooth timing at the end.
+  This strengthens a probe-sensitive rendering/submission lead; GPU commands
+  and early makeCurrent were removed together, so neither is isolated yet.
+  Qt already binds the viewport in ensureActiveTarget before engine setup.
+  Mesa 26.0.8 iris_query source emits timestamp PIPE_CONTROL commands and
+  availability ordering; nonblocking result lookup can flush a current batch.
+  Those source paths are not proof they caused this session's slowdown.
+  `T2GU_PROFILE_PRESENT_PREBIND=1`, with PRESENT=1 / PRESENT_GPU=0, now enables
+  only early context binding, logging early-context-binds; off by default and
+  ineffective without PRESENT profiling. No explicit flush/finish/query added
+  by this option. Release rebuilt without tests/launches; manual comparison
+  pending. The renderer and Intel cache mitigation remain unchanged by default.
+  The prebind-only run also visibly stuttered (owner confirmed). Saved
+  `solo-maze-present-prebind.log` / `present-prebind-summary.json`: 21 reports,
+  3061 ticks, 182 clamps / 6.498 s discarded; slow interval medians 75.575–
+  107.266 ms and paint medians up to 42.179 ms. GPU queries=false / prebind=true
+  are logged; 1901 early context binds for 1901 scene paints. No swap/major
+  faults. Early binding alone is not the observed cure. The remaining
+  query-command/polling distinction has an opt-in comparison:
+  `T2GU_PROFILE_PRESENT_POLL=0`, with PRESENT=1 / PRESENT_GPU=1, emits begin/end
+  markers through the same fixed eight-query pool, resetting/reusing ended
+  queries and discarding results without availability checks/result reads.
+  `GPU-query-begins` confirms marker issuance; GPU time reports n/a. No forced
+  GPU completion or explicit flush added. Mesa 26.0.8 queryobj.c and
+  u_threaded_context.c show availability checks use wait=false but can sync
+  queued driver work; this is a conditional source lead, not measured call
+  attribution. Source copies are in ignored runtime evidence/mesa-query-source.
+  Release rebuilt; no tests/launches. The owner confirmed marker-only stutter.
+  Saved `solo-maze-present-markers.log` / `present-markers-summary.json`:
+  10 reports, 1209 ticks, 166 clamps / 4.418 s discarded; slow interval medians
+  63.932–83.439 ms, paint medians up to 35.566 ms and compose-to-swap medians
+  up to 44.263 ms. 994 query begins / early context binds for 994 scene paints;
+  polling=false, GPU timings n/a, no swap/major faults. Only full query probes
+  with result polling have stayed smooth in these comparisons; exact route/OS
+  state remain uncontrolled. Upstream Iris exposes the process environment
+  option `intel_disable_threaded_context=true`, bypassing Gallium driver-worker
+  creation when it would otherwise be requested. This differs from mesa_glthread.
+  Next manual comparison uses this option with PRESENT=1 / PRESENT_GPU=0 /
+  PRESENT_PREBIND=0. Startup logs the requested override, not proof of actual
+  worker creation/absence. Do not apply it automatically based on this source
+  lead; manual verification is pending. Preserve always_flush_cache=true.
+  The owner confirmed this driver-worker-disabled comparison also stuttered.
+  Saved `solo-maze-present-no-thread.log` / `present-no-thread-summary.json`:
+  12 reports, 1610 ticks, 142 clamps / 2.794 s discarded; slow interval medians
+  44.423–73.051 ms, scene-paint medians up to 42.605 ms and compose-to-swap
+  medians up to 24.673 ms. Mesa printed the option-override notice; startup
+  records thread override=true, GPU queries=false, prebind=false and cache=true.
+  RSS 685.2–717.7 MiB, no swap, one major fault in the first reporting window
+  and none during the sustained slowdown. Disabling this worker alone did not
+  prevent the observed stutter; no automatic override is applied. Next manual
+  capture uses installed perf 7.0.14, process/worker user-space cycles at 99 Hz
+  with 8192-byte DWARF call stacks, GPU queries/prebind off and default driver
+  threading. Outputs `/tmp/t2gu-maze-perf.data` / `t2gu-maze-perf.log`. Sampling
+  can perturb timing and does not attribute off-CPU waits or actual compositor
+  presentation. Capture pending; no tests, perf recordings or game launches
+  performed by the agent.
+  The owner completed the CPU capture and confirmed stutter. Saved
+  `solo-maze-perf.data` / `solo-maze-perf.log`, `perf-summary.json`, decoded
+  `perf-stacks.txt` / `perf-samples.json`, and cycle-rate analysis under ignored
+  runtime evidence. 2058 samples, zero lost samples; 8 runtime/presentation
+  reports, 910 ticks, 117 clamps / 2.271 s discarded; interval median max
+  71.525 ms, simulation execution max 2.341 ms, paint median max 36.830 ms.
+  RSS 684.7–699.9 MiB, no swap/major faults. Startup decoding dominates whole-run
+  CPU percentages; exclude it. Later 8-second selection has GUI leaf samples
+  across Qt Widgets (21.94%), Mesa (20.74%), Qt Gui (20.54%), libc (14.17%), plus
+  Iris gdrv0 (9.11% Mesa). Baseline Iris worker presence is now measured;
+  no GL API worker appears in recorded thread names. Inferred GUI cycle rate
+  from 4–18 ms consecutive sample gaps falls to ~0.34–0.36 GHz for seven seconds
+  before recovering. This is a throttling lead, not direct clock measurement;
+  gaps include scheduling/PMU sampling effects. Post-run CPU policy is performance,
+  turbo allowed, 400–4800 MHz limits, platform balanced, AC online. Package
+  temperature was 86 C and throttle counters are cumulative; they were not
+  recorded during that run. Do not claim thermal/power attribution from this.
+  Added `tools/profile_hardware.py` for the next manual run: read-only 250 ms
+  sysfs CPU/GPU frequency, thermal/power sensors and throttle counters, plus
+  process/worker perf stat cycles:u/ref-cycles:u/task-clock. Timestamped game
+  log delivery and sensor snapshots permit correlation; default output directory
+  `/tmp/t2gu-maze-hardware`, refusing existing capture files. No driver/governor/
+  thermal defaults change. Python syntax and git diff checked; helper not run,
+  no tests or game launches. Manual hardware capture pending.
+  The owner completed hardware capture and confirmed stutter. Raw metadata,
+  hardware/game-event JSONL, perf stat CSV, log and summary are saved under
+  ignored `output/runtime-2026-10-07/hardware-capture/`. Duration 59.670 s,
+  14 runtime/presentation reports, 2023 ticks, 102 clamps / 3.874 s discarded;
+  simulation execution max 5.870 ms, RSS 692.6–735.1 MiB, no swap/major faults.
+  All eight logical CPUs directly measure ~400 MHz at capture seconds 30–33
+  and 50–55; worst interval/scene-paint medians 82.005/41.984 ms, with Intel GPU
+  frequency 100 MHz. Recovery interval/paint medians 16.440/3.638 ms. Perf cycle/
+  reference-cycle ratios independently fall to ~0.221 during these plateaus.
+  Package temperature is 77–79 C then, all core/package thermal-throttle count
+  deltas are zero, AC stays online. Clock reduction is confirmed; hardware
+  thermal counters alone do not rule out power/firmware/thermal policy.
+  Host read-only service inspection shows thermald --adaptive and power-profiles-
+  daemon active. Post-run RAPL MSR long limit 200 W vs enabled MMIO long/short
+  limits 15/18.75 W; these were not captured during gameplay. No service or
+  firmware attribution established. Extended helper with bounded RAPL limit/
+  enable reads, cooling states, governor/frequency limits, intel_pstate controls,
+  platform profile and adapter ratings, plus scan start/end timestamps. Scans
+  pause 250 ms after reads; actual intervals include reading time. Next manual
+  run uses fresh --output-dir /tmp/t2gu-maze-power. Syntax/diff checks passed;
+  no tests or game launches, no system/renderer changes. Manual power-policy
+  capture pending.
+  The owner completed power-policy capture and confirmed stutter; KDE's CPU/
+  power configuration is Balanced. Raw data/summary are saved under ignored
+  `output/runtime-2026-10-07/power-capture/`. Duration 54.421 s; 10 runtime/
+  presentation reports, 1384 ticks, 91 clamps / 3.140 s discarded, simulation
+  max 5.905 ms, RSS 692.9–724.6 MiB, no swap. One major fault in first reporting
+  window. Enabled MMIO package PL1 changes 15→13.75→11.875→9.875→5.875→5 W
+  over capture seconds ~28.6–41.1. CPU clocks fall afterward to 400 MHz; slow
+  interval/paint medians 82.978/36.211 ms. PL1 rises to 15 W at ~43.35 s with
+  brief lower-limit interruptions, then clocks and timing recover. Platform
+  profile stays balanced, all governors performance, CPU ceilings/minima and
+  pstate controls unchanged; MSR PL1/PL2 stay 200/60 W, MMIO PL2 18.75 W. AC
+  remains online; cooling states unchanged. Thermal counters +5 at ~2.16 s
+  during startup, unchanged across gameplay slowdown. Strong package-power
+  restriction lead; sysfs reads do not identify its writer. Upstream thermald
+  v2.5.11 RAPL source writes long-term constraints, but live attribution remains
+  unproven (installed 2.5.11-0ubuntu1.1; PPD 0.30-2). Post-run firmware limits
+  expose 3–15 W PL0 range and 0.1 W step; profile driver dell-pc. Next manual
+  comparison asks owner to select KDE Performance, use fresh output directory
+  /tmp/t2gu-maze-performance, same workload/diagnostic flags. No agent system
+  changes. Helper metadata now includes profile choices/driver name and bounded
+  firmware power-limit reads. Syntax/diff checks passed; no tests/game launches.
+  Performance capture pending; do not claim it is a fix or disable thermald.
+  The owner requested a battery run, suspecting outlet/power supply. Next manual
+  comparison is battery-only with KDE Balanced to match recorded AC runs, same
+  maze/apps, roughly 60–90 s, output /tmp/t2gu-maze-battery. Performance-profile
+  comparison remains unverified; do not assume the owner switched profiles.
+  Helper now samples available battery/supply power_now, current_now, voltage_now,
+  capacity, temp, health, usb_type and input limits. AC online/status and actual
+  profile remain recorded, so validate source/profile before interpreting data.
+  Supply driver ratings/negotiation values do not measure electrical outlet
+  quality. Smooth battery behavior would support an AC-dependent policy or
+  external-power lead, not prove a defective outlet/charger. Python syntax/diff
+  checks passed; no helper/game/test execution or system settings changed.
+  The owner completed the battery capture and reported no visible stutter.
+  Actual capture is mixed-source: AC initially, battery Discharging in the scan
+  spanning ~25.566–26.860 s, then battery throughout the remaining ~79 s.
+  Actual platform profile is performance throughout, unlike prior Balanced
+  captures. Evidence is saved under ignored
+  `output/runtime-2026-10-07/battery-capture/`. Duration 106.124 s; 31 runtime/
+  presentation reports, 5280 ticks, 39 clamps / 2.190 s discarded; RSS
+  692.0–746.8 MiB, no swap or major faults. AC PL1 reaches 5 W and CPU clocks
+  roughly 400 MHz (one snapshot median ~200 MHz). First battery snapshot has
+  PL1 15 W but clocks still ~400 MHz; later scans recover to GHz frequencies.
+  Battery PL1 continues varying 9.5–15 W, without another sustained low-clock
+  plateau. Final 25 runtime windows: 4484 ticks, two clamps / 16 ms discarded;
+  scene-paint medians 2.064–4.718 ms vs slow AC windows ~18.5–20.2 ms.
+  Thermal package counter +634 in AC/startup phase, +9 in battery phase;
+  5 W/low-clock plateau itself shows no new counter increments. Sensor scans
+  are sequential; source/limit changes cannot be timed more precisely than
+  their scan. Supports AC-dependent policy/power path, not an identified
+  outlet/adapter/cable defect. Performance alone did not prevent AC slowdown.
+  An other-outlet comparison was suggested, then explicitly skipped by the
+  owner. Continue with writer attribution. Added tools/trace_power_limits.bt:
+  observes intel_rapl_common:rapl_write_pl_data entry/return for PL_LIMIT writes,
+  with CLOCK_MONOTONIC timestamps, PID/TID/comm, interface/domain/PL, requested
+  microwatts, kernel stack and return status. No settings writes/overrides.
+  Runtime module BTF and symbols are present, bpftrace 0.25 installed. Host
+  thermald PID 1921 remains --adaptive; PPD PID 3265 active. Tracing metadata
+  requires root; codegen attempt fails Permission denied even outside sandbox;
+  passwordless sudo unavailable. Compile/attachment validation therefore
+  pending, not passed. Manual root observer in one terminal must reach
+  RAPL_READY before unprivileged game/hardware capture in another, AC connected,
+  Performance profile, same maze/apps for 60–90 s, fresh /tmp/t2gu-maze-writer.
+  Stop observer with Ctrl+C after game exits; log /tmp/t2gu-power-writer.log.
+  Firmware/direct-register writes bypassing the probed function are not covered;
+  trace absence alone cannot prove firmware is responsible. Helper metadata
+  includes bounded thermal trip/policy/mode and INTC1040 adaptive UUID reads.
+  Post-run firmware trip attributes include -274000 placeholders; these are not
+  proof of an active invalid thermal policy. No agent game/test launches or system/
+  renderer changes; no C++ rebuild needed for evidence/documentation analysis.
+  Owner completed writer capture, reporting "a little stutter". Trace attached
+  four probes and logged RAPL_READY before the game. All ten recorded PL_LIMIT
+  requests are thermald PID 1921 TID 2236, interface 1 (MMIO), package PL1;
+  all matching returns status 0. Requests 14→15→13.655→15→14→13→11→7→5→15 W
+  (13.655 request reads back quantized 13.625 W). 5 W at capture t53.705 s;
+  sampled CPU ~400 MHz shortly after. 15 W restored t59.908; clocks recover
+  after ~62 s. Slow report scene-paint medians 22.704/26.280/23.179 ms vs ~3 ms
+  after recovery. AC online, battery Charging, platform performance throughout.
+  68.845 s, 19 reports, 3011 ticks, 104 clamps / 952 ms discarded; simulation
+  max 5.779 ms, RSS 693.5–774.7 MiB, no swap/major faults. Package hardware
+  throttle counter +755 overall, unchanged during the low-power plateau.
+  Evidence under ignored output/runtime-2026-10-07/writer-capture. Trace has
+  six expected missing-map warnings for non-PL_LIMIT returns and one discarded
+  delete-result warning; changed guard to has_key and checked delete result.
+  No lost-event messages; observed entry/return attribution remains valid.
+  Saved log lacks RAPL_STOP; owner should Ctrl+C observer terminal if still open.
+  Read-only INTC1040 data_vault snapshot: 1957 bytes, SHA256
+  a3dae1fecf54bf33563152f62cc39b7b891ec820344cb3c0aaf46fbb1c6266cb;
+  bounded LZMA decode yields 30725 bytes, two repositories and 96 keys, consumed
+  exactly. Default and named sp14t-balance PSVT include TSKN 65 C MAX / 70 C MIN;
+  data-vault PPCC min 5 W (distinct from kernel-exposed earlier 3 W minimum).
+  Recorded TSKN 70.05 C during clamp, falling to 69.05 before restoration.
+  Strong candidate trigger, not confirmed active daemon trip/policy selection.
+  Firmware APAT includes Balanced and Performance named targets selecting same
+  Balance PSVT, but live target not read. Thermald writer now confirmed for this
+  run; do not keep labeling it unproven. Do not disable thermal management,
+  raise limits, or assume its policy is faulty. No game launches/tests/system
+  setting changes by agent; Python/documentation diff checks passed. Corrected
+  probe needs manual validation before another use; no repeat capture requested.
+  Owner requested proceeding. Added tools/dump_thermal_policy.py to obtain
+  actual daemon sensors, active zones, trips and cooling bindings through a
+  closed allowlist of D-Bus Get methods. No settings writes or service starts;
+  bounded counts, per-call timeout/timestamps, start/end counts, JSON with errors.
+  Direct host sudo -n GetZoneCount fails: interactive authentication required.
+  Installed org.freedesktop.thermald system-bus policy permits root, denies default
+  callers. Next owner command: sudo python3 tools/dump_thermal_policy.py | tee
+  /tmp/t2gu-thermal-policy.json. No game run needed. Live helper query validation
+  pending; AST/diff checked only. Local DMI: Dell Latitude 5420, BIOS 1.56.0 dated
+  2026-06-30. Cached APT candidate equals installed thermald 2.5.11-0ubuntu1.1;
+  upstream 2.5.13 exists but no established cure for observed sensor/limit cycle,
+  no installation performed. Existing optional T2GU_MAX_FPS=30 can reduce drawing
+  load while preserving simulation/thermal protection; this is a potential
+  mitigation, unverified for power-limit stutter, not a changed default.
+  Owner completed active-policy reader: 68 calls, no errors, 0.156 s, counts
+  stable 12 sensors/15 cooling devices/7 zones, AC on/platform performance.
+  Saved output/runtime-2026-10-07/active-policy/thermal-policy.json and summary.
+  Active PASSIVE type 3 trips: TSKN 66/70/99 C; NGFF 47.5/49/65/99 C; TMEM99,
+  TCPU102. All bind cdev12 rapl_controller_mmio, endpoints 15 W (unthrottled)
+  and 5 W (most cooling); do not misread min_state/max_state naming as reversed
+  hardware limits. POLLING type5 has no bound cdev. Snapshot temperatures
+  TSKN62.05/NGFF55.05 and MMIOcurrent15W after run/cooldown. It confirms active
+  trip/controller bindings, but several zones share cdev12; exact trip causing
+  each previous write remains unattributed. API sensor enumeration positions
+  do not necessarily equal stored trip sensor_id: do not invent a mismatched-
+  sensor bug from their different numbering. Thermald preference ENERGY_CONSERVE
+  is its upstream default and distinct from platform performance; no evidence
+  that this is a KDE misconfiguration or safe to override its passive policy.
+  Owner completed T2GU_MAX_FPS=30 trial, reported very little stutter. Saved
+  output/runtime-2026-10-07/30fps-capture/: 55.728 s, 167 hardware scans,
+  15 runtime reports/2787 ticks, one initial clamp/17 ms discarded, none in
+  later reports. AC/performance constant, MMIO PL1 always15W, median all-CPU
+  frequency1.179–4.3GHz, no <=500MHz median scan or package throttle increment.
+  Scene paint medians1.927–2.943ms, simulation intervals15.943–16.682ms;
+  max simulation1.594ms, RSS691.4–736MiB, noSwap/majorfaults. Residual scene
+  repaint gaps50–100ms occur, but dirty skipping/idle prevents labeling every
+  gap a missed moving frame; Qt swap return does not measure KWin presentation.
+  IMPORTANT comparison confounds: battery Full100%/~1mA versus writer run
+  Charging98%/464–493mA, colder TSKN50.05–55.05C versus prior67.05–70.05C,
+  HDMI-A-1 1920x1008 60Hz versus DP-2 1920x1128 59.95Hz;
+  owner confirms changing monitor or connection. Background apps remain unknown.
+  Promising mitigation,
+  not isolated proof that cap prevents restriction; sustained same-condition
+  comparison needed. Simulation unchanged; exposure/composition may add frames.
+  No new C++ changes/build/tests/game launches/system changes by agent. No
+  default cap changed. Do not silently make 30FPS the default. Owner says
+  monitor is not the cause and rejected repeating the uncapped degradation
+  trial as obvious. Skip that trial and further monitor comparisons.
+  Composition follow-up: StatusMessageWidget previously called update() every
+  33ms even throughout each fully opaque2600ms hold. Its timer is now
+  single-shot, waiting for the earliest fade boundary; updates occur only
+  during fading or when lines are removed. Posts/repeat counts still repaint
+  immediately, and scheduling preserves an earlier pending timeout so frequent
+  posts cannot starve older fades. Hold/fade durations2600/900ms unchanged.
+  This removes a concrete source of unnecessary raster-overlay composition,
+  not a demonstrated thermald fix. Release rebuild and diff checks passed;
+  manual verification pending, no agent tests/game launches. Keep existing cap opt-in and cache option.
 - Assets are found through `assetDir()`/`assetPath()` (`src/assets/AssetPath.h`) —
   never build a path from the `ASSET_DIR` macro directly (`QStringLiteral(ASSET_DIR
   "/x")` was the old pattern and is gone). Resolution order: `$T2GU_ASSET_DIR`,

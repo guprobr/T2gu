@@ -1,4 +1,5 @@
 #include "assets/SpriteSheet.h"
+#include "app/RuntimeMetrics.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -16,6 +17,7 @@
 
 bool SpriteSheet::load(const QString &jsonPath, QString *errorOut)
 {
+    const RuntimeMetrics::Sample sample(RuntimeMetrics::Assets);
     QFile file(jsonPath);
     if (!file.open(QIODevice::ReadOnly)) {
         if (errorOut)
@@ -227,6 +229,7 @@ SpriteSheet::Frame SpriteSheet::frame(const QString &movement, int frameIndex, F
     const auto cached = m_storage->mirrored.constFind(key);
     if (cached != m_storage->mirrored.constEnd())
         return cached.value();
+    const RuntimeMetrics::Sample sample(RuntimeMetrics::Assets);
     Frame flipped;
     flipped.pixmap = found->pixmap.transformed(QTransform().scale(-1, 1));
     flipped.offset = QPoint(m_frameWidth - (found->offset.x() + found->pixmap.width()), found->offset.y());

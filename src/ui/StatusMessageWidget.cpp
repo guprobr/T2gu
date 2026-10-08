@@ -58,6 +58,7 @@ StatusMessageWidget::StatusMessageWidget(QWidget *parent)
     setAttribute(Qt::WA_TransparentForMouseEvents, true); // click-to-select must still reach the scene below
     setFocusPolicy(Qt::NoFocus); // MainWindow handles every key
     setFont(statusFont(font()));
+    m_animTimer.setSingleShot(true);
     connect(&m_animTimer, &QTimer::timeout, this, &StatusMessageWidget::expireAndAnimate);
     hide();
 }
@@ -74,6 +75,7 @@ void StatusMessageWidget::post(const QString &text, GameScene::StatusKind kind)
             last.age.restart();
             relayout();
             update();
+            scheduleNextAnimation();
             return;
         }
     }
@@ -88,8 +90,7 @@ void StatusMessageWidget::post(const QString &text, GameScene::StatusKind kind)
     show();
     raise();
     update();
-    if (!m_animTimer.isActive())
-        m_animTimer.start(kAnimIntervalMs);
+    scheduleNextAnimation();
 }
 
 void StatusMessageWidget::setLayoutBounds(int top, int maxWidth)
@@ -111,9 +112,37 @@ void StatusMessageWidget::expireAndAnimate()
         hide();
         return;
     }
-    if (m_lines.size() != before)
+    const bool removedLines = m_lines.size() != before;
+    if (removedLines)
         relayout();
-    update();
+    const bool fading = std::any_of(m_lines.cbegin(), m_lines.cend(),
+                                   [](const Line &line) { return line.age.elapsed() > kHoldMs; });
+    if (removedLines || fading)
+        update();
+    scheduleNextAnimation();
+}
+
+void StatusMessageWidget::scheduleNextAnimation()
+{
+    if (m_lines.isEmpty()) {
+        m_animTimer.stop();
+        return;
+    }
+
+    // Opaque lines do not change between posts. Repainting them at 30 Hz
+    // can needlessly upload widget content and compose the OpenGL window.
+    // Wake at the earliest fade boundary; animate only while a line fades.
+    qint64 nextMs = kHoldMs + 1;
+    for (const Line &line : std::as_const(m_lines)) {
+        const qint64 ageMs = line.age.elapsed();
+        nextMs = std::min(nextMs, ageMs > kHoldMs ? qint64(kAnimIntervalMs)
+                                                : kHoldMs - ageMs + 1);
+    }
+    // Frequent new/repeated posts must not keep postponing older fades.
+    const int remainingMs = m_animTimer.remainingTime();
+    if (remainingMs >= 0 && remainingMs <= nextMs)
+        return;
+    m_animTimer.start(int(nextMs));
 }
 
 QString StatusMessageWidget::displayText(const Line &line) const

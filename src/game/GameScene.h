@@ -394,6 +394,7 @@ signals:
     void statusMessage(const QString &text, GameScene::StatusKind kind);
 
 protected:
+    bool event(QEvent *event) override;
     void mousePressEvent(QGraphicsSceneMouseEvent *event) override;
 
 private slots:

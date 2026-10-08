@@ -1,4 +1,6 @@
 #include "rendering/GameView.h"
+#include "app/RuntimeMetrics.h"
+#include "rendering/OpenGLViewport.h"
 
 #include <QDebug>
 #include <QGuiApplication>
@@ -20,21 +22,6 @@
 #endif
 
 namespace {
-class OpenGLViewport final : public QOpenGLWidget
-{
-protected:
-    void initializeGL() override
-    {
-        QOpenGLFunctions *functions = context()->functions();
-        qInfo().nospace() << "T2gu renderer: opengl; vendor="
-                         << reinterpret_cast<const char *>(functions->glGetString(GL_VENDOR))
-                         << "; device="
-                         << reinterpret_cast<const char *>(functions->glGetString(GL_RENDERER))
-                         << "; version="
-                         << reinterpret_cast<const char *>(functions->glGetString(GL_VERSION));
-    }
-};
-
 bool canCreateContext(const QSurfaceFormat &format)
 {
     // Fail before adding an OpenGL widget to the top-level window. This
@@ -100,6 +87,8 @@ GameView::GameView(QWidget *parent)
         m_profileClock.start();
     configureRenderer();
     configureFrameLimit();
+    if (qEnvironmentVariableIntValue("T2GU_PROFILE_PRESENT") == 1 && !m_usesOpenGL)
+        qInfo("[present] composition/GPU probes unavailable with software viewport; use runtime/paint profiling");
 }
 
 void GameView::configureRenderer()
@@ -195,12 +184,21 @@ void GameView::useSoftwareViewport()
 
 void GameView::paintEvent(QPaintEvent *event)
 {
+    const RuntimeMetrics::Sample sample(RuntimeMetrics::ScenePaint);
+#ifdef T2GU_HAS_OPENGL
+    auto *gl = m_usesOpenGL ? static_cast<OpenGLViewport *>(viewport()) : nullptr;
+    const bool presentSample = gl && gl->beginScenePaint(scene());
+#endif
     qint64 startedNs = 0;
     if (PaintMetrics::enabled()) {
         startedNs = m_profileClock.nsecsElapsed();
         PaintMetrics::currentFrame() = {};
     }
     QGraphicsView::paintEvent(event);
+#ifdef T2GU_HAS_OPENGL
+    if (presentSample)
+        gl->endScenePaint();
+#endif
     if (PaintMetrics::enabled())
         recordPaint(startedNs, m_profileClock.nsecsElapsed());
 #ifdef T2GU_HAS_OPENGL
@@ -257,7 +255,7 @@ void GameView::recordPaint(qint64 startedNs, qint64 finishedNs)
                 .arg(m_usesOpenGL ? "opengl" : "software").arg(int(count))
                 .arg(m_maximumFrameRate > 0 ? QString::number(m_maximumFrameRate) : QStringLiteral("scene-driven")),
         QStringLiteral("interval p50/p95/max=%1").arg(distribution(m_paintIntervals)),
-        QStringLiteral("CPU scene paint p50/p95/max=%1").arg(distribution(m_paintDurations))
+        QStringLiteral("scene paint wall p50/p95/max=%1").arg(distribution(m_paintDurations))
     };
     const std::array<const char *, PaintMetrics::CategoryCount> labels{
         "tiles", "props", "overflow shadows", "characters", "lighting"

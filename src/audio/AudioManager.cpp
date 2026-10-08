@@ -1,5 +1,6 @@
 #include "audio/AudioManager.h"
 #include "assets/AssetPath.h"
+#include "app/RuntimeMetrics.h"
 
 #include <QUrl>
 #include <utility>
@@ -46,6 +47,7 @@ QSoundEffect *AudioManager::effectFor(const QString &name)
 
 void AudioManager::playSound(const QString &name, qreal volume)
 {
+    const RuntimeMetrics::Sample sample(RuntimeMetrics::Audio);
     QSoundEffect *effect = effectFor(name);
 
     // Re-triggering play() on a QSoundEffect that's already playing doesn't
@@ -85,6 +87,7 @@ void AudioManager::playSound(const QString &name, qreal volume)
 
 void AudioManager::playMusic(const QString &name, bool loop)
 {
+    const RuntimeMetrics::Sample sample(RuntimeMetrics::Audio);
     // A fade from a previous track still winding down would otherwise
     // finish later on top of this new one - silence it well before that,
     // and skip the volume/stop/musicFinished tail it would have run (this

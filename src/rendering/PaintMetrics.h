@@ -3,7 +3,8 @@
 #include <QElapsedTimer>
 #include <array>
 
-// CPU paint/submission timing only; deliberately adds no GPU synchronization.
+// Elapsed wall time in paint/submission calls, including possible driver
+// waits; deliberately adds no GPU synchronization or GPU timer queries.
 // Disabled by default so ordinary play does not time every scene item.
 namespace PaintMetrics {
 enum Category { Tiles, Props, OverflowShadows, Characters, Lighting, CategoryCount };

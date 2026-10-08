@@ -40,6 +40,7 @@ private:
     };
 
     void expireAndAnimate();
+    void scheduleNextAnimation();
     void relayout();
     QString displayText(const Line &line) const;
 

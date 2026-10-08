@@ -1,0 +1,48 @@
+#!/usr/bin/env bpftrace
+/*
+ * Observe Linux Intel RAPL power-limit requests without changing limits.
+ * Run manually in a separate terminal:
+ *   sudo bpftrace -B line tools/trace_power_limits.bt
+ * Stop with Ctrl+C after the accompanying hardware/game capture exits.
+ *
+ * Requires the loaded intel_rapl_common module's BTF and probe symbols.
+ * Linux v7.0 intel_rapl_common.c defines PL_LIMIT = 2; value is in microwatts.
+ * interface: 0=MSR, 1=MMIO, 2=TPMI; power_limit: 0=PL1, 1=PL2, 2=PL4.
+ * REQUEST is an attempted write; RESULT status 0 means the driver accepted it.
+ * Firmware/direct-register writes bypassing this function are not observed.
+ * CLOCK_MONOTONIC timestamps align with profile_hardware.py's monotonic_s.
+ * Source: https://github.com/torvalds/linux/blob/v7.0/drivers/powercap/intel_rapl_common.c
+ */
+
+BEGIN
+{
+    printf("RAPL_READY monotonic_ns=%llu\n", nsecs(monotonic));
+}
+
+kprobe:intel_rapl_common:rapl_write_pl_data
+/arg2 == 2/
+{
+    $rd = (struct rapl_domain *)arg0;
+    @active[tid] = 1;
+    printf("RAPL_REQUEST monotonic_ns=%llu pid=%d tid=%d comm=%s interface=%d domain=%s power_limit=%d requested_uw=%llu\n",
+           nsecs(monotonic), pid, tid, comm, $rd->rp->priv->type,
+           str($rd->name), arg1, arg3);
+    printf("%s\n", kstack(12));
+}
+
+kretprobe:intel_rapl_common:rapl_write_pl_data
+/has_key(@active, tid)/
+{
+    printf("RAPL_RESULT monotonic_ns=%llu pid=%d tid=%d status=%d\n",
+           nsecs(monotonic), pid, tid, (int32)retval);
+    if (!delete(@active, tid)) {
+        printf("RAPL_PAIR_WARNING monotonic_ns=%llu tid=%d\n",
+               nsecs(monotonic), tid);
+    }
+}
+
+END
+{
+    clear(@active);
+    printf("RAPL_STOP monotonic_ns=%llu\n", nsecs(monotonic));
+}

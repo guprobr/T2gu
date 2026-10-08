@@ -1,4 +1,5 @@
 #include "game/Character.h"
+#include "app/RuntimeMetrics.h"
 #include "rendering/PaintMetrics.h"
 
 #include <QBrush>
@@ -193,6 +194,7 @@ bool Character::isBlocked(qreal worldX, qreal worldY) const
 
 bool Character::isMoveBlocked(QPointF from, QPointF to) const
 {
+    const RuntimeMetrics::Sample sample(RuntimeMetrics::Collision);
     return (m_tileMap && !m_tileMap->isAxisMoveWalkable(from, to))
             || (m_blockingAreas && m_blockingAreas->blocksAxisMove(from, to));
 }

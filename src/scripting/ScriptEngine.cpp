@@ -1,4 +1,5 @@
 #include "scripting/ScriptEngine.h"
+#include "app/RuntimeMetrics.h"
 
 #include <QDebug>
 #include <QFile>
@@ -85,7 +86,11 @@ void ScriptEngine::startEntryPoint(const QString &name, const QJSValueList &args
     if (!fn.isCallable())
         return;
 
-    QJSValue result = fn.call(args);
+    QJSValue result;
+    {
+        const RuntimeMetrics::Sample sample(RuntimeMetrics::ScriptExecution);
+        result = fn.call(args);
+    }
     if (result.isError()) {
         qWarning() << "script error in" << name << ":" << result.toString();
         emit scriptError(QStringLiteral("%1: %2").arg(name, result.toString()));
@@ -133,7 +138,11 @@ void ScriptEngine::driveIterator(const QJSValue &resumeArg)
     if (!resumeArg.isUndefined())
         args.append(resumeArg);
 
-    const QJSValue step = m_nextFn.callWithInstance(m_activeIterator, args);
+    QJSValue step;
+    {
+        const RuntimeMetrics::Sample sample(RuntimeMetrics::ScriptExecution);
+        step = m_nextFn.callWithInstance(m_activeIterator, args);
+    }
     if (m_stopped) {
         finishEntryPoint();
         return;
