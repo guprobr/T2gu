@@ -458,20 +458,29 @@ trial and asked to move on from the monitor hypothesis.
 
 ### Recording with OBS or playing under system load
 
-To leave more CPU/GPU time for recording, limit scene repaints independently
-of the game's simulation timer:
+On October 12 the owner reported periodic, several-second slowdowns followed
+by recovery outside the maze too, while running without the 30 FPS cap.
+Maze complexity is therefore not a required trigger. This matches the earlier
+measured package-power restriction and clock-recovery pattern; no new capture
+yet correlates these particular episodes with the power limit. The cap is a
+load mitigation, and the status-overlay change is not established
+as a cure for the thermal/power cycle.
+
+Scene repaints now default to 30 FPS, independently of the game's simulation
+timer. Launch normally to use the default:
 
 ```sh
-T2GU_MAX_FPS=30 ./build/T2gu2
+./build/T2gu2
 ```
 
 This requests complete scene frames at most 30 Hz when the scene or camera
 changes, using the latest character and camera positions. An unchanged scene
 does not trigger periodic redraws. Movement, combat, input handling and the existing 50 ms
 simulation-delta cap retain their normal timing. The setting works with
-OpenGL and software fallback. Omit it or set it to `0` to retain normal
-scene-driven rendering; integer limits from `1` to `240` are accepted.
-Try `30` while recording, or `60` if the system has enough headroom. Lower
+OpenGL and software fallback. Unset, empty or invalid `T2GU_MAX_FPS` values
+use the default 30 FPS cap (invalid values log a warning). Set it to `0` to
+restore uncapped scene-driven rendering; integer limits from `1` to `240`
+are accepted. For example, `T2GU_MAX_FPS=60 ./build/T2gu2` requests 60 FPS. Lower
 repaint rates trade visual smoothness for fewer scene draws; system load can
 still delay both simulation and presentation. Window exposure, resize and
 widget composition can generate additional frames, so this limits routine

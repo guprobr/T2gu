@@ -29,7 +29,7 @@ private:
     void useSoftwareViewport();
     void recordPaint(qint64 startedNs, qint64 finishedNs);
     bool m_usesOpenGL = false;
-    int m_maximumFrameRate = 0; // zero retains scene-driven repaint scheduling
+    int m_maximumFrameRate = 0; // configured to 30 by default; explicit zero opts out
     QChronoTimer m_frameTimer;
     QPointer<QGraphicsScene> m_frameScene;
     QMetaObject::Connection m_sceneChangedConnection;

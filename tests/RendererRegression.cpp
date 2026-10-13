@@ -295,8 +295,9 @@ int main(int argc, char **argv)
             qputenv("T2GU_RENDERER", "opengl");
         GameView view;
         check(view.usesOpenGL(), "desktop OpenGL backend is available");
-        check(view.viewportUpdateMode() == QGraphicsView::FullViewportUpdate,
-              "OpenGL uses complete viewport updates");
+        check(view.maximumFrameRate() == 30
+                  && view.viewportUpdateMode() == QGraphicsView::NoViewportUpdate,
+              "OpenGL defaults to scheduled complete frames at 30 fps");
         checkPixels(view);
         check(view.usesOpenGL(), "OpenGL remains active after showing the viewport");
         if (mode == QLatin1String("--default")) {
@@ -323,8 +324,9 @@ int main(int argc, char **argv)
     check(argc == 1, "expected no arguments, --default, --opengl or --focus");
     qunsetenv("T2GU_RENDERER");
     GameView defaultView;
-    check(!defaultView.usesOpenGL() && defaultView.viewportUpdateMode() == QGraphicsView::MinimalViewportUpdate,
-          "unavailable default OpenGL falls back to software partial updates");
+    check(!defaultView.usesOpenGL() && defaultView.maximumFrameRate() == 30
+              && defaultView.viewportUpdateMode() == QGraphicsView::NoViewportUpdate,
+          "unavailable default OpenGL retains the default 30 fps cap on software");
     checkPixels(defaultView);
     qputenv("T2GU_RENDERER", "   ");
     GameView emptyView;
@@ -356,14 +358,19 @@ int main(int argc, char **argv)
                   && capped.viewportUpdateMode() == QGraphicsView::NoViewportUpdate,
               "valid frame limits use scheduled complete viewport updates");
     }
-    for (const QByteArray value : {QByteArray(), QByteArray("0"), QByteArray("-1"), QByteArray("241"),
+    for (const QByteArray value : {QByteArray(), QByteArray("   "), QByteArray("-1"), QByteArray("241"),
                                   QByteArray("bad"), QByteArray("2147483648")}) {
         qputenv("T2GU_MAX_FPS", value);
-        GameView uncapped;
-        check(uncapped.maximumFrameRate() == 0
-                  && uncapped.viewportUpdateMode() == QGraphicsView::MinimalViewportUpdate,
-              "disabled or invalid frame limits retain software scene-driven updates");
+        GameView defaultCapped;
+        check(defaultCapped.maximumFrameRate() == 30
+                  && defaultCapped.viewportUpdateMode() == QGraphicsView::NoViewportUpdate,
+              "empty or invalid frame limits retain the default 30 fps cap");
     }
+    qputenv("T2GU_MAX_FPS", "0");
+    GameView uncapped;
+    check(uncapped.maximumFrameRate() == 0
+              && uncapped.viewportUpdateMode() == QGraphicsView::MinimalViewportUpdate,
+          "explicit zero retains software scene-driven updates");
     qInfo("Renderer selection regressions passed");
     return 0;
 }

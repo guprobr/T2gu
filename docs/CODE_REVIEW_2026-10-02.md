@@ -2306,6 +2306,50 @@ T2GU_MAX_FPS=30 and the same diagnostic flags, with a fresh output directory:
 QT_QPA_PLATFORM=wayland T2GU_MAX_FPS=30 T2GU_PROFILE_PRESENT=1 T2GU_PROFILE_PRESENT_GPU=0 T2GU_PROFILE_PRESENT_PREBIND=0 T2GU_PROFILE_RUNTIME=1 T2GU_PROFILE_RENDER=1 python3 tools/profile_hardware.py --output-dir /tmp/t2gu-maze-overlay-30fps -- ./build/T2gu2 2>&1 | tee /tmp/t2gu-maze-overlay-30fps.log
 ```
 
+### Periodic slowdown also outside the maze (2026-10-12)
+
+The owner reports recurring, several-second slowdowns followed by recovery,
+including outside the maze, and confirms the run used no 30 FPS cap. This
+changes the symptom scope from maze-associated to game-wide: maze complexity
+is not a necessary trigger. The pattern is consistent with the measured
+October 7 thermald/MMIO PL1 reduction to 5 W, CPU clocks near 400 MHz, slow
+drawing and later recovery at 15 W. This is an interpretation of the owner's
+new report against existing evidence, not a newly measured correlation.
+
+Source review confirms that water and lighting tick at 120/240 ms, the debug
+coordinate HUD at 100 ms, and status fading at roughly 33 ms after its opaque
+hold. The ambient intro deadline is a single-shot 120 seconds, not a general
+repeating whole-game timer. These cadences alone do not explain or establish
+the several-second slowdown/recovery pattern. The previous non-rendering
+measurements still show small simulation work during the sustained stalls.
+Avoid further speculative timer changes without matching evidence.
+
+The status-overlay optimization remains a reduction in unnecessary work,
+not a verified fix for these periodic slowdowns. Keep the existing 30 FPS
+option available as load mitigation while retaining thermal protection and
+the Intel per-draw cache option. The owner has already declined repeating
+uncapped degradation and monitor/outlet comparisons. No new runtime capture,
+game launch, test, rebuild or system-setting change was performed here.
+
+### Owner-requested 30 FPS default (2026-10-12)
+
+The owner explicitly requested making the 30 FPS cap the default. This
+supersedes the earlier opt-in preference. `GameView::configureFrameLimit()`
+now selects 30 FPS when T2GU_MAX_FPS is unset or empty/whitespace. Invalid or
+out-of-range values warn and use the same default. Valid integers 1–240 retain
+the requested cap, and explicit 0 retains uncapped scene-driven updates.
+Both OpenGL and software fallback use the existing precise frame timer,
+whole-viewport rendering, dirty observer and unchanged-scene skipping.
+Simulation timing, input handling, the Intel cache option and thermal settings
+remain unchanged. Exposure/resize and raster-widget composition can still
+produce extra frames, so this remains a scene repaint cap.
+
+Updated the existing renderer regression expectations for unset, empty,
+invalid and zero settings. The Release rebuild, renderer regression target
+compilation and diff checks passed; neither tests nor the game were launched.
+This changes the default load mitigation, not the established limits of the
+thermal/power diagnosis or proof that the periodic slowdown is cured.
+
 ### Game-side latency during OBS recording (2026-10-05)
 
 The owner clarified that latency/stutter occurs in the game itself while

@@ -131,13 +131,15 @@ void GameView::configureRenderer()
 void GameView::configureFrameLimit()
 {
     const QString requested = qEnvironmentVariable("T2GU_MAX_FPS").trimmed();
-    if (requested.isEmpty())
-        return;
-    bool valid = false;
-    const int fps = requested.toInt(&valid);
-    if (!valid || fps < 0 || fps > 240) {
-        qWarning().noquote() << "Invalid T2GU_MAX_FPS:" << requested << "- expected 0 through 240; using scene-driven updates";
-        return;
+    constexpr int defaultFps = 30;
+    int fps = defaultFps;
+    if (!requested.isEmpty()) {
+        bool valid = false;
+        fps = requested.toInt(&valid);
+        if (!valid || fps < 0 || fps > 240) {
+            qWarning().noquote() << "Invalid T2GU_MAX_FPS:" << requested << "- expected 0 through 240; using default 30 fps limit";
+            fps = defaultFps;
+        }
     }
     if (fps == 0)
         return;

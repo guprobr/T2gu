@@ -90,12 +90,14 @@ cmake --build build -j$(nproc)
   option. This is owner verification on the observed setup, not a measured
   frame-time result or identification of the underlying driver defect.
 - October 5 OBS follow-up: the owner reported game-side latency/stutter
-  during recording. `T2GU_MAX_FPS=30` now opts into scheduled whole-viewport
+  during recording. `T2GU_MAX_FPS` controls scheduled whole-viewport
   scene repaints, using `NoViewportUpdate` plus a precise `QChronoTimer`;
   camera and item changes accumulate until the next frame. Unchanged
   scenes skip repaint requests; scene replacements rebind the dirty observer.
-  The simulation timer, input handling and 50 ms delta cap remain independent. Unset/empty
-  or `0` retains scene-driven rendering; valid limits are 1–240. Both GL
+  The simulation timer, input handling and 50 ms delta cap remain independent.
+  As requested October 12, unset/empty/invalid settings now use a 30FPS default;
+  invalid settings warn. Explicit `0` retains scene-driven rendering; valid
+  limits are 1–240. Both GL
   and software fallback support the cap, and terrain retains its reduced
   whole-frame art-overlap margin in this mode. Exposure/resize and widget
   composition may cause extra frames; this is a scene repaint cap, not a
@@ -451,7 +453,9 @@ cmake --build build -j$(nproc)
   not isolated proof that cap prevents restriction; sustained same-condition
   comparison needed. Simulation unchanged; exposure/composition may add frames.
   No new C++ changes/build/tests/game launches/system changes by agent. No
-  default cap changed. Do not silently make 30FPS the default. Owner says
+  default cap changed during that trial. The owner later explicitly requested
+  the 30FPS default on October12; that instruction supersedes the earlier
+  opt-in preference. Owner says
   monitor is not the cause and rejected repeating the uncapped degradation
   trial as obvious. Skip that trial and further monitor comparisons.
   Composition follow-up: StatusMessageWidget previously called update() every
@@ -463,6 +467,26 @@ cmake --build build -j$(nproc)
   This removes a concrete source of unnecessary raster-overlay composition,
   not a demonstrated thermald fix. Release rebuild and diff checks passed;
   manual verification pending, no agent tests/game launches. Keep existing cap opt-in and cache option.
+  October 12 owner follow-up: stutter also occurs outside the maze, appears
+  periodic, and consists of several-second slowdowns followed by recovery.
+  Owner confirms this run was WITHOUT T2GU_MAX_FPS=30. Treat the symptom as
+  game-wide; maze complexity is not a required trigger. This pattern matches
+  the prior measured thermald/MMIO5W/400MHz slowdown-and-recovery cycle, but
+  there is no new correlated capture proving the current episodes have the
+  same cause. Status-overlay optimization is not verified as a stutter fix.
+  At this stage the 30FPS cap was still opt-in/load mitigation, not a thermal-
+  policy repair; the subsequent default request below supersedes opt-in.
+  Do not repeat the declined uncapped/monitor/outlet comparisons or disable
+  thermal protection. No new game launches, tests or system changes by agent.
+- October 12 requested default: owner explicitly asked for 30FPS as default.
+  GameView now uses 30 when T2GU_MAX_FPS is unset, empty/whitespace or invalid
+  (invalid settings warn); valid1–240 override, explicit0 disables the cap.
+  GL and software fallback retain scheduled whole-viewport repainting, dirty
+  skipping and independent simulation/input timing. Existing renderer parsing
+  regressions updated for new defaults and zero override; do not run tests or
+  launch game. Release rebuild, regression-target compilation and diff checks
+  passed; neither executable was launched.
+  This is a load mitigation, not a confirmed repair of thermal power cycling.
 - Assets are found through `assetDir()`/`assetPath()` (`src/assets/AssetPath.h`) —
   never build a path from the `ASSET_DIR` macro directly (`QStringLiteral(ASSET_DIR
   "/x")` was the old pattern and is gone). Resolution order: `$T2GU_ASSET_DIR`,
