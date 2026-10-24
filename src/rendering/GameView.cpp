@@ -152,6 +152,12 @@ void GameView::configureFrameLimit()
     m_frameTimer.setTimerType(Qt::PreciseTimer);
     m_frameTimer.setInterval(std::chrono::nanoseconds(1000000000LL / fps));
     connect(&m_frameTimer, &QChronoTimer::timeout, this, [this] {
+        if (PaintMetrics::enabled()) {
+            const qint64 nowNs = m_profileClock.nsecsElapsed();
+            if (m_previousFrameTickNs >= 0 && m_frameTickIntervals.size() < 1024)
+                m_frameTickIntervals.append((nowNs - m_previousFrameTickNs) / 1000000.0);
+            m_previousFrameTickNs = nowNs;
+        }
         // setScene() is not virtual, so observe replacements here rather
         // than hiding it and relying on every caller's static pointer type.
         if (scene() != m_frameScene) {
@@ -163,10 +169,15 @@ void GameView::configureFrameLimit()
             }
             m_frameDirty = true;
         }
+        // QWidget updates posted here can be composed with the scene's
+        // update, instead of a fading HUD running a second repaint clock.
+        emit frameTick();
         // A frame cap must not turn an unchanged scene into a busy redraw
         // loop. Animated/moving items and camera scrolls mark it dirty.
         if (m_frameDirty) {
             m_frameDirty = false;
+            if (PaintMetrics::enabled() && m_pendingFrameRequestNs < 0)
+                m_pendingFrameRequestNs = m_profileClock.nsecsElapsed();
             viewport()->update();
         }
     });
@@ -194,6 +205,10 @@ void GameView::paintEvent(QPaintEvent *event)
     qint64 startedNs = 0;
     if (PaintMetrics::enabled()) {
         startedNs = m_profileClock.nsecsElapsed();
+        if (m_pendingFrameRequestNs >= 0) {
+            m_requestToPaintDurations.append((startedNs - m_pendingFrameRequestNs) / 1000000.0);
+            m_pendingFrameRequestNs = -1;
+        }
         PaintMetrics::currentFrame() = {};
     }
     QGraphicsView::paintEvent(event);
@@ -257,7 +272,9 @@ void GameView::recordPaint(qint64 startedNs, qint64 finishedNs)
                 .arg(m_usesOpenGL ? "opengl" : "software").arg(int(count))
                 .arg(m_maximumFrameRate > 0 ? QString::number(m_maximumFrameRate) : QStringLiteral("scene-driven")),
         QStringLiteral("interval p50/p95/max=%1").arg(distribution(m_paintIntervals)),
-        QStringLiteral("scene paint wall p50/p95/max=%1").arg(distribution(m_paintDurations))
+        QStringLiteral("scene paint wall p50/p95/max=%1").arg(distribution(m_paintDurations)),
+        QStringLiteral("frame-timer interval p50/p95/max=%1").arg(distribution(m_frameTickIntervals)),
+        QStringLiteral("request-to-paint p50/p95/max=%1").arg(distribution(m_requestToPaintDurations))
     };
     const std::array<const char *, PaintMetrics::CategoryCount> labels{
         "tiles", "props", "overflow shadows", "characters", "lighting"
@@ -273,5 +290,7 @@ void GameView::recordPaint(qint64 startedNs, qint64 finishedNs)
     m_profileReportNs = finishedNs;
     m_paintDurations.clear();
     m_paintIntervals.clear();
+    m_frameTickIntervals.clear();
+    m_requestToPaintDurations.clear();
     m_profileTotals = {};
 }

@@ -100,6 +100,21 @@ void StatusMessageWidget::setLayoutBounds(int top, int maxWidth)
     relayout();
 }
 
+void StatusMessageWidget::setFramePaced(bool enabled)
+{
+    m_framePaced = enabled;
+    if (enabled)
+        m_animTimer.stop();
+    else
+        scheduleNextAnimation();
+}
+
+void StatusMessageWidget::advanceAnimation()
+{
+    if (m_framePaced && !m_lines.isEmpty())
+        expireAndAnimate();
+}
+
 void StatusMessageWidget::expireAndAnimate()
 {
     const qsizetype before = m_lines.size();
@@ -124,6 +139,8 @@ void StatusMessageWidget::expireAndAnimate()
 
 void StatusMessageWidget::scheduleNextAnimation()
 {
+    if (m_framePaced)
+        return;
     if (m_lines.isEmpty()) {
         m_animTimer.stop();
         return;

@@ -41,6 +41,9 @@ failed initial boot/restarts/redirects, and successful retries. Failures preserv
 modal dialogue, buff time and coroutine/queued work; successful loads rebind
 the committed scene to live GameState.
 It sends Qt key events directly; it does not test desktop input delivery.
+The renderer check also verifies that HUD scheduling pulses continue while
+an unchanged scene skips drawing. These pulses indicate scheduling, not
+compositor presentation.
 
 Projectile checks cover moving original targets, control switches, paused
 simulation versus elapsed wall time, damage at impact, complete painted

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QElapsedTimer>
+#include <QChronoTimer>
 #include <QGraphicsScene>
 #include <QHash>
 #include <QJsonObject>
@@ -866,14 +867,14 @@ private:
     bool m_engineMessageActive = false; // see showInfoMessage() - an engine-triggered dialogue box, not a script one
     HealthBarDisplay m_healthBarDisplay = HealthBarDisplay::HeroOnly;
     QGraphicsRectItem *m_selectionMarker = nullptr;
-    QTimer m_tickTimer;
+    QChronoTimer m_tickTimer;
     bool m_sceneReady = false;
     QString m_loadError;
     bool m_simulationPaused = false;
     bool m_tickStopped = false;
     bool m_tickInProgress = false;
     QElapsedTimer m_clock;
-    qint64 m_lastElapsedMs = 0;
+    qint64 m_lastElapsedNs = 0;
     AudioManager m_audio;
     QTimer m_ambientIntroTimer;
     QMetaObject::Connection m_autoMusicConnection;

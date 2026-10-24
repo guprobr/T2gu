@@ -26,6 +26,10 @@ public:
     // than `maxWidth` (MainWindow keeps it clear of the selection panel in
     // the top-left corner). Lines that don't fit are elided.
     void setLayoutBounds(int top, int maxWidth);
+    // Capped views supply the animation pulse; standalone/uncapped users
+    // retain the single-shot timer so messages can still fade while idle.
+    void setFramePaced(bool enabled);
+    void advanceAnimation();
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -46,6 +50,7 @@ private:
 
     QVector<Line> m_lines;
     QTimer m_animTimer;
+    bool m_framePaced = false;
     int m_top = 8;
     int m_maxWidth = 480;
 };

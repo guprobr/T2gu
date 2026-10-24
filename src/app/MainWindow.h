@@ -1,6 +1,5 @@
 #pragma once
 
-#include <QGraphicsView>
 #include <QElapsedTimer>
 #include <QMainWindow>
 #include <QSet>
@@ -17,6 +16,7 @@ class DeathMenuWidget;
 class LoadingOverlayWidget;
 class SelectionInfoWidget;
 class StatusMessageWidget;
+class GameView;
 class QResizeEvent;
 class QLabel;
 
@@ -43,9 +43,8 @@ private slots:
     void centerViewOn(QPointF scenePos);
     void showDialogue(QString speaker, QString text);
     void hideDialogue();
-    // Connected to GameScene::controlledCharacterMoved (same signal
-    // centerViewOn() uses) - keeps the always-on position readout and, if
-    // toggled on, the treasure readout current at a throttled HUD cadence.
+    // Capped rendering refreshes periodic HUD content on its frame pulse;
+    // uncapped rendering uses controlledCharacterMoved instead.
     void updateDebugOverlays(QPointF playerPos);
     // Prepares a fresh scene/state, commits on readiness, and preserves
     // the old playable scene on failure. GameState survives successful
@@ -116,7 +115,7 @@ private:
     std::optional<QPair<QString, QString>> m_pendingDialogue;
     QVector<QPair<QString, GameScene::StatusKind>> m_pendingStatus;
     QString m_pendingRedirect;
-    QGraphicsView *m_view = nullptr;
+    GameView *m_view = nullptr;
     DialogueBoxWidget *m_dialogueBox = nullptr;
     InventoryWidget *m_inventoryWidget = nullptr;
     DeathMenuWidget *m_deathMenuWidget = nullptr;

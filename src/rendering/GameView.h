@@ -12,12 +12,19 @@
 // continue to use the same view/scene regardless of its viewport backend.
 class GameView : public QGraphicsView
 {
+    Q_OBJECT
+
 public:
     // Call before QApplication: Qt can initialize the driver during startup.
     static void configureRendererEnvironment();
     explicit GameView(QWidget *parent = nullptr);
     bool usesOpenGL() const { return m_usesOpenGL; }
     int maximumFrameRate() const { return m_maximumFrameRate; }
+
+signals:
+    // Periodic HUD changes join this submission's widget/scene updates.
+    // This is a scheduling pulse, not compositor presentation feedback.
+    void frameTick();
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -37,6 +44,10 @@ private:
     QElapsedTimer m_profileClock;
     qint64 m_previousPaintNs = -1;
     qint64 m_profileReportNs = 0;
+    qint64 m_previousFrameTickNs = -1;
+    qint64 m_pendingFrameRequestNs = -1;
+    QVector<double> m_frameTickIntervals;
+    QVector<double> m_requestToPaintDurations;
     QVector<double> m_paintDurations;
     QVector<double> m_paintIntervals;
     PaintMetrics::Frame m_profileTotals;

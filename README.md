@@ -2,7 +2,7 @@
 
 ![ShadowShine screenshot](screenshot.png)
 
-v8.0.1
+v8.1.0
 
 > *A 100-chapter isometric RPG. Twenty-five chapters are done. The other seventy-five are, uh, "in the pipeline."*
 
@@ -485,6 +485,31 @@ repaint rates trade visual smoothness for fewer scene draws; system load can
 still delay both simulation and presentation. Window exposure, resize and
 widget composition can generate additional frames, so this limits routine
 scene/camera repaints rather than every desktop presentation.
+
+The simulation requests 60 Hz using a precise `QChronoTimer` and measures
+elapsed time below millisecond resolution. The earlier 16 ms interval was
+62.5 Hz, which could periodically put an extra movement step into a 30 FPS
+frame. The timers still run independently and can arrive late. With a cap,
+status-message fades and periodic coordinate HUD refreshes now use the render
+timer's pulse so their widget updates can join the scene's composition.
+Uncapped status messages retain their own idle/fade timer. Posts and input
+feedback remain immediate. These changes address scheduling irregularity;
+their effect on the remaining stutter needs manual verification.
+
+`T2GU_PROFILE_RENDER=1` also reports `frame-timer interval` and
+`request-to-paint` distributions. The first measures actual render-timer
+delivery spacing, including idle pulses; the second measures the oldest
+outstanding scheduled scene repaint request until paint begins. Neither
+measures display scanout or identifies a particular OS/driver wait. Timer
+samples are bounded to 1,024 per report; unchanged scenes still skip drawing.
+[Qt coalesces missed timer expirations](https://doc.qt.io/qt-6/qchronotimer.html#accuracy-and-timer-resolution)
+instead of replaying every missed callback, and [widget updates are normally
+merged](https://doc.qt.io/qt-6/qwidget.html#update). A delayed compositor or GUI
+thread can nevertheless delay both clocks. To record a remaining episode:
+
+```sh
+T2GU_PROFILE_RUNTIME=1 T2GU_PROFILE_RENDER=1 ./build/T2gu2 2>&1 | tee /tmp/t2gu-pacing.log
+```
 
 [OBS also recommends limiting game frame rates](https://obsproject.com/kb/encoding-performance-troubleshooting#limit-the-game-framerate)
 to leave rendering resources available for capture. The benefit for this

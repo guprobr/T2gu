@@ -16,6 +16,7 @@
 #include <QScopedValueRollback>
 #include <QSet>
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <utility>
 
@@ -27,7 +28,10 @@
 #include "rendering/TileMapItem.h"
 
 namespace {
-constexpr int kTickIntervalMs = 16; // ~60Hz
+// 16 ms is 62.5 Hz: against the default 30 Hz renderer it periodically
+// adds a third movement step to a frame. Use the intended 60 Hz cadence;
+// OS/compositor delays can still interrupt either timer.
+constexpr auto kTickInterval = std::chrono::nanoseconds(1000000000LL / 60);
 // Caps simulation time after an OS stall, GC pause, or slow frame instead
 // of integrating the whole elapsed gap in one jump. This bounds movement
 // at a given speed, but boosted/run/catch-up speeds can still exceed a
@@ -798,7 +802,8 @@ GameScene::GameScene(GameState *state, const QString &mapPath, QObject *parent)
     // Simulation cadence should not inherit coarse-timer wakeup coalescing.
     // A busy GUI thread can still delay even a precise timer.
     m_tickTimer.setTimerType(Qt::PreciseTimer);
-    connect(&m_tickTimer, &QTimer::timeout, this, &GameScene::onTick);
+    m_tickTimer.setInterval(kTickInterval);
+    connect(&m_tickTimer, &QChronoTimer::timeout, this, &GameScene::onTick);
     // Listeners are connected after construction. Keep simulation stopped
     // throughout initial population and synchronous readiness callbacks:
     // decoding a new sprite may pump events, so queued callback order alone
@@ -823,9 +828,9 @@ GameScene::GameScene(GameState *state, const QString &mapPath, QObject *parent)
         if (m_tickStopped || m_simulationPaused)
             return;
         m_clock.start();
-        m_lastElapsedMs = 0;
+        m_lastElapsedNs = 0;
         RuntimeMetrics::reset();
-        m_tickTimer.start(kTickIntervalMs);
+        m_tickTimer.start();
     });
 }
 
@@ -2315,10 +2320,10 @@ void GameScene::resumeSimulation()
     // Exclude the loading interval from simulation time on rollback.
     if (!m_clock.isValid())
         m_clock.start();
-    m_lastElapsedMs = m_clock.elapsed();
+    m_lastElapsedNs = m_clock.nsecsElapsed();
     RuntimeMetrics::reset();
     if (m_sceneReady)
-        m_tickTimer.start(kTickIntervalMs);
+        m_tickTimer.start();
 }
 
 void GameScene::stopTicking()
@@ -3255,10 +3260,10 @@ void GameScene::onTick()
     if (!m_sceneReady || m_tickStopped || m_simulationPaused || m_tickInProgress || m_scriptEngine.isExecuting())
         return;
     QScopedValueRollback<bool> ticking(m_tickInProgress, true);
-    const qint64 nowMs = m_clock.elapsed();
-    const qreal rawDt = (nowMs - m_lastElapsedMs) / 1000.0;
+    const qint64 nowNs = m_clock.nsecsElapsed();
+    const qreal rawDt = (nowNs - m_lastElapsedNs) / 1000000000.0;
     const qreal dt = std::min(rawDt, kMaxTickDtSeconds);
-    m_lastElapsedMs = nowMs;
+    m_lastElapsedNs = nowNs;
     const RuntimeMetrics::Tick tick(rawDt, dt, m_party.size(), m_enemies.size(), m_npcs.size(),
                                     m_props.size(), m_worldItems.size());
 

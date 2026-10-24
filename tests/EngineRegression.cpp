@@ -20,6 +20,7 @@
 
 #include "game/GameScene.h"
 #include "rendering/FireballItem.h"
+#include "rendering/GameView.h"
 #include "rendering/LevelUpTextItem.h"
 #include "rendering/LightingOverlayItem.h"
 #include "rendering/SceneLayers.h"

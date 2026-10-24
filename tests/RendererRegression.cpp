@@ -274,6 +274,14 @@ void checkLimitedScene(GameView &view)
         pumpEvents(10);
     check(probe->paints > 0 && probe->paintedPosition == probe->pos(),
           "item-only changes mark the limited scene dirty after its previous frame");
+    pumpEvents(100); // Let queued scene invalidation from the last move settle.
+    int frameTicks = 0;
+    const auto frameConnection = QObject::connect(&view, &GameView::frameTick, &view, [&] { ++frameTicks; });
+    probe->paints = 0;
+    pumpEvents(150);
+    QObject::disconnect(frameConnection);
+    check(frameTicks > 0 && probe->paints == 0,
+          "HUD frame pulses continue without redrawing an unchanged scene");
     view.hide();
     view.setScene(nullptr);
 }

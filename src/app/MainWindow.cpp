@@ -150,6 +150,14 @@ MainWindow::MainWindow(QWidget *parent)
     repositionSelectionInfoWidget();
 
     m_statusMessages = new StatusMessageWidget(m_view);
+    m_statusMessages->setFramePaced(m_view->maximumFrameRate() > 0);
+    connect(m_view, &GameView::frameTick, m_statusMessages, &StatusMessageWidget::advanceAnimation);
+    connect(m_view, &GameView::frameTick, this, [this] {
+        if (m_scene && !m_levelTransitionPending) {
+            if (Character *controlled = m_scene->controlledCharacter())
+                updateDebugOverlays(controlled->feetPos());
+        }
+    });
     repositionStatusMessages();
 
     // Created last so it stacks on top of every other overlay by default
@@ -254,7 +262,8 @@ void MainWindow::finishLoadingLevel(const QString &mapPath)
     connect(candidate, &GameScene::controlledCharacterMoved, this, [this, candidate](QPointF position) {
         if (m_scene == candidate) {
             centerViewOn(position);
-            updateDebugOverlays(position);
+            if (m_view->maximumFrameRate() == 0)
+                updateDebugOverlays(position);
         }
     });
     connect(candidate, &GameScene::dialogueRequested, this, [this, candidate](QString speaker, QString text) {

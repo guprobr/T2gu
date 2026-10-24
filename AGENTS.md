@@ -487,6 +487,27 @@ cmake --build build -j$(nproc)
   launch game. Release rebuild, regression-target compilation and diff checks
   passed; neither executable was launched.
   This is a load mitigation, not a confirmed repair of thermal power cycling.
+- October 24 timer-cadence follow-up: owner reports residual, less frequent/
+  intense stutter and suspects overlapping timers, potentially outside the
+  engine. Simulation now requests 60 Hz with a precise QChronoTimer instead
+  of 16 ms (62.5 Hz); dt uses monotonic nanoseconds instead of integer ms.
+  This removes a nominal cadence mismatch with default 30 FPS, not all timer
+  jitter or compositor waits. Simulation remains independent, with its same
+  50 ms clamp, pause/readiness/reentry guards and loading-time exclusion.
+  GameView::frameTick is a scheduling pulse before capped scene submission,
+  not presentation feedback. MainWindow uses it for status-message fades and
+  periodic debug HUD refreshes, allowing widget/scene updates to coalesce.
+  New posts/input feedback remain immediate; uncapped/standalone status
+  messages keep their single-shot deadline/fade timer. Unchanged scenes still
+  skip draws, including while HUD pulses continue. Level-up captions retain
+  their transient timer. T2GU_PROFILE_RENDER now reports bounded frame-timer
+  delivery intervals and oldest-request-to-paint durations, helping separate
+  delayed timer delivery from delayed paint dispatch; neither measures scanout
+  or attributes external waits. Qt coalesces missed timeouts, so a backlog of
+  replayed periodic callbacks is not established. Renderer/Intel cache option,
+  default cap and thermal/system settings retained. Manual stutter benefit
+  remains unverified. Release build, Debug engine/renderer regression-target
+  compilation and diff checks passed; no tests or game launches by agent.
 - Assets are found through `assetDir()`/`assetPath()` (`src/assets/AssetPath.h`) —
   never build a path from the `ASSET_DIR` macro directly (`QStringLiteral(ASSET_DIR
   "/x")` was the old pattern and is gone). Resolution order: `$T2GU_ASSET_DIR`,
