@@ -15,6 +15,7 @@ v8.1.0
 - **Real-time combat**, a party system, inventory, fireballs (only if you're smart enough; the engine checks your Intelligence stat and finds you wanting), riddles, hostages to rescue, and NPCs with opinions.
 - **Levels that are the same every time you run them.** Layouts come from a seeded PRNG (`mulberry32`), not `Math.random()`, so when a tree spawns on your head it spawns on your head *reproducibly*, and we can fix it once and trust it forever.
 - **Scripting in plain JavaScript.** Chapters are `function*` coroutines that `yield api.say("Old Man", "...")` until you press Enter. If you've ever wanted to write a boss fight as a generator function, this is your moment.
+- v8.1.0 major fix: stabilize frame pacing and eliminate observed stutter
 
 ## Building
 
